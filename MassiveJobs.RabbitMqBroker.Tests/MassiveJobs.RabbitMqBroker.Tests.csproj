@@ -17,7 +17,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MassiveJobs.Core\MassiveJobs.Core.csproj" />
     <ProjectReference Include="..\MassiveJobs.RabbitMqBroker\MassiveJobs.RabbitMqBroker.csproj" />
   </ItemGroup>
 
