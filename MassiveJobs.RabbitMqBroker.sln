@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30104.148
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.RabbitMqBroker", "MassiveJobs.RabbitMqBroker\MassiveJobs.RabbitMqBroker.csproj", "{641FB44F-19C4-4EAD-9FC7-1AA36F7DFF4A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.RabbitMqBroker.Tests", "MassiveJobs.RabbitMqBroker.Tests\MassiveJobs.RabbitMqBroker.Tests.csproj", "{34FDBA28-C6EA-4EF1-AFB3-248103BEFA17}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{641FB44F-19C4-4EAD-9FC7-1AA36F7DFF4A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{641FB44F-19C4-4EAD-9FC7-1AA36F7DFF4A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{641FB44F-19C4-4EAD-9FC7-1AA36F7DFF4A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{641FB44F-19C4-4EAD-9FC7-1AA36F7DFF4A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{34FDBA28-C6EA-4EF1-AFB3-248103BEFA17}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{34FDBA28-C6EA-4EF1-AFB3-248103BEFA17}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{34FDBA28-C6EA-4EF1-AFB3-248103BEFA17}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{34FDBA28-C6EA-4EF1-AFB3-248103BEFA17}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {538DD0CF-AF2C-4042-9A8B-3173A46FD116}
+	EndGlobalSection
+EndGlobal
