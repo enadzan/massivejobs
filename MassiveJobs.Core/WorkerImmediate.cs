@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-
+using System.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -22,7 +22,7 @@ namespace MassiveJobs.Core
         {
         }
 
-        protected override void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope)
+        protected override void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope, CancellationToken cancellationToken)
         {
             ulong? lastDeliveryTag = null;
 
@@ -41,7 +41,7 @@ namespace MassiveJobs.Core
 
             if (batch.Count > 0)
             {
-                JobRunner.RunJobs(JobPublisher, batch, serviceScope, CancellationToken)
+                JobRunner.RunJobs(JobPublisher, batch, serviceScope, cancellationToken)
                     .Wait();
             }
 

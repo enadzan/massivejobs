@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading;
 
 using Microsoft.Extensions.Logging;
@@ -8,19 +6,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace MassiveJobs.Core
 {
-    public abstract class Worker : IWorker
+    public abstract class Worker : BatchProcessor<RawMessage>, IWorker
     {
-        private readonly int _batchSize;
-
-        private readonly AutoResetEvent _stoppingSignal = new AutoResetEvent(false);
-
-        private readonly object _startStopLock = new object();
-
-        private volatile Thread _workerThread;
-        private volatile CancellationTokenSource _cancellationTokenSource;
         private volatile IMessageConsumer _messageConsumer;
-
-        public event Action<Exception> Error;
 
         protected readonly IMessageBroker MessageBroker;
         protected readonly string QueueName;
@@ -29,14 +17,8 @@ namespace MassiveJobs.Core
         protected readonly IJobSerializer Serializer;
         protected readonly IJobTypeProvider TypeProvider;
         protected readonly IServiceScopeFactory ServiceScopeFactory;
-        protected readonly ILogger Logger;
        
-        protected readonly ConcurrentQueue<RawMessage> Messages;
-        protected readonly AutoResetEvent MessageArrivedSignal = new AutoResetEvent(false);
-
-        protected CancellationToken CancellationToken;
-
-        protected abstract void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope);
+        protected abstract void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope, CancellationToken cancellationToken);
 
         protected Worker(
             IMessageBroker messageBroker,
@@ -48,9 +30,8 @@ namespace MassiveJobs.Core
             IJobTypeProvider typeProvider,
             IServiceScopeFactory scopeFactory,
             ILogger logger)
+            : base(batchSize, logger)
         {
-            _batchSize = batchSize;
-
             MessageBroker = messageBroker;
             QueueName = queueName;
             JobPublisher = jobPublisher;
@@ -58,120 +39,35 @@ namespace MassiveJobs.Core
             Serializer = serializer;
             TypeProvider = typeProvider;
             ServiceScopeFactory = scopeFactory;
-            Logger = logger ?? new DefaultLogger<Worker>();
-
-            Messages = new ConcurrentQueue<RawMessage>();
         }
 
-        public virtual void Dispose()
+        protected override void OnStarted()
         {
-            Stop();
+            base.OnStarted();
+            CreateConsumer();
         }
 
-        public void Start()
+        protected override void OnStopping()
         {
-            lock (_startStopLock)
-            {
-                if (_workerThread != null)
-                {
-                    Logger.LogDebug($"Worker {QueueName} already running");
-                    return;
-                }
-
-                Logger.LogInformation($"Starting worker {QueueName}");
-
-                EnsureConsumerExists();
-
-                _cancellationTokenSource = new CancellationTokenSource();
-                CancellationToken = _cancellationTokenSource.Token;
-
-                _workerThread = new Thread(WorkerFunction) { IsBackground = true };
-                _workerThread.Start();
-
-                OnStarted();
-
-                Logger.LogInformation($"Worker {QueueName} started");
-            }
+            DisposeConsumer();
+            base.OnStopping();
         }
 
-        public void Stop()
+        protected void CreateConsumer()
         {
-            lock (_startStopLock)
-            {
-                if (_workerThread == null)
-                {
-                    Logger.LogDebug($"Worker {QueueName} already stopped");
-                    return;
-                }
+            if (_messageConsumer != null) return;
 
-                DisposeConsumer();
-                
-                _cancellationTokenSource.Cancel();
-                MessageArrivedSignal.Set(); //to speed up the shutdown
-
-                Logger.LogWarning($"Stopping worker {QueueName}");
-
-                _stoppingSignal.WaitOne();
-
-                _cancellationTokenSource.SafeDispose();
-                _cancellationTokenSource = null;
-                _workerThread = null;
-
-                // empty the queue of messages
-                while (Messages.TryDequeue(out _)) ;
-
-                OnStopped();
-
-                Logger.LogWarning($"Worker stopped {QueueName}");
-            }
-        }
-
-        protected virtual void OnStarted()
-        {
-        }
-
-        protected virtual void OnStopped()
-        {
-        }
-
-        protected void EnsureConsumerExists()
-        {
-            // this may be called from subclass
-            lock (_startStopLock)
-            {
-                if (_messageConsumer != null) return;
-
-                _messageConsumer = MessageBroker.CreateConsumer(QueueName);
-                _messageConsumer.MessageReceived += ConsumerOnMessageReceived;
-            }
+            _messageConsumer = MessageBroker.CreateConsumer(QueueName);
+            _messageConsumer.MessageReceived += ConsumerOnMessageReceived;
         }
 
         protected void DisposeConsumer()
         {
-            lock (_startStopLock)
-            {
-                if (_messageConsumer == null) return;
+            if (_messageConsumer == null) return;
 
-                _messageConsumer.MessageReceived -= ConsumerOnMessageReceived;
-                _messageConsumer.SafeDispose();
-                _messageConsumer = null;
-
-                // empty the queue of messages
-                while (Messages.TryDequeue(out _)) ;
-            }
-        }
-
-        protected void OnError(Exception ex)
-        {
-            try
-            {
-                Logger.LogError(ex, "Error while processing jobs");
-                Error?.Invoke(ex);
-            }
-            catch (Exception eventEx)
-            {
-                Logger.LogError(eventEx, "Exception raised while processing Error event handler");
-            }
+            _messageConsumer.MessageReceived -= ConsumerOnMessageReceived;
+            _messageConsumer.SafeDispose();
+            _messageConsumer = null;
         }
 
         protected bool TryDeserializeJob(RawMessage rawMessage, out JobInfo job)
@@ -185,50 +81,19 @@ namespace MassiveJobs.Core
             return job != null;
         }
 
-        private void WorkerFunction()
+        protected override void ProcessMessageBatch(List<RawMessage> messages, CancellationToken cancellationToken)
         {
-            Exception exceptionRaised = null;
-
-            try
+            if (messages.Count > 0)
             {
-                while (!_cancellationTokenSource.IsCancellationRequested)
+                var serviceScope = ServiceScopeFactory.SafeCreateScope();
+                try
                 {
-                    MessageArrivedSignal.WaitOne();
-
-                    while (!_cancellationTokenSource.IsCancellationRequested && Messages.Count > 0)
-                    {
-                        var batch = new List<RawMessage>();
-
-                        while (!_cancellationTokenSource.IsCancellationRequested && batch.Count < _batchSize && Messages.TryDequeue(out var rawMessage))
-                        {
-                            batch.Add(rawMessage);
-                        }
-
-                        if (batch.Count > 0)
-                        {
-                            var serviceScope = ServiceScopeFactory.SafeCreateScope();
-                            try
-                            {
-                                ProcessMessageBatch(batch, serviceScope);
-                            }
-                            finally
-                            {
-                                serviceScope.SafeDispose();
-                            }
-                        }
-                    }
+                    ProcessMessageBatch(messages, serviceScope, cancellationToken);
                 }
-            }
-            catch (Exception ex)
-            {
-                exceptionRaised = ex;
-            }
-
-            _stoppingSignal.Set();
-
-            if (exceptionRaised != null)
-            {
-                OnError(exceptionRaised);
+                finally
+                {
+                    serviceScope.SafeDispose();
+                }
             }
         }
 
@@ -250,9 +115,7 @@ namespace MassiveJobs.Core
                 Logger.LogTrace($"Message received on worker {QueueName}");
             }
 
-            Messages.Enqueue(message);
-
-            MessageArrivedSignal.Set();
+            AddMessage(message, 0);
         }
     }
 }

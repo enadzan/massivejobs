@@ -38,22 +38,22 @@ namespace MassiveJobs.Core
 
         protected override void OnStarted()
         {
+            base.OnStarted();
+
             _cancellationTokenSource = new CancellationTokenSource();
             _scheduledJobs.Clear();
             _timer.Change(CheckIntervalMs, Timeout.Infinite);
         }
 
-        protected override void OnStopped()
+        protected override void OnStopping()
         {
             _cancellationTokenSource.Cancel();
-
             _stoppingSignal.WaitOne();
 
-            _cancellationTokenSource.SafeDispose();
-            _cancellationTokenSource = null;
+            base.OnStopping();
         }
 
-        protected override void ProcessMessageBatch(List<RawMessage> messages, IServiceScope _)
+        protected override void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope, CancellationToken cancellationToken)
         {
             foreach (var rawMessage in messages)
             {
@@ -100,6 +100,9 @@ namespace MassiveJobs.Core
                 }
                 else
                 {
+                    _cancellationTokenSource.SafeDispose();
+                    _cancellationTokenSource = null;
+
                     _stoppingSignal.Set();
                 }
             }
