@@ -12,11 +12,13 @@ namespace MassiveJobs.Core
     {
         private const int CheckIntervalMs = 100;
 
+        private readonly AutoResetEvent _stoppingSignal = new AutoResetEvent(false);
+
         private readonly ConcurrentDictionary<ulong, JobInfo> _scheduledJobs;
 
         private Timer _timer;
 
-        private bool _running;
+        private CancellationTokenSource _cancellationTokenSource;
 
         public WorkerScheduled(
             IMessageBroker messageBroker,
@@ -36,15 +38,19 @@ namespace MassiveJobs.Core
 
         protected override void OnStarted()
         {
+            _cancellationTokenSource = new CancellationTokenSource();
             _scheduledJobs.Clear();
-            _running = true;
             _timer.Change(CheckIntervalMs, Timeout.Infinite);
         }
 
         protected override void OnStopped()
         {
-            _running = false;
-            _timer.Change(Timeout.Infinite, Timeout.Infinite);
+            _cancellationTokenSource.Cancel();
+
+            _stoppingSignal.WaitOne();
+
+            _cancellationTokenSource.SafeDispose();
+            _cancellationTokenSource = null;
         }
 
         protected override void ProcessMessageBatch(List<RawMessage> messages, IServiceScope _)
@@ -70,7 +76,7 @@ namespace MassiveJobs.Core
 
                 foreach (var key in _scheduledJobs.Keys)
                 {
-                    if (CancellationToken.IsCancellationRequested) return;
+                    if (_cancellationTokenSource.IsCancellationRequested) return;
 
                     if (!_scheduledJobs.TryGetValue(key, out var job)) continue;
                     if (job.RunAtUtc > now) continue;
@@ -88,9 +94,13 @@ namespace MassiveJobs.Core
             }
             finally
             {
-                if (_running)
+                if (!_cancellationTokenSource.IsCancellationRequested)
                 {
                     _timer.Change(CheckIntervalMs, Timeout.Infinite);
+                }
+                else
+                {
+                    _stoppingSignal.Set();
                 }
             }
         }
@@ -101,7 +111,7 @@ namespace MassiveJobs.Core
             {
                 using (var serviceScope = ServiceScopeFactory.SafeCreateScope())
                 {
-                    JobRunner.RunJobs(JobPublisher, batch.Values, serviceScope, CancellationToken)
+                    JobRunner.RunJobs(JobPublisher, batch.Values, serviceScope, _cancellationTokenSource.Token)
                         .Wait();
 
                     foreach (var deliveryTag in batch.Keys)
