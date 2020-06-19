@@ -1,6 +1,6 @@
 ﻿namespace MassiveJobs.RabbitMqBroker
 {
-    static class Constants
+    public static class Constants
     {
         public const string ExchangeName = "massivejobs.direct";
 
