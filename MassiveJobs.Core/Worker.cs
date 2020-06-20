@@ -18,7 +18,7 @@ namespace MassiveJobs.Core
         protected readonly IJobTypeProvider TypeProvider;
         protected readonly IServiceScopeFactory ServiceScopeFactory;
        
-        protected abstract void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope, CancellationToken cancellationToken);
+        protected abstract void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope, CancellationToken cancellationToken, out int pauseSec);
 
         protected Worker(
             IMessageBroker messageBroker,
@@ -41,16 +41,28 @@ namespace MassiveJobs.Core
             ServiceScopeFactory = scopeFactory;
         }
 
-        protected override void OnStarted()
+        protected override void OnStart()
         {
-            base.OnStarted();
+            base.OnStart();
             CreateConsumer();
         }
 
-        protected override void OnStopped()
+        protected override void OnResume()
+        {
+            base.OnResume();
+            CreateConsumer();
+        }
+
+        protected override void OnStop()
         {
             DisposeConsumer();
-            base.OnStopped();
+            base.OnStop();
+        }
+
+        protected override void OnPause()
+        {
+            DisposeConsumer();
+            base.OnPause();
         }
 
         protected void CreateConsumer()
@@ -81,19 +93,16 @@ namespace MassiveJobs.Core
             return job != null;
         }
 
-        protected override void ProcessMessageBatch(List<RawMessage> messages, CancellationToken cancellationToken)
+        protected override void ProcessMessageBatch(List<RawMessage> messages, CancellationToken cancellationToken, out int pauseSec)
         {
-            if (messages.Count > 0)
+            var serviceScope = ServiceScopeFactory.SafeCreateScope();
+            try
             {
-                var serviceScope = ServiceScopeFactory.SafeCreateScope();
-                try
-                {
-                    ProcessMessageBatch(messages, serviceScope, cancellationToken);
-                }
-                finally
-                {
-                    serviceScope.SafeDispose();
-                }
+                ProcessMessageBatch(messages, serviceScope, cancellationToken, out pauseSec);
+            }
+            finally
+            {
+                serviceScope.SafeDispose();
             }
         }
 

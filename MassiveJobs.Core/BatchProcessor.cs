@@ -2,7 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
-
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 namespace MassiveJobs.Core
@@ -22,7 +22,7 @@ namespace MassiveJobs.Core
 
         protected readonly ILogger Logger;
        
-        protected abstract void ProcessMessageBatch(List<TMessage> messages, CancellationToken cancellationToken);
+        protected abstract void ProcessMessageBatch(List<TMessage> messages, CancellationToken cancellationToken, out int pauseSec);
 
         public event Action<Exception> Error;
 
@@ -54,8 +54,6 @@ namespace MassiveJobs.Core
 
                 _processorThread = new Thread(ProcessorFunction) { IsBackground = true };
                 _processorThread.Start();
-
-                OnStarted();
 
                 Logger.LogDebug($"Batch processor started");
             }
@@ -93,11 +91,19 @@ namespace MassiveJobs.Core
             while (_messages.TryDequeue(out _)) ;
         }
 
-        protected virtual void OnStarted()
+        protected virtual void OnStart()
         {
         }
 
-        protected virtual void OnStopped()
+        protected virtual void OnStop()
+        {
+        }
+
+        protected virtual void OnPause()
+        {
+        }
+
+        protected virtual void OnResume()
         {
         }
 
@@ -120,6 +126,8 @@ namespace MassiveJobs.Core
 
             try
             {
+                OnStart();
+
                 while (!_cancellationTokenSource.IsCancellationRequested)
                 {
                     _messageAddedSignal.WaitOne(1000);
@@ -135,7 +143,14 @@ namespace MassiveJobs.Core
 
                         if (batch.Count > 0)
                         {
-                            ProcessMessageBatch(batch, _cancellationTokenSource.Token);
+                            ProcessMessageBatch(batch, _cancellationTokenSource.Token, out var pauseSec);
+
+                            if (pauseSec > 0)
+                            {
+                                OnPause();
+                                Task.Delay(pauseSec * 1000, _cancellationTokenSource.Token).Wait();
+                                OnResume();
+                            }
                         }
                     }
                 }
@@ -150,7 +165,7 @@ namespace MassiveJobs.Core
             _cancellationTokenSource = null;
             _processorThread = null;
 
-            OnStopped();
+            OnStoppedSafe();
 
             ClearQueue();
 
@@ -159,6 +174,18 @@ namespace MassiveJobs.Core
             if (exceptionRaised != null)
             {
                 OnError(exceptionRaised);
+            }
+        }
+
+        private void OnStoppedSafe()
+        {
+            try
+            {
+                OnStop();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Exception raised while executing OnStopped");
             }
         }
 

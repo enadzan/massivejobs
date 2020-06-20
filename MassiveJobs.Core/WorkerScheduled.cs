@@ -36,25 +36,27 @@ namespace MassiveJobs.Core
             _scheduledJobs = new ConcurrentDictionary<ulong, JobInfo>();
         }
 
-        protected override void OnStarted()
+        protected override void OnStart()
         {
-            base.OnStarted();
+            base.OnStart();
 
             _cancellationTokenSource = new CancellationTokenSource();
             _scheduledJobs.Clear();
             _timer.Change(CheckIntervalMs, Timeout.Infinite);
         }
 
-        protected override void OnStopped()
+        protected override void OnStop()
         {
             _cancellationTokenSource.Cancel();
             _stoppingSignal.WaitOne();
 
-            base.OnStopped();
+            base.OnStop();
         }
 
-        protected override void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope, CancellationToken cancellationToken)
+        protected override void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope, CancellationToken cancellationToken, out int pauseSec)
         {
+            pauseSec = 0;
+
             foreach (var rawMessage in messages)
             {
                 if (!TryDeserializeJob(rawMessage, out var job))

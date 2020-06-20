@@ -22,8 +22,9 @@ namespace MassiveJobs.Core
         {
         }
 
-        protected override void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope, CancellationToken cancellationToken)
+        protected override void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope, CancellationToken cancellationToken, out int pauseSec)
         {
+            pauseSec = 0;
             ulong? lastDeliveryTag = null;
 
             var batch = new List<JobInfo>();
