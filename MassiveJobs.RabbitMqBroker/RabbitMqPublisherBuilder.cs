@@ -1,8 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 
 using MassiveJobs.Core;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace MassiveJobs.RabbitMqBroker
 {
