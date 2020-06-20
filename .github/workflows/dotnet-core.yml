@@ -19,7 +19,9 @@ jobs:
         dotnet-version: 3.1.101
     - name: Install dependencies
       run: dotnet restore
-    - name: Build
-      run: dotnet build --configuration Release --no-restore
+    - name: Build MassiveJobs.Core
+      run: dotnet build --configuration Release --no-restore --framework netstandard2.0 ./MassiveJobs.Core/MassiveJobs.Core.csproj
+    - name: Build MassiveJobs.Core.Tests
+      run: dotnet build --configuration Release --no-restore --framework netcoreapp3.1 ./MassiveJobs.Core.Tests/MassiveJobs.Core.Tests.csproj      
     - name: Test
-      run: dotnet test --no-restore --verbosity normal ./MassiveJobs.Core.Tests/MassiveJobs.Core.Tests.csproj
+      run: dotnet test --configuration Release --no-restore --no-build --verbosity normal ./MassiveJobs.Core.Tests/MassiveJobs.Core.Tests.csproj
