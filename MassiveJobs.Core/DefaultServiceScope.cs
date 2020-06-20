@@ -1,27 +1,16 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using System;
+﻿using System;
 
 namespace MassiveJobs.Core
 {
     class DefaultServiceScope : IServiceScope
     {
-        public IServiceProvider ServiceProvider { get; }
-
-        public DefaultServiceScope()
+        public object GetService(Type serviceType)
         {
-            ServiceProvider = new DefaultServiceProvider();
+            return null;
         }
 
         public void Dispose()
         {
-        }
-    }
-
-    class DefaultServiceProvider : IServiceProvider
-    {
-        public object GetService(Type serviceType)
-        {
-            return null;
         }
     }
 

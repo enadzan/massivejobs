@@ -1,9 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Threading;
 
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
-
 namespace MassiveJobs.Core
 {
     public abstract class Worker : BatchProcessor<RawMessage>, IWorker

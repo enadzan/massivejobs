@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -89,7 +88,7 @@ namespace MassiveJobs.Core
             }
             else
             {
-                job = serviceScope.ServiceProvider.GetService(jobInfo.JobType);
+                job = serviceScope.GetService(jobInfo.JobType);
                 if (job == null)
                 {
                     throw new Exception($"Job type {jobInfo.JobType} is not registered in service scope and appropriate constructor does not exist!");

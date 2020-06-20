@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 
 namespace MassiveJobs.Core
 {
@@ -105,19 +104,6 @@ namespace MassiveJobs.Core
 
         protected virtual void OnResume()
         {
-        }
-
-        /// <summary>
-        /// Call this if an action needs to be done without being interrupted by stop/start.
-        /// Use with caution to avoid deadlocks!!!
-        /// </summary>
-        /// <param name="action"></param>
-        protected void DoInStartStopLock(Action action)
-        {
-            lock (_startStopLock)
-            {
-                action();
-            }
         }
 
         private void ProcessorFunction()
