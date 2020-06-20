@@ -115,7 +115,7 @@ namespace MassiveJobs.Core
                 Logger.LogTrace($"Message received on worker {QueueName}");
             }
 
-            AddMessage(message, 0);
+            AddMessage(message);
         }
     }
 }

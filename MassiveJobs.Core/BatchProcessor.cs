@@ -14,7 +14,7 @@ namespace MassiveJobs.Core
         private readonly AutoResetEvent _stoppingSignal = new AutoResetEvent(false);
         private readonly object _startStopLock = new object();
 
-        private readonly ConcurrentQueue<Tuple<TMessage, ManualResetEventSlim>> _messages;
+        private readonly ConcurrentQueue<TMessage> _messages;
         private readonly AutoResetEvent _messageAddedSignal = new AutoResetEvent(false);
 
         private volatile Thread _processorThread;
@@ -29,7 +29,7 @@ namespace MassiveJobs.Core
         protected BatchProcessor(int batchSize, ILogger logger)
         {
             _batchSize = batchSize;
-            _messages = new ConcurrentQueue<Tuple<TMessage, ManualResetEventSlim>>();
+            _messages = new ConcurrentQueue<TMessage>();
 
             Logger = logger ?? new DefaultLogger<BatchProcessor<TMessage>>();
         }
@@ -37,6 +37,7 @@ namespace MassiveJobs.Core
         public virtual void Dispose()
         {
             Stop();
+
             _messageAddedSignal.Dispose();
             _stoppingSignal.Dispose();
         }
@@ -80,22 +81,13 @@ namespace MassiveJobs.Core
         }
 
         /// <summary>
-        /// Add message to the processing queue.
+        /// Adds a message to the processing queue.
         /// </summary>
-        /// <param name="message"></param>
-        /// <param name="waitTimeoutMs">0 for no wait, -1 for infinite wait</param>
-        protected void AddMessage(TMessage message, int waitTimeoutMs)
+        /// <param name="message">The message to be added to the processing queue</param>
+        protected void AddMessage(TMessage message)
         {
-            var processingSignal = waitTimeoutMs != 0 ? new ManualResetEventSlim() : null;
-
-            _messages.Enqueue(new Tuple<TMessage, ManualResetEventSlim>(message, processingSignal));
+            _messages.Enqueue(message);
             _messageAddedSignal.Set();
-
-            if (processingSignal != null)
-            {
-                processingSignal.Wait(waitTimeoutMs);
-                processingSignal.Dispose();
-            }
         }
 
         protected void ClearQueue()
@@ -136,23 +128,16 @@ namespace MassiveJobs.Core
 
                     while (!_cancellationTokenSource.IsCancellationRequested && _messages.Count > 0)
                     {
-                        var batchMessages = new List<TMessage>();
-                        var batchSignals = new List<ManualResetEventSlim>();
+                        var batch = new List<TMessage>();
 
-                        while (!_cancellationTokenSource.IsCancellationRequested && batchMessages.Count < _batchSize && _messages.TryDequeue(out var item))
+                        while (!_cancellationTokenSource.IsCancellationRequested && batch.Count < _batchSize && _messages.TryDequeue(out var message))
                         {
-                            batchMessages.Add(item.Item1);
-                            batchSignals.Add(item.Item2);
+                            batch.Add(message);
                         }
 
-                        if (batchMessages.Count > 0)
+                        if (batch.Count > 0)
                         {
-                            ProcessMessageBatch(batchMessages, _cancellationTokenSource.Token);
-
-                            foreach (var signal in batchSignals)
-                            {
-                                signal?.Set();
-                            }
+                            ProcessMessageBatch(batch, _cancellationTokenSource.Token);
                         }
                     }
                 }
