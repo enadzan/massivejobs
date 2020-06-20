@@ -61,9 +61,10 @@ namespace MassiveJobs.Core
 
         public virtual void Dispose()
         {
+            WorkerCoordinator.SafeDispose();
+
             lock (PublishersLock)
             {
-                WorkerCoordinator.SafeDispose();
                 DisposePublishers();
             }
         }
