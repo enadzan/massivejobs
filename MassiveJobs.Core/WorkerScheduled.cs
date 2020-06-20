@@ -45,12 +45,12 @@ namespace MassiveJobs.Core
             _timer.Change(CheckIntervalMs, Timeout.Infinite);
         }
 
-        protected override void OnStopping()
+        protected override void OnStopped()
         {
             _cancellationTokenSource.Cancel();
             _stoppingSignal.WaitOne();
 
-            base.OnStopping();
+            base.OnStopped();
         }
 
         protected override void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope, CancellationToken cancellationToken)

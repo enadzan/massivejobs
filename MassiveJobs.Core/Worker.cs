@@ -47,10 +47,10 @@ namespace MassiveJobs.Core
             CreateConsumer();
         }
 
-        protected override void OnStopping()
+        protected override void OnStopped()
         {
             DisposeConsumer();
-            base.OnStopping();
+            base.OnStopped();
         }
 
         protected void CreateConsumer()

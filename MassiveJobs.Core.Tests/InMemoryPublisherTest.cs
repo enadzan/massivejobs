@@ -21,13 +21,13 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestPublishInc()
         {
-            using var publisher = new InMemoryPublisher();
+            using var publisher = InMemoryPublisherBuilder.CreateBuilder().Build();
 
             publisher.StartJobWorkers();
 
             publisher.Publish<MockJob, bool>(true);
 
-            publisher.WaitCompleted();
+            Thread.Sleep(50);
 
             Assert.AreEqual(1, _performCount);
         }
@@ -35,13 +35,13 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestPublishDec()
         {
-            using var publisher = new InMemoryPublisher();
+            using var publisher = InMemoryPublisherBuilder.CreateBuilder().Build();
 
             publisher.StartJobWorkers();
 
             publisher.Publish<MockJob, bool>(false);
 
-            publisher.WaitCompleted();
+            Thread.Sleep(50);
 
             Assert.AreEqual(-1, _performCount);
         }
@@ -49,55 +49,82 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestFailedJobs()
         {
-            using var publisher = new InMemoryPublisher();
+            InMemoryMessages messages = null;
+            string errorQueueName = null;
+
+            using var publisher = InMemoryPublisherBuilder.CreateBuilder()
+                .Configure(s =>
+                {
+                    messages = ((InMemoryMessageBrokerFactory)s.MessageBrokerFactory).Messages;
+                    errorQueueName = s.ErrorQueueName;
+                })
+                .Build();
 
             publisher.StartJobWorkers();
 
             publisher.Publish<MockJob, bool>(true);
             publisher.Publish<MockJobFailed, bool>(true);
 
-            publisher.WaitCompleted();
+            Thread.Sleep(50);
 
             Assert.AreEqual(1, _performCount);
-            Assert.AreEqual(1, publisher.JobsCount);
+            Assert.AreEqual(1, messages.GetCount(errorQueueName));
         }
 
         [TestMethod]
         public void TestFailedAsyncJobs()
         {
-            using var publisher = new InMemoryPublisher();
+            InMemoryMessages messages = null;
+            string errorQueueName = null;
+
+            using var publisher = InMemoryPublisherBuilder.CreateBuilder()
+                .Configure(s =>
+                {
+                    messages = ((InMemoryMessageBrokerFactory)s.MessageBrokerFactory).Messages;
+                    errorQueueName = s.ErrorQueueName;
+                })
+                .Build();
 
             publisher.StartJobWorkers();
 
             publisher.Publish<MockJob, bool>(true);
             publisher.Publish<MockAsyncJobFailed, bool>(true);
 
-            publisher.WaitCompleted();
+            Thread.Sleep(100);
 
             Assert.AreEqual(1, _performCount);
-            Assert.AreEqual(1, publisher.JobsCount);
+            Assert.AreEqual(1, messages.GetCount(errorQueueName));
         }
 
         [TestMethod]
         public void TestCanceledAsyncJobs()
         {
-            using var publisher = new InMemoryPublisher();
+            InMemoryMessages messages = null;
+            string errorQueueName = null;
+
+            using var publisher = InMemoryPublisherBuilder.CreateBuilder()
+                .Configure(s =>
+                {
+                    messages = ((InMemoryMessageBrokerFactory)s.MessageBrokerFactory).Messages;
+                    errorQueueName = s.ErrorQueueName;
+                })
+                .Build();
 
             publisher.StartJobWorkers();
 
             publisher.Publish<MockJob, bool>(true);
             publisher.Publish<MockAsyncJobCanceled, bool>(true);
 
-            publisher.WaitCompleted();
+            Thread.Sleep(200);
 
             Assert.AreEqual(1, _performCount);
-            Assert.AreEqual(1, publisher.JobsCount);
+            Assert.AreEqual(1,  messages.GetCount(errorQueueName));
         }
 
         [TestMethod]
         public void TestScheduleParallel()
         {
-            using var publisher = new InMemoryPublisher();
+            using var publisher = InMemoryPublisherBuilder.CreateBuilder().Build();
 
             publisher.StartJobWorkers();
 
@@ -106,7 +133,7 @@ namespace MassiveJobs.Core.Tests
                 publisher.Publish<MockJob, bool>(true);
             }
 
-            publisher.WaitCompleted();
+            Thread.Sleep(500);
 
             Assert.AreEqual(10000, _performCount);
         }
@@ -114,47 +141,64 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestScheduleWithTimeoutDefault()
         {
-            using var publisher = new InMemoryPublisher();
+            InMemoryMessages messages = null;
+            string errorQueueName = null;
+
+            using var publisher = InMemoryPublisherBuilder.CreateBuilder()
+                .Configure(s =>
+                {
+                    messages = ((InMemoryMessageBrokerFactory)s.MessageBrokerFactory).Messages;
+                    errorQueueName = s.ErrorQueueName;
+                })
+                .Build();
 
             publisher.StartJobWorkers();
 
             publisher.Publish<LongRunningJobAsync, int>(6000);
 
-            publisher.WaitCompleted();
+            Thread.Sleep(6000);
 
             Assert.AreEqual(0, _performCount);
-
-            publisher.StopJobWorkers();
-
-            var topJob = publisher.JobsTop;
-            Assert.IsNotNull(topJob);
-            Assert.IsTrue(topJob.Err?.StartsWith("A job timed out.") ?? false);
+            Assert.AreEqual(1, messages.GetCount(errorQueueName));
         }
 
         [TestMethod]
         public void TestScheduleWithTimeoutCustom()
         {
-            using var publisher = new InMemoryPublisher();
+            InMemoryMessages messages = null;
+            string errorQueueName = null;
+
+            using var publisher = InMemoryPublisherBuilder.CreateBuilder()
+                .Configure(s =>
+                {
+                    messages = ((InMemoryMessageBrokerFactory)s.MessageBrokerFactory).Messages;
+                    errorQueueName = s.ErrorQueueName;
+                })
+                .Build();
 
             publisher.StartJobWorkers();
 
             publisher.Publish<LongRunningJobAsync, int>(2000, null, 1000);
 
-            publisher.WaitCompleted();
+            Thread.Sleep(2000);
 
             Assert.AreEqual(0, _performCount);
-
-            publisher.StopJobWorkers();
-
-            var topJob = publisher.JobsTop;
-            Assert.IsNotNull(topJob);
-            Assert.IsTrue(topJob.Err?.StartsWith("A job timed out.") ?? false);
+            Assert.AreEqual(1, messages.GetCount(errorQueueName));
         }
         
         [TestMethod]
         public void TestScheduleWithCancelledJobs()
         {
-            using var publisher = new InMemoryPublisher();
+            InMemoryMessages messages = null;
+            string errorQueueName = null;
+
+            using var publisher = InMemoryPublisherBuilder.CreateBuilder()
+                .Configure(s =>
+                {
+                    messages = ((InMemoryMessageBrokerFactory)s.MessageBrokerFactory).Messages;
+                    errorQueueName = s.ErrorQueueName;
+                })
+                .Build();
 
             publisher.StartJobWorkers();
 
@@ -163,10 +207,7 @@ namespace MassiveJobs.Core.Tests
             publisher.StopJobWorkers();
 
             Assert.AreEqual(0, _performCount);
-
-            var topJob = publisher.JobsTop;
-            Assert.IsNotNull(topJob);
-            Assert.IsTrue(topJob.Err?.StartsWith("A task was canceled.") ?? false);
+            Assert.AreEqual(1, messages.GetCount(errorQueueName));
         }
 
         private class MockJob
@@ -180,9 +221,15 @@ namespace MassiveJobs.Core.Tests
 
         private class MockJobFailed
         {
+            public static bool ShoudFail { get; set; } = true;
+
             public void Perform(bool _)
             {
-                throw new Exception("Testing error in async job");
+                if (ShoudFail)
+                {
+                    ShoudFail = false;
+                    throw new Exception("Testing error in async job");
+                }
             }
         }
 
@@ -201,7 +248,7 @@ namespace MassiveJobs.Core.Tests
         {
             public async Task Perform(bool _, CancellationToken cancellationToken)
             {
-                await Task.Delay(1000, cancellationToken);
+                await Task.Delay(10, cancellationToken);
 
                 throw new Exception("Testing error in async job");
             }
@@ -211,7 +258,7 @@ namespace MassiveJobs.Core.Tests
         {
             public async Task Perform(bool _, CancellationToken cancellationToken)
             {
-                await Task.Delay(1000, cancellationToken);
+                await Task.Delay(100, cancellationToken);
                 throw new OperationCanceledException();
             }
         }

@@ -69,15 +69,13 @@ namespace MassiveJobs.Core
 
                 Logger.LogDebug($"Stopping batch processor");
 
-                OnStopping();
-
                 _cancellationTokenSource.Cancel();
                 _messageAddedSignal.Set(); //to speed up the shutdown
+            
+                _stoppingSignal.WaitOne();
+
+                Logger.LogDebug($"Batch processor stopped");
             }
-
-            _stoppingSignal.WaitOne();
-
-            Logger.LogDebug($"Batch processor stopped");
         }
 
         /// <summary>
@@ -99,7 +97,7 @@ namespace MassiveJobs.Core
         {
         }
 
-        protected virtual void OnStopping()
+        protected virtual void OnStopped()
         {
         }
 
@@ -148,11 +146,13 @@ namespace MassiveJobs.Core
                 exceptionRaised = ex;
             }
 
-            ClearQueue();
-
             _cancellationTokenSource.SafeDispose();
             _cancellationTokenSource = null;
             _processorThread = null;
+
+            OnStopped();
+
+            ClearQueue();
 
             _stoppingSignal.Set();
 
