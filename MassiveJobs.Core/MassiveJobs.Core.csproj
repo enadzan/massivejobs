@@ -2,12 +2,12 @@
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net461</TargetFrameworks>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <RepositoryUrl>https://github.com/enadzan/massivejobs</RepositoryUrl>
     <PackageLicenseExpression>LGPL-3.0-only</PackageLicenseExpression>
     <Authors>MassiveJobs.NET</Authors>
     <Copyright></Copyright>
-    <Description>Core functionality for scheduled and "out-of-band" jobs publishing and running in .NET. This package only contains in-memory implementation of the message broker which only works withing one process. For distributed job publishing use MassiveJobs.RabbitMqBroker or similar package.</Description>
+    <Description>Core functionality for scheduled and "out-of-band" jobs publishing and running in .NET. This package only contains in-memory implementation of the message broker which only works within one process. For distributed job publishing use MassiveJobs.RabbitMqBroker.</Description>
     <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
 
