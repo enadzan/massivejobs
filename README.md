@@ -5,8 +5,7 @@ Open source library for publishing scheduled and "out-of-band" jobs using Rabbit
 ### 1. Start RabbitMQ
 
 If you don't have an existing installation of RabbitMQ, the simplest way is to start it in a container. 
-The following command will start RabbitMq in a container that will be immediately removed when stoped. 
-__Do not use this for production.__
+The following command will start RabbitMq in a container __that will be immediately removed when stoped__.
 
 ```powershell
 docker run --rm --hostname rabbit-test --name rabbit-test -d -p 15672:15672 -p 5672:5672 rabbitmq:management
