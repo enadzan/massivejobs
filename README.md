@@ -89,9 +89,7 @@ namespace MassiveJobs.QuickStart
                 Password = "guest"
             };
 
-            var builder = RabbitMqPublisherBuilder.FromSettings(rmqSettings);
-
-            using (var publisher = builder.Build())
+            using (var publisher =  RabbitMqPublisherBuilder.FromSettings(rmqSettings).Build())
             {
                 if (args.Length > 0 && args[0].ToLower() == "publisher")
                 {
