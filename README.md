@@ -1,5 +1,5 @@
 # MassiveJobs.RabbitMqBroker
-Open source library for publishing scheduled and "out-of-band" jobs using RabbitMQ message broker. Published jobs can be performed by multiple workers distributed on multiple machines.
+Open source library for publishing scheduled and "out-of-band" jobs using RabbitMQ message broker. Published jobs can be performed by multiple workers distributed across multiple machines.
 
 ## Quick Start
 ### 1. Start RabbitMQ
