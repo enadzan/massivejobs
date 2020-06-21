@@ -5,7 +5,7 @@ using RabbitMQ.Client;
 
 namespace MassiveJobs.RabbitMqBroker
 {
-    public class RabbitMqMessagePublisher : IMesagePublisher
+    public class RabbitMqMessagePublisher : IMessagePublisher
     {
         private readonly IModel _model;
         private readonly IBasicProperties _props;

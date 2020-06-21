@@ -128,7 +128,7 @@ namespace MassiveJobs.RabbitMqBroker
             return new RabbitMqMessageConsumer(Connection, queueName, _massiveJobsSettings.ConsumeBatchSize);
         }
 
-        public IMesagePublisher CreatePublisher()
+        public IMessagePublisher CreatePublisher()
         {
             EnsureConnectionExists();
             return new RabbitMqMessagePublisher(Connection);
