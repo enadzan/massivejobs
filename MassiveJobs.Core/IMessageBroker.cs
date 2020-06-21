@@ -28,7 +28,7 @@ namespace MassiveJobs.Core
     public interface IMessagePublisher: IDisposable
     {
         bool IsOk { get; }
-        void Publish(string exchangeName, string routingKey, ReadOnlyMemory<byte> body, string typeTag, bool persistent);
+        void Publish(string routingKey, ReadOnlyMemory<byte> body, string typeTag, bool persistent);
         void WaitForConfirmsOrDie(TimeSpan timeout);
     }
 

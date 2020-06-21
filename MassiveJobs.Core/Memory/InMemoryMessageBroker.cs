@@ -85,7 +85,7 @@ namespace MassiveJobs.Core.Memory
         {
         }
 
-        public void Publish(string exchangeName, string routingKey, ReadOnlyMemory<byte> body, string typeTag, bool persistent)
+        public void Publish(string routingKey, ReadOnlyMemory<byte> body, string typeTag, bool persistent)
         {
             if (routingKey == _settings.StatsQueueName) return;
 

@@ -18,8 +18,6 @@ namespace MassiveJobs.Core
         public ushort PublishBatchSize { get; set; } = 100;
         public ushort ConsumeBatchSize { get; set; } = 1000;
 
-        public string ExchangeName { get; set; }
-
         public string ImmediateQueueNameTemplate { get; set; }
         public string ScheduledQueueNameTemplate { get; set; }
         public string ErrorQueueName { get; set; }

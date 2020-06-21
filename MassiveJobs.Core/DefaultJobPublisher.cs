@@ -162,7 +162,6 @@ namespace MassiveJobs.Core
                     {
 
                         publisher.Publish(
-                            Settings.ExchangeName,
                             Settings.StatsQueueName,
                             DefaultSerializer.SerializeObject(_stats),
                             Settings.TypeProvider.TypeToTag(typeof(StatsMessage)),
@@ -201,7 +200,7 @@ namespace MassiveJobs.Core
 
                 foreach (var job in jobs)
                 {
-                    PublishJob(job, publisher, Settings.ExchangeName, routingKey, Settings.Serializer, Settings.TypeProvider);
+                    PublishJob(job, publisher, routingKey, Settings.Serializer, Settings.TypeProvider);
 
                     batchCount++;
 
@@ -226,7 +225,6 @@ namespace MassiveJobs.Core
         private static void PublishJob(
             JobInfo job,
             IMessagePublisher publisher, 
-            string exchangeName, 
             string routingKey,
             IJobSerializer serializer,
             IJobTypeProvider typeProvider) 
@@ -234,7 +232,6 @@ namespace MassiveJobs.Core
             var serializedJob = serializer.Serialize(job, typeProvider);
 
             publisher.Publish(
-                exchangeName,
                 routingKey,
                 serializedJob,
                 typeProvider.TypeToTag(job.ArgsType),

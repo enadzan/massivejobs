@@ -15,7 +15,6 @@ namespace MassiveJobs.Core.Memory
         {
             _massiveJobsSettings = new MassiveJobsSettings
             {
-                ExchangeName = "",
                 ImmediateQueueNameTemplate = "immediate_{0:#00}",
                 ScheduledQueueNameTemplate = "scheduled_{0:#00}",
                 ErrorQueueName = "error",
