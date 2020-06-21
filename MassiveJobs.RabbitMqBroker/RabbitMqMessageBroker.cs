@@ -122,19 +122,19 @@ namespace MassiveJobs.RabbitMqBroker
             }
         }
 
-        public IMessageConsumer CreateConsumer(string queueName)
+        public virtual IMessageConsumer CreateConsumer(string queueName)
         {
             EnsureConnectionExists();
             return new RabbitMqMessageConsumer(Connection, queueName, _massiveJobsSettings.ConsumeBatchSize);
         }
 
-        public IMessagePublisher CreatePublisher()
+        public virtual IMessagePublisher CreatePublisher()
         {
             EnsureConnectionExists();
             return new RabbitMqMessagePublisher(Connection, _rabbitMqSettings);
         }
 
-        public void DeclareTopology()
+        public virtual void DeclareTopology()
         {
             EnsureConnectionExists();
 
