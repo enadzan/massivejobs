@@ -1,6 +1,4 @@
-﻿using MassiveJobs.Core;
-
-namespace MassiveJobs.RabbitMqBroker
+﻿namespace MassiveJobs.RabbitMqBroker
 {
     public class RabbitMqSettings
     {
@@ -15,9 +13,29 @@ namespace MassiveJobs.RabbitMqBroker
         public string SslClientCertPath { get; set; }
         public string SslClientCertPassphrase { get; set; }
 
+        public string ExchangeName { get; private set; } = Constants.ExchangeName;
+
         /// <summary>
         /// Prefix to be appended to the exchange name and all the queue names.
         /// </summary>
-        public string NamePrefix { get; set; }
+        public string NamePrefix 
+        {
+            get
+            {
+                return _namePrefix;
+            }
+            set
+            {
+                _namePrefix = value;
+                OnNamePrefixChanged();
+            }
+        }
+
+        protected virtual void OnNamePrefixChanged()
+        {
+            ExchangeName = $"{_namePrefix}{Constants.ExchangeName}";
+        }
+
+        private string _namePrefix = "";
     }
 }

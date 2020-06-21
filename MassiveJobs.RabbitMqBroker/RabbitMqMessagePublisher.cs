@@ -9,11 +9,14 @@ namespace MassiveJobs.RabbitMqBroker
     {
         private readonly IModel _model;
         private readonly IBasicProperties _props;
+        private readonly RabbitMqSettings _settings;
 
         public bool IsOk => _model.IsOpen;
 
-        public RabbitMqMessagePublisher(IConnection connection)
+        public RabbitMqMessagePublisher(IConnection connection, RabbitMqSettings settings)
         {
+            _settings = settings;
+
             _model = connection.CreateModel();
             _model.ConfirmSelect();
 
@@ -26,17 +29,22 @@ namespace MassiveJobs.RabbitMqBroker
             _model.SafeDispose();
         }
 
-        public void Publish(string exchangeName, string routingKey, ReadOnlyMemory<byte> body, string typeTag, bool persistent)
+        public void Publish(string routingKey, ReadOnlyMemory<byte> body, string typeTag, bool persistent)
         {
             _props.Type = typeTag;
             _props.Persistent = persistent;
 
-            _model.BasicPublish(exchangeName, routingKey, _props, body);
+            _model.BasicPublish(GetExchangeName(routingKey), routingKey, _props, body);
         }
 
         public void WaitForConfirmsOrDie(TimeSpan timeout)
         {
             _model.WaitForConfirmsOrDie(timeout);
+        }
+
+        protected virtual string GetExchangeName(string routingKey)
+        {
+            return _settings.ExchangeName;
         }
     }
 }

@@ -20,7 +20,6 @@ namespace MassiveJobs.RabbitMqBroker
 
             _massiveJobsSettings = new MassiveJobsSettings
             {
-                ExchangeName = $"{settings.NamePrefix}{Constants.ExchangeName}",
                 ImmediateQueueNameTemplate = $"{settings.NamePrefix}{Constants.ImmediateQueueNameTemplate}",
                 ScheduledQueueNameTemplate = $"{settings.NamePrefix}{Constants.ScheduledQueueNameTemplate}",
                 ErrorQueueName = $"{settings.NamePrefix}{Constants.ErrorQueueName}",

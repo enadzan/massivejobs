@@ -131,7 +131,7 @@ namespace MassiveJobs.RabbitMqBroker
         public IMessagePublisher CreatePublisher()
         {
             EnsureConnectionExists();
-            return new RabbitMqMessagePublisher(Connection);
+            return new RabbitMqMessagePublisher(Connection, _rabbitMqSettings);
         }
 
         public void DeclareTopology()
@@ -140,23 +140,23 @@ namespace MassiveJobs.RabbitMqBroker
 
             using (var model = Connection.CreateModel())
             {
-                model.ExchangeDeclare(_massiveJobsSettings.ExchangeName, ExchangeType.Direct, true);
+                model.ExchangeDeclare(_rabbitMqSettings.ExchangeName, ExchangeType.Direct, true);
 
                 for (var i = 0; i < _massiveJobsSettings.ScheduledWorkersCount; i++)
                 {
                     var queueName = string.Format(_massiveJobsSettings.ScheduledQueueNameTemplate, i);
-                    DeclareAndBindQueue(model, _massiveJobsSettings.ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
+                    DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
                 }
 
                 for (var i = 0; i < _massiveJobsSettings.ImmediateWorkersCount; i++)
                 {
                     var queueName = string.Format(_massiveJobsSettings.ImmediateQueueNameTemplate, i);
-                    DeclareAndBindQueue(model, _massiveJobsSettings.ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
+                    DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
                 }
 
-                DeclareAndBindQueue(model, _massiveJobsSettings.ExchangeName, _massiveJobsSettings.ErrorQueueName, _massiveJobsSettings.MaxQueueLength);
-                DeclareAndBindQueue(model, _massiveJobsSettings.ExchangeName, _massiveJobsSettings.FailedQueueName, _massiveJobsSettings.MaxQueueLength);
-                DeclareAndBindQueue(model, _massiveJobsSettings.ExchangeName, _massiveJobsSettings.StatsQueueName, 1000, true, true);
+                DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.ErrorQueueName, _massiveJobsSettings.MaxQueueLength);
+                DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.FailedQueueName, _massiveJobsSettings.MaxQueueLength);
+                DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.StatsQueueName, 1000, true, true);
 
                 model.SafeClose();
             }
