@@ -37,7 +37,7 @@ namespace MassiveJobs.Core.Memory
             return new InMemoryMessageConsumer(queueName, _messages);
         }
 
-        public IMesagePublisher CreatePublisher()
+        public IMessagePublisher CreatePublisher()
         {
             return new InMemoryMessagePublisher(_settings, _messages);
         }
@@ -68,7 +68,7 @@ namespace MassiveJobs.Core.Memory
         }
     }
 
-    class InMemoryMessagePublisher : IMesagePublisher
+    class InMemoryMessagePublisher : IMessagePublisher
     {
         private readonly MassiveJobsSettings _settings;
         private readonly InMemoryMessages _messages;

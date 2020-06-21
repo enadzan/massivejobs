@@ -21,12 +21,10 @@ namespace MassiveJobs.Core
         protected readonly ILogger Logger;
         protected readonly MassiveJobsSettings Settings;
         protected readonly object PublishersLock = new object();
-        protected readonly IList<IMesagePublisher> MessagePublishers;
-
-        protected readonly Dictionary<int, List<JobInfo>> Jobs = new Dictionary<int, List<JobInfo>>();
 
         protected WorkerCoordinator WorkerCoordinator;
         protected IMessageBroker MessageBroker;
+        protected PublishersPool PublishersPool;
 
         public DefaultJobPublisher(MassiveJobsSettings settings)
             : this(settings, settings.LoggerFactory.SafeCreateLogger<DefaultJobPublisher>())
@@ -48,12 +46,6 @@ namespace MassiveJobs.Core
 
             Settings = settings;
             Logger = logger;
-            MessagePublishers = new List<IMesagePublisher>();
-
-            Jobs.Add((int)JobType.Immediate, new List<JobInfo>());
-            Jobs.Add((int)JobType.Scheduled, new List<JobInfo>());
-            Jobs.Add((int)JobType.Error, new List<JobInfo>());
-            Jobs.Add((int)JobType.Failed, new List<JobInfo>());
 
             _statsTimer = new Timer(PublishStats, null, StatsTimerPeriodSec * 1000, Timeout.Infinite);
         }
@@ -86,35 +78,35 @@ namespace MassiveJobs.Core
 
                 try
                 {
-                    foreach (var jobsList in Jobs.Values)
-                    {
-                        jobsList.Clear();
-                    }
+                    var jobsPerKey = new Dictionary<string, List<JobInfo>>();
 
                     var now = DateTime.UtcNow;
 
                     foreach (var jobInfo in jobs)
                     {
-                        var jobType = GetJobType(jobInfo, now);
+                        var routingKey = GetRoutingKey(jobInfo, now);
 
-                        if (!Jobs.TryGetValue(jobType, out var jobList))
+                        if (!jobsPerKey.TryGetValue(routingKey, out var jobList))
                         {
-                            throw new ArgumentOutOfRangeException($"Unknown job type: {jobType}");
+                            jobList = new List<JobInfo>();
+                            jobsPerKey.Add(routingKey, jobList);
                         }
 
                         jobList.Add(jobInfo);
                     }
 
-                    PublishBatch(Jobs[(int)JobType.Immediate], Settings.ImmediateQueueNameTemplate, Settings.ImmediateWorkersCount, ref _nextImmediateWorkerIndex);
-                    PublishBatch(Jobs[(int)JobType.Scheduled], Settings.ScheduledQueueNameTemplate, Settings.ScheduledWorkersCount, ref _nextScheduledWorkerIndex);
+                    var tasks = new Task[jobsPerKey.Count];
+                    var taskIndex = 0;
 
-                    var errorWorkerIndex = 0;
-                    PublishBatch(Jobs[(int)JobType.Error], Settings.ErrorQueueName, 1, ref errorWorkerIndex);
+                    foreach (var kvp in jobsPerKey)
+                    {
+                        var routingKey = kvp.Key;
+                        var batch = kvp.Value;
 
-                    var failedWorkerIndex = 0;
-                    PublishBatch(Jobs[(int)JobType.Failed], Settings.FailedQueueName, 1, ref failedWorkerIndex);
+                        tasks[taskIndex++] = Task.Run(() => PublishJobs(batch, routingKey));
+                    }
 
-                    PostProcessJobs();
+                    Task.WaitAll(tasks);
                 }
                 catch
                 {
@@ -135,18 +127,26 @@ namespace MassiveJobs.Core
             }
         }
 
-        protected virtual void PostProcessJobs()
-        {
-        }
-
-        protected virtual int GetJobType(JobInfo jobInfo, DateTime now)
+        protected virtual string GetRoutingKey(JobInfo jobInfo, DateTime now)
         {
             if (jobInfo.Retries.HasValue)
             {
-                return jobInfo.Retries.Value >= 25 ? (int)JobType.Failed : (int)JobType.Error;
+                return jobInfo.Retries.Value >= 25 ? Settings.FailedQueueName : Settings.ErrorQueueName;
             }
 
-            return jobInfo.RunAtUtc > now ? (int)JobType.Scheduled : (int)JobType.Immediate;
+            if (jobInfo.RunAtUtc > now)
+            {
+                return FormatRoutingKey(Settings.ScheduledQueueNameTemplate, Settings.ScheduledWorkersCount, ref _nextScheduledWorkerIndex);
+            }
+
+            return FormatRoutingKey(Settings.ImmediateQueueNameTemplate, Settings.ImmediateWorkersCount, ref _nextImmediateWorkerIndex);
+        }
+
+        protected string FormatRoutingKey(string template, int workersCount, ref int workerIndex)
+        {
+            var routingKey = string.Format(template, workerIndex);
+            workerIndex = (workerIndex + 1) % workersCount;
+            return routingKey;
         }
 
         private void PublishStats(object state)
@@ -157,9 +157,9 @@ namespace MassiveJobs.Core
                 {
                     EnsurePublishersExist();
 
+                    var publisher = PublishersPool.Get();
                     try
                     {
-                        var publisher = MessagePublishers[0];
 
                         publisher.Publish(
                             Settings.ExchangeName,
@@ -170,9 +170,11 @@ namespace MassiveJobs.Core
                         );
 
                         publisher.WaitForConfirmsOrDie(TimeSpan.FromMilliseconds(BatchPublishTimeoutMs));
+                        PublishersPool.Return(publisher);
                     }
                     catch
                     {
+                        PublishersPool.Return(publisher);
                         DisposePublishers();
                         throw;
                     }
@@ -188,67 +190,42 @@ namespace MassiveJobs.Core
             }
         }
 
-        private void PublishBatch(IReadOnlyList<JobInfo> jobs, string routingKeyTemplate, int workersCount, ref int workerIndex)
+        protected void PublishJobs(IReadOnlyList<JobInfo> jobs, string routingKey)
         {
-            if (workersCount <= 0) throw new ArgumentOutOfRangeException(nameof(workersCount));
             if (jobs.Count == 0) return;
 
-            var batches = new List<JobInfo>[workersCount];
-
-            for(var i = 0; i < batches.Length; i++)
+            var publisher = PublishersPool.Get();
+            try
             {
-                batches[i] = new List<JobInfo>();
-            }
+                var batchCount = 0;
 
-            foreach (var job in jobs)
-            {
-                workerIndex = (workerIndex + 1) % workersCount;
-                batches[workerIndex].Add(job);
-            }
-
-            var tasks = new Task[batches.Length];
-            for (var i = 0; i < batches.Length; i++)
-            {
-                var modelIndex = i;
-                tasks[i] = Task.Run(() =>
+                foreach (var job in jobs)
                 {
-                    var routingKey = string.Format(routingKeyTemplate, modelIndex);
-                    PublishWorkerBatch(batches[modelIndex], modelIndex, routingKey);
-                });
-            }
+                    PublishJob(job, publisher, Settings.ExchangeName, routingKey, Settings.Serializer, Settings.TypeProvider);
 
-            Task.WaitAll(tasks);
-        }
+                    batchCount++;
 
-        protected void PublishWorkerBatch(IReadOnlyList<JobInfo> jobs, int modelIndex, string routingKey)
-        {
-            if (jobs.Count == 0) return;
+                    if (batchCount >= _batchSize)
+                    {
+                        publisher.WaitForConfirmsOrDie(TimeSpan.FromMilliseconds(BatchPublishTimeoutMs));
+                        batchCount = 0;
+                    }
+                }
 
-            var publisher = MessagePublishers[modelIndex];
-            var batchCount = 0;
-
-            foreach (var job in jobs)
-            {
-                PublishJob(job, publisher, Settings.ExchangeName, routingKey, Settings.Serializer, Settings.TypeProvider);
-
-                batchCount++;
-
-                if (batchCount >= _batchSize)
+                if (batchCount > 0)
                 {
                     publisher.WaitForConfirmsOrDie(TimeSpan.FromMilliseconds(BatchPublishTimeoutMs));
-                    batchCount = 0;
                 }
             }
-
-            if (batchCount > 0)
+            finally
             {
-                publisher.WaitForConfirmsOrDie(TimeSpan.FromMilliseconds(BatchPublishTimeoutMs));
+                PublishersPool.Return(publisher);
             }
         }
 
         private static void PublishJob(
             JobInfo job,
-            IMesagePublisher publisher, 
+            IMessagePublisher publisher, 
             string exchangeName, 
             string routingKey,
             IJobSerializer serializer,
@@ -267,37 +244,18 @@ namespace MassiveJobs.Core
 
         protected void EnsurePublishersExist()
         {
-            if (MessagePublishers.Count > 0)
-            {
-                var publishersOk = true;
+            if (PublishersPool != null && PublishersPool.AllOk()) return;
 
-                foreach (var publisher in MessagePublishers)
-                {
-                    if (!publisher.IsOk)
-                    {
-                        publishersOk = false;
-                        break;
-                    }
-                }
-
-                if (publishersOk) return;
-
-                DisposePublishers();
-            }
+            DisposePublishers();
             
             try
             {
                 MessageBroker = Settings.MessageBrokerFactory.CreateMessageBroker();
                 MessageBroker.DeclareTopology();
 
+                PublishersPool = new PublishersPool(MessageBroker, 2);
+
                 OnMessageBrokerCreated();
-
-                var publishersCount = Settings.GetPublishersCount();
-
-                for (var i = 0; i < publishersCount; i++)
-                {
-                    MessagePublishers.Add(MessageBroker.CreatePublisher());
-                }
             }
             catch
             {
@@ -308,12 +266,9 @@ namespace MassiveJobs.Core
 
         protected void DisposePublishers()
         {
-            foreach (var publisher in MessagePublishers)
-            {
-                publisher.SafeDispose();
-            }
+            PublishersPool.SafeDispose();
+            PublishersPool = null;
 
-            MessagePublishers.Clear();
             MessageBroker.SafeDispose();
             MessageBroker = null;
         }

@@ -10,7 +10,7 @@ namespace MassiveJobs.Core
     public interface IMessageBroker: IDisposable
     {
         IMessageConsumer CreateConsumer(string queueName);
-        IMesagePublisher CreatePublisher();
+        IMessagePublisher CreatePublisher();
 
         void DeclareTopology();
     }
@@ -25,7 +25,7 @@ namespace MassiveJobs.Core
         void AckMessageProcessed(ulong deliveryTag);
     }
 
-    public interface IMesagePublisher: IDisposable
+    public interface IMessagePublisher: IDisposable
     {
         bool IsOk { get; }
         void Publish(string exchangeName, string routingKey, ReadOnlyMemory<byte> body, string typeTag, bool persistent);
