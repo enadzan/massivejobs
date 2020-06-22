@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 
@@ -56,11 +57,35 @@ namespace MassiveJobs.RabbitMqBroker.Tests
             Assert.AreEqual(10002, _performCount);
         }
 
+        [TestMethod]
+        public void PublishPeriodic_should_run_jobs_periodically_until_end()
+        {
+            using var scheduler = RabbitMqPublisherBuilder
+                .FromSettings(_settings)
+                .ConfigurePublisher(s =>
+                {
+                    s.PublishBatchSize = 400;
+                })
+                .Build();
+
+            scheduler.StartJobWorkers();
+
+            Thread.Sleep(1000);
+
+            scheduler.PublishPeriodic<DummyJob, DummyJobArgs>(new DummyJobArgs(), "test_periodic", 1, null, DateTime.UtcNow.AddSeconds(4.5));
+            scheduler.PublishPeriodic<DummyJob, DummyJobArgs>(new DummyJobArgs(), "test_periodic", 1);
+
+            Thread.Sleep(6000);
+
+            Assert.AreEqual(4, _performCount);
+        }
+
         private class DummyJob
         {
             public void Perform(DummyJobArgs _)
             {
                 Interlocked.Increment(ref _performCount);
+                System.Diagnostics.Debug.WriteLine(DateTime.UtcNow);
             }
 
             public void Perform(DummyJobArgs2 _)

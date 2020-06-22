@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MassiveJobs.Core" Version="0.6.0" />
+    <PackageReference Include="MassiveJobs.Core" Version="0.7.1" />
     <PackageReference Include="RabbitMQ.Client" Version="6.1.0" />
   </ItemGroup>
 

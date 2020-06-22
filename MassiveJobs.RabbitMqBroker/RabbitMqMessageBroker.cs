@@ -162,6 +162,7 @@ namespace MassiveJobs.RabbitMqBroker
                     DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
                 }
 
+                DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.PeriodicQueueName, _massiveJobsSettings.MaxQueueLength, false, true);
                 DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.ErrorQueueName, _massiveJobsSettings.MaxQueueLength);
                 DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.FailedQueueName, _massiveJobsSettings.MaxQueueLength);
                 DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.StatsQueueName, 1000, true, true);

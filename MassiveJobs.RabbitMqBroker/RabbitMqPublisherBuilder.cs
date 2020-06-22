@@ -24,7 +24,8 @@ namespace MassiveJobs.RabbitMqBroker
                 ScheduledQueueNameTemplate = $"{settings.NamePrefix}{Constants.ScheduledQueueNameTemplate}",
                 ErrorQueueName = $"{settings.NamePrefix}{Constants.ErrorQueueName}",
                 FailedQueueName = $"{settings.NamePrefix}{Constants.FailedQueueName}",
-                StatsQueueName = $"{settings.NamePrefix}{Constants.StatsQueueName}"
+                StatsQueueName = $"{settings.NamePrefix}{Constants.StatsQueueName}",
+                PeriodicQueueName = $"{settings.NamePrefix}{Constants.PeriodicQueueName}"
             };
         }
 
@@ -52,6 +53,7 @@ namespace MassiveJobs.RabbitMqBroker
             if (_massiveJobsSettings.ScheduledWorkersCount <= 0) throw new Exception($"{nameof(_massiveJobsSettings.ScheduledWorkersCount)} must be positive.");
 
             _massiveJobsSettings.MessageBrokerFactory = new RabbitMqMessageBrokerFactory(_rabbitMqSettings, _massiveJobsSettings);
+            _massiveJobsSettings.JobRunner = new DefaultJobRunner(_massiveJobsSettings.LoggerFactory.SafeCreateLogger<DefaultJobRunner>());
 
             return new DefaultJobPublisher(_massiveJobsSettings);
         }
