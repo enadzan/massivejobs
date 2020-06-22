@@ -32,7 +32,7 @@ namespace MassiveJobs.Core
             {
                 var skipWindows = ((int)utcNow.Subtract(startTimeUtc.Value).TotalSeconds) / RepeatSeconds + 1;
 
-                NextRunTime = utcNow.AddSeconds(skipWindows * RepeatSeconds);
+                NextRunTime = startTimeUtc.Value.AddSeconds(skipWindows * RepeatSeconds);
 
                 if (EndAtUtc == null || EndAtUtc.Value > NextRunTime) return true;
             }

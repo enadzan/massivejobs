@@ -249,17 +249,21 @@ namespace MassiveJobs.Core.Tests
 
             publisher.StartJobWorkers();
 
-            publisher.PublishPeriodic<MockJob, bool>(true, "test_job", 1, null, DateTime.UtcNow.AddMilliseconds(3500));
+            System.Diagnostics.Debug.WriteLine(DateTime.Now);
 
-            Thread.Sleep(5000);
+            publisher.PublishPeriodic<MockJob, bool>(true, "test_job", 1, null, DateTime.UtcNow.AddMilliseconds(4500));
 
-            Assert.AreEqual(2, _performCount);
+            Thread.Sleep(6000);
+
+            Assert.AreEqual(4, _performCount);
         }
 
         private class MockJob
         {
             public void Perform(bool increment)
             {
+                System.Diagnostics.Debug.WriteLine(DateTime.Now);
+
                 if (increment) Interlocked.Increment(ref _performCount);
                 else Interlocked.Decrement(ref _performCount);
             }
