@@ -71,12 +71,7 @@ namespace MassiveJobs.Core
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Failed running job: {jobInfo.JobType} / {jobInfo.ArgsType} / {jobInfo.PeriodicRunInfo?.RunId}");
-                
-                // do not reschedule periodic jobs
-                if (jobInfo.PeriodicRunInfo == null)
-                {
-                    publisher.RescheduleJob(jobInfo, ex);
-                }
+                publisher.RescheduleJob(jobInfo, ex);
             }
         }
 

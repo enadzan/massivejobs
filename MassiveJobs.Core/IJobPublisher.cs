@@ -62,6 +62,8 @@ namespace MassiveJobs.Core
 
         public static void RescheduleJob(this IJobPublisher publisher, JobInfo jobInfo, Exception ex)
         {
+            if (jobInfo.PeriodicRunInfo != null) return; // periodic jobs must not be rescheduled
+
             jobInfo.RunAtUtc = RetryTimeGenerator.GetNextRetryTime(jobInfo.Retries ?? 0);
             jobInfo.Err = ex.GetSummary();
             jobInfo.Retries = jobInfo.Retries.HasValue ? jobInfo.Retries.Value + 1 : 1;
