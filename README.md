@@ -89,35 +89,47 @@ namespace MassiveJobs.QuickStart
                 Password = "guest"
             };
 
-            using (var publisher = RabbitMqPublisherBuilder.FromSettings(rmqSettings).Build())
+            using (var jobPublisher = RabbitMqPublisherBuilder
+                .FromSettings(rmqSettings)
+                .Build())
             {
                 if (args.Length > 0 && args[0].ToLower() == "publisher")
                 {
-                    Console.WriteLine("Started publisher.");
-                    Console.WriteLine("Write a message and press Enter to publish it (empty message to end).");
-
-                    while (true)
-                    {
-                        Console.Write("> ");
-                        var message = Console.ReadLine();
-
-                        if (string.IsNullOrWhiteSpace(message)) break;
-
-                        // On publish we must specify the job type (MessageReceiver) 
-                        // and the argument type (string).
-
-                        publisher.Publish<MessageReceiver, string>(message);
-                    }
+                    RunPublisher(jobPublisher);
                 }
                 else
                 {
-                    publisher.StartJobWorkers();
-
-                    Console.WriteLine("Started job worker.");
-                    Console.WriteLine("Press Enter to end the application.");
-
-                    Console.ReadLine();
+                    RunWorker(jobPublisher);
                 }
+            }
+        }
+
+        private static void RunWorker(IJobPublisher jobPublisher)
+        {
+            jobPublisher.StartJobWorkers();
+
+            Console.WriteLine("Started job worker.");
+            Console.WriteLine("Press Enter to end the application.");
+
+            Console.ReadLine();
+        }
+
+        private static void RunPublisher(IJobPublisher jobPublisher)
+        {
+            Console.WriteLine("Started publisher.");
+            Console.WriteLine("Write a message and press Enter to publish it (empty message to end).");
+
+            while (true)
+            {
+                Console.Write("> ");
+                var message = Console.ReadLine();
+
+                if (string.IsNullOrWhiteSpace(message)) break;
+
+                // On publish we must specify the job type (MessageReceiver) 
+                // and the argument type (string).
+
+                jobPublisher.Publish<MessageReceiver, string>(message);
             }
         }
     }
