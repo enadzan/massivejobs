@@ -54,6 +54,13 @@ namespace MassiveJobs.RabbitMqBroker
         {
             lock (_connectionLock)
             {
+                if (Connection == null) return;
+
+                Connection.CallbackException -= ConnectionOnCallbackException;
+                Connection.ConnectionBlocked -= ConnectionOnConnectionBlocked;
+                Connection.ConnectionUnblocked -= ConnectionOnConnectionUnblocked;
+                Connection.ConnectionShutdown -= ConnectionOnConnectionShutdown;
+
                 Connection.SafeClose();
                 Connection.SafeDispose();
                 Connection = null;
@@ -72,7 +79,8 @@ namespace MassiveJobs.RabbitMqBroker
 
                 try
                 {
-                    Connection = _connectionFactory.CreateConnection(_rabbitMqSettings.HostNames, $"{GetEntryFileName()}/MassiveJobs::{GetType().Name}");
+                    Connection = _connectionFactory.CreateConnection(_rabbitMqSettings.HostNames, $"MassiveJobs.NET/{GetEntryFileName()}");
+
                     Connection.CallbackException += ConnectionOnCallbackException;
                     Connection.ConnectionBlocked += ConnectionOnConnectionBlocked;
                     Connection.ConnectionUnblocked += ConnectionOnConnectionUnblocked;
