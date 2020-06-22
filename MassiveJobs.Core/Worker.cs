@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace MassiveJobs.Core
@@ -77,6 +78,13 @@ namespace MassiveJobs.Core
             _messageConsumer.MessageReceived -= ConsumerOnMessageReceived;
             _messageConsumer.SafeDispose();
             _messageConsumer = null;
+
+            ClearQueue();
+        }
+
+        protected bool CheckConsumer()
+        {
+            return _messageConsumer != null && _messageConsumer.IsOk;
         }
 
         protected bool TryDeserializeJob(RawMessage rawMessage, out JobInfo job)
@@ -92,6 +100,8 @@ namespace MassiveJobs.Core
 
         protected override void ProcessMessageBatch(List<RawMessage> messages, CancellationToken cancellationToken, out int pauseSec)
         {
+            if (!CheckConsumer()) throw new Exception("Consumer is not OK");
+
             var serviceScope = ServiceScopeFactory.SafeCreateScope();
             try
             {

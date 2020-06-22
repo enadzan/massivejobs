@@ -151,9 +151,7 @@ namespace MassiveJobs.Core
             _cancellationTokenSource = null;
             _processorThread = null;
 
-            OnStoppedSafe();
-
-            ClearQueue();
+            OnStopSafe();
 
             _stoppingSignal.Set();
 
@@ -163,7 +161,7 @@ namespace MassiveJobs.Core
             }
         }
 
-        private void OnStoppedSafe()
+        private void OnStopSafe()
         {
             try
             {

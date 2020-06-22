@@ -114,6 +114,8 @@ namespace MassiveJobs.Core.Memory
 
         public event MessageReceivedHandler MessageReceived;
 
+        public bool IsOk => true;
+
         public InMemoryMessageConsumer(string queueName, InMemoryMessages messages)
         {
             _queueName = queueName;

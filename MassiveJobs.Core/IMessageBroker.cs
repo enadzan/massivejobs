@@ -21,6 +21,7 @@ namespace MassiveJobs.Core
     {
         event MessageReceivedHandler MessageReceived;
 
+        bool IsOk { get; }
         void AckBatchProcessed(ulong lastDeliveryTag);
         void AckMessageProcessed(ulong deliveryTag);
     }
