@@ -15,17 +15,22 @@ namespace MassiveJobs.Core
         public DateTime? LastRunTimeUtc { get; set; }
         public DateTime NextRunTime { get; set; }
 
-        internal bool SetNextRunTime(DateTime startTimeUtc, DateTime utcNow)
+        internal bool SetNextRunTime(DateTime? startTimeUtc, DateTime utcNow)
         {
+            if (!startTimeUtc.HasValue)
+            {
+                startTimeUtc = utcNow;
+            }
+
             if (startTimeUtc > utcNow)
             {
-                NextRunTime = startTimeUtc;
+                NextRunTime = startTimeUtc.Value;
                 return true;
             }
 
             if (RepeatSeconds > 0)
             {
-                var skipWindows = ((int)utcNow.Subtract(startTimeUtc).TotalSeconds) / RepeatSeconds + 1;
+                var skipWindows = ((int)utcNow.Subtract(startTimeUtc.Value).TotalSeconds) / RepeatSeconds + 1;
 
                 NextRunTime = utcNow.AddSeconds(skipWindows * RepeatSeconds);
 

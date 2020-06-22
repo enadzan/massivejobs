@@ -12,7 +12,7 @@ namespace MassiveJobs.Core
         private readonly AutoResetEvent _stoppingSignal = new AutoResetEvent(false);
 
         private readonly ConcurrentDictionary<ulong, JobInfo> _scheduledJobs;
-        private readonly ConcurrentDictionary<string, bool> _periodicJobIds;
+        private readonly ConcurrentDictionary<string, List<ulong>> _periodicJobIds;
 
         private Timer _timer;
 
@@ -32,7 +32,7 @@ namespace MassiveJobs.Core
         {
             _timer = new Timer(CheckScheduledJobs);
             _scheduledJobs = new ConcurrentDictionary<ulong, JobInfo>();
-            _periodicJobIds = new ConcurrentDictionary<string, bool>();
+            _periodicJobIds = new ConcurrentDictionary<string, List<ulong>>();
         }
 
         protected override void OnStart()
@@ -66,7 +66,21 @@ namespace MassiveJobs.Core
                 if (job.PeriodicRunInfo != null)
                 {
                     // periodic jobs should not be added twice
-                    if (!_periodicJobIds.TryAdd(job.PeriodicRunInfo.RunId, true)) continue;
+                    if (_periodicJobIds.TryGetValue(job.PeriodicRunInfo.RunId, out var duplicateTags))
+                    {
+                        duplicateTags.Add(rawMessage.DeliveryTag);
+                        continue;
+                    }
+
+                    duplicateTags = new List<ulong>();
+
+                    _periodicJobIds.TryAdd(job.PeriodicRunInfo.RunId, duplicateTags);
+
+                    if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc, DateTime.UtcNow))
+                    {
+                        duplicateTags.Add(rawMessage.DeliveryTag);
+                        continue;
+                    }
                 }
 
                 _scheduledJobs.TryAdd(rawMessage.DeliveryTag, job);
@@ -77,6 +91,8 @@ namespace MassiveJobs.Core
         {
             try
             {
+                ConfirmSkippedMessages();
+
                 var batchToRun = new Dictionary<ulong, JobInfo>();
 
                 var now = DateTime.UtcNow;
@@ -86,14 +102,14 @@ namespace MassiveJobs.Core
                     if (_cancellationTokenSource.IsCancellationRequested) return;
 
                     if (!_scheduledJobs.TryGetValue(key, out var job)) continue;
-                    if (job.RunAtUtc == null || job.RunAtUtc.Value > now) continue;
+                    if (job.RunAtUtc > now) continue;
                     if (job.PeriodicRunInfo != null && job.PeriodicRunInfo.NextRunTime > now) continue;
 
                     batchToRun.Add(key, job);
 
                     if (job.PeriodicRunInfo != null)
                     {
-                        if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc.Value, now))
+                        if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc, now))
                         {
                             _scheduledJobs.TryRemove(key, out _);
                             _periodicJobIds.TryRemove(job.PeriodicRunInfo.RunId, out _);
@@ -125,6 +141,19 @@ namespace MassiveJobs.Core
 
                     _stoppingSignal.Set();
                 }
+            }
+        }
+
+        private void ConfirmSkippedMessages()
+        {
+            foreach (var kvp in _periodicJobIds)
+            {
+                foreach (var deliveryTag in kvp.Value)
+                {
+                    OnMessageProcessed(deliveryTag);
+                }
+
+                kvp.Value.Clear();
             }
         }
 
