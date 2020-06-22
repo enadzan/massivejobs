@@ -230,7 +230,7 @@ namespace MassiveJobs.Core.Tests
 
             Thread.Sleep(3500);
 
-            Assert.AreEqual(2, _performCount);
+            Assert.AreEqual(3, _performCount);
         }
 
         [TestMethod]
