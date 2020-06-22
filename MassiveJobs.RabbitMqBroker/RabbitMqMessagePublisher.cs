@@ -34,17 +34,12 @@ namespace MassiveJobs.RabbitMqBroker
             _props.Type = typeTag;
             _props.Persistent = persistent;
 
-            _model.BasicPublish(GetExchangeName(routingKey), routingKey, _props, body);
+            _model.BasicPublish(_settings.ExchangeName, routingKey, _props, body);
         }
 
         public void WaitForConfirmsOrDie(TimeSpan timeout)
         {
             _model.WaitForConfirmsOrDie(timeout);
-        }
-
-        protected virtual string GetExchangeName(string routingKey)
-        {
-            return _settings.ExchangeName;
         }
     }
 }
