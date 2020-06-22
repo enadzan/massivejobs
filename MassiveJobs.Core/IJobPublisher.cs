@@ -18,6 +18,20 @@ namespace MassiveJobs.Core
             publisher.Publish(new[] { JobInfo.For<TJob, TArgs>(jobArgs, runAtUtc, null, jobTimeoutMs) });
         }
 
+        public static void PublishPeriodic<TJob, TArgs>(this IJobPublisher publisher, TArgs jobArgs, string periodicJobId, int repeatSeconds, 
+            DateTime? runAtUtc = null, DateTime? endAtUtc = null, int? jobTimeoutMs = null)
+        {
+            var periodicRunInfo = new PeriodicRunInfo
+            {
+                RunId = periodicJobId,
+                RepeatSeconds = repeatSeconds,
+                NextRunTime = runAtUtc ?? DateTime.UtcNow.AddSeconds(repeatSeconds),
+                EndAtUtc = endAtUtc
+            };
+
+            publisher.Publish(new[] { JobInfo.For<TJob, TArgs>(jobArgs, periodicRunInfo.NextRunTime, null, jobTimeoutMs, periodicRunInfo) });
+        }
+
         public static void Publish<TJob, TArgs>(this IJobPublisher publisher, TArgs jobArgs, TimeSpan runIn, int? jobTimeoutMs = null)
         {
             publisher.Publish(new[] { JobInfo.For<TJob, TArgs>(jobArgs, DateTime.UtcNow.Add(runIn), null, jobTimeoutMs) });
@@ -28,13 +42,14 @@ namespace MassiveJobs.Core
             publisher.Publish<TJob, TArgs>(jobArgs, DateTime.UtcNow.Add(runIn), jobTimeoutMs);
         }
 
-        public static void Publish<TJob, TArgs>(this IJobPublisher publisher, IEnumerable<TArgs> jobArgs, DateTime? runAtUtc = null, int? jobTimeoutMs = null)
+        public static void Publish<TJob, TArgs>(this IJobPublisher publisher, IEnumerable<TArgs> jobArgs, DateTime? runAtUtc = null, int? jobTimeoutMs = null, 
+            PeriodicRunInfo periodicRunInfo = null)
         {
             var jobs = new List<JobInfo>();
 
             foreach (var jobArg in jobArgs)
             {
-                jobs.Add(JobInfo.For<TJob, TArgs>(jobArg, runAtUtc, null, jobTimeoutMs));
+                jobs.Add(JobInfo.For<TJob, TArgs>(jobArg, runAtUtc, null, jobTimeoutMs, periodicRunInfo));
             }
 
             publisher.Publish(jobs);

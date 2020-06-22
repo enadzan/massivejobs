@@ -15,17 +15,19 @@ namespace MassiveJobs.Core
 
         public string GroupKey { get; set; }
 
-        public static JobInfo For<TJob, TJobArgs>(TJobArgs jobArgs, TimeSpan runIn, string groupKey = null, int? jobTimeoutMs = null)
+        public PeriodicRunInfo PeriodicRunInfo { get; set; }
+
+        public static JobInfo For<TJob, TJobArgs>(TJobArgs jobArgs, TimeSpan runIn, string groupKey = null, int? jobTimeoutMs = null, PeriodicRunInfo periodicRunInfo = null)
         {
-            return For<TJob, TJobArgs>(jobArgs, DateTime.UtcNow.Add(runIn), groupKey, jobTimeoutMs);
+            return For<TJob, TJobArgs>(jobArgs, DateTime.UtcNow.Add(runIn), groupKey, jobTimeoutMs, periodicRunInfo);
         }
 
-        public static JobInfo For<TJob, TJobArgs>(TJobArgs jobArgs, string groupKey = null, int? jobTimeoutMs = null)
+        public static JobInfo For<TJob, TJobArgs>(TJobArgs jobArgs, string groupKey = null, int? jobTimeoutMs = null, PeriodicRunInfo periodicRunInfo = null)
         {
-            return For<TJob, TJobArgs>(jobArgs, null, groupKey, jobTimeoutMs);
+            return For<TJob, TJobArgs>(jobArgs, null, groupKey, jobTimeoutMs, periodicRunInfo);
         }
 
-        public static JobInfo For<TJob, TJobArgs>(TJobArgs jobArgs, DateTime? runAtUtc, string groupKey = null, int? jobTimeoutMs = null)
+        public static JobInfo For<TJob, TJobArgs>(TJobArgs jobArgs, DateTime? runAtUtc, string groupKey = null, int? jobTimeoutMs = null, PeriodicRunInfo periodicRunInfo = null)
         {
             return new JobInfo
             {
@@ -34,7 +36,8 @@ namespace MassiveJobs.Core
                 ArgsType = typeof(TJobArgs),
                 Args = jobArgs,
                 TimeoutMs = jobTimeoutMs,
-                GroupKey = groupKey
+                GroupKey = groupKey,
+                PeriodicRunInfo = periodicRunInfo
             };
         }
     }

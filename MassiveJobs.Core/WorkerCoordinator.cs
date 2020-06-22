@@ -38,6 +38,8 @@ namespace MassiveJobs.Core
             {
                 lock (WorkersLock)
                 {
+                    if (Workers.Count > 0) return;
+
                     EnsureBrokerExists();
                     CreateWorkers();
 
@@ -151,6 +153,21 @@ namespace MassiveJobs.Core
                 worker.Error += OnWorkerError;
                 Workers.Add(worker);
             }
+
+            var periodicWorker = new WorkerScheduled(
+               MessageBroker,
+               _settings.PeriodicQueueName,
+               _settings.ConsumeBatchSize,
+               JobPublisher,
+               _settings.JobRunner,
+               _settings.Serializer,
+               _settings.TypeProvider,
+               _settings.ServiceScopeFactory,
+               _settings.LoggerFactory.SafeCreateLogger<WorkerScheduled>()
+               );
+
+            periodicWorker.Error += OnWorkerError;
+            Workers.Add(periodicWorker);
 
             var errorWorker = new WorkerScheduled(
                 MessageBroker,

@@ -134,6 +134,11 @@ namespace MassiveJobs.Core
                 return jobInfo.Retries.Value >= 25 ? Settings.FailedQueueName : Settings.ErrorQueueName;
             }
 
+            if (jobInfo.PeriodicRunInfo != null)
+            {
+                return Settings.PeriodicQueueName;
+            }
+
             if (jobInfo.RunAtUtc > now)
             {
                 return FormatRoutingKey(Settings.ScheduledQueueNameTemplate, Settings.ScheduledWorkersCount, ref _nextScheduledWorkerIndex);
@@ -144,6 +149,8 @@ namespace MassiveJobs.Core
 
         protected string FormatRoutingKey(string template, int workersCount, ref int workerIndex)
         {
+            if (workersCount <= 0) throw new Exception($"Cannot publish a job in a queue with template {template} when workers count is 0!");
+
             var routingKey = string.Format(template, workerIndex);
             workerIndex = (workerIndex + 1) % workersCount;
             return routingKey;

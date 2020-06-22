@@ -210,6 +210,52 @@ namespace MassiveJobs.Core.Tests
             Assert.AreEqual(1, messages.GetCount(errorQueueName));
         }
 
+        [TestMethod]
+        public void TestPeriodicJob()
+        {
+            InMemoryMessages messages = null;
+            string errorQueueName = null;
+
+            using var publisher = InMemoryPublisherBuilder.CreateBuilder()
+                .Configure(s =>
+                {
+                    messages = ((InMemoryMessageBrokerFactory)s.MessageBrokerFactory).Messages;
+                    errorQueueName = s.ErrorQueueName;
+                })
+                .Build();
+
+            publisher.StartJobWorkers();
+
+            publisher.PublishPeriodic<MockJob, bool>(true, "test_job", 1);
+
+            Thread.Sleep(3500);
+
+            Assert.AreEqual(2, _performCount);
+        }
+
+        [TestMethod]
+        public void TestPeriodicJobWithEndTime()
+        {
+            InMemoryMessages messages = null;
+            string errorQueueName = null;
+
+            using var publisher = InMemoryPublisherBuilder.CreateBuilder()
+                .Configure(s =>
+                {
+                    messages = ((InMemoryMessageBrokerFactory)s.MessageBrokerFactory).Messages;
+                    errorQueueName = s.ErrorQueueName;
+                })
+                .Build();
+
+            publisher.StartJobWorkers();
+
+            publisher.PublishPeriodic<MockJob, bool>(true, "test_job", 1, null, DateTime.UtcNow.AddMilliseconds(3500));
+
+            Thread.Sleep(5000);
+
+            Assert.AreEqual(2, _performCount);
+        }
+
         private class MockJob
         {
             public void Perform(bool increment)

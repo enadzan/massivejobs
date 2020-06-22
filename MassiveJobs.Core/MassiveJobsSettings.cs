@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace MassiveJobs.Core
+﻿namespace MassiveJobs.Core
 {
     public class MassiveJobsSettings
     {
@@ -8,7 +6,7 @@ namespace MassiveJobs.Core
         public IServiceScopeFactory ServiceScopeFactory { get; set; }
         public ILoggerFactory LoggerFactory { get; set; }
 
-        public IJobRunner JobRunner { get; set; } = new DefaultJobRunner();
+        public IJobRunner JobRunner { get; set; }
         public IJobSerializer Serializer = new DefaultSerializer();
         public IJobTypeProvider TypeProvider = new DefaultTypeProvider();
 
@@ -23,13 +21,9 @@ namespace MassiveJobs.Core
         public string ErrorQueueName { get; set; }
         public string FailedQueueName { get; set; }
         public string StatsQueueName { get; set; }
+        public string PeriodicQueueName { get; set; }
 
         public int MaxQueueLength { get; set; } = QueueLength.Default;
-
-        internal protected virtual int GetPublishersCount()
-        {
-            return Math.Max(ImmediateWorkersCount, ScheduledWorkersCount);
-        }
     }
 
     public static class QueueLength

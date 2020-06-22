@@ -76,7 +76,8 @@ namespace MassiveJobs.Core
                 At = jobInfo.RunAtUtc,
                 R = jobInfo.Retries,
                 T = jobInfo.TimeoutMs,
-                G = jobInfo.GroupKey
+                G = jobInfo.GroupKey,
+                P = jobInfo.PeriodicRunInfo
             };
         }
 
@@ -94,7 +95,8 @@ namespace MassiveJobs.Core
                 RunAtUtc = serialized.At,
                 Retries = serialized.R,
                 TimeoutMs = serialized.T,
-                GroupKey = serialized.G
+                GroupKey = serialized.G,
+                PeriodicRunInfo = serialized.P
             };
         }
 
@@ -109,6 +111,8 @@ namespace MassiveJobs.Core
             public string E { get; set; }
             public int? T { get; set; }
             public string G { get; set; }
+
+            public PeriodicRunInfo P { get; set; }
         }
     }
 }

@@ -19,7 +19,8 @@ namespace MassiveJobs.Core.Memory
                 ScheduledQueueNameTemplate = "scheduled_{0:#00}",
                 ErrorQueueName = "error",
                 FailedQueueName = "failed",
-                StatsQueueName = "stats"
+                StatsQueueName = "stats",
+                PeriodicQueueName = "periodic"
             };
 
             _massiveJobsSettings.MessageBrokerFactory = new InMemoryMessageBrokerFactory(_massiveJobsSettings);
@@ -47,6 +48,8 @@ namespace MassiveJobs.Core.Memory
         {
             if (_massiveJobsSettings.ImmediateWorkersCount <= 0) throw new Exception($"{nameof(_massiveJobsSettings.ImmediateWorkersCount)} must be positive.");
             if (_massiveJobsSettings.ScheduledWorkersCount <= 0) throw new Exception($"{nameof(_massiveJobsSettings.ScheduledWorkersCount)} must be positive.");
+
+            _massiveJobsSettings.JobRunner = new DefaultJobRunner(_massiveJobsSettings.LoggerFactory.SafeCreateLogger<DefaultJobRunner>());
 
             return new DefaultJobPublisher(_massiveJobsSettings);
         }    

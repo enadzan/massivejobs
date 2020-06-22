@@ -12,6 +12,7 @@ namespace MassiveJobs.Core
         private readonly AutoResetEvent _stoppingSignal = new AutoResetEvent(false);
 
         private readonly ConcurrentDictionary<ulong, JobInfo> _scheduledJobs;
+        private readonly ConcurrentDictionary<string, bool> _periodicJobIds;
 
         private Timer _timer;
 
@@ -31,6 +32,7 @@ namespace MassiveJobs.Core
         {
             _timer = new Timer(CheckScheduledJobs);
             _scheduledJobs = new ConcurrentDictionary<ulong, JobInfo>();
+            _periodicJobIds = new ConcurrentDictionary<string, bool>();
         }
 
         protected override void OnStart()
@@ -60,7 +62,13 @@ namespace MassiveJobs.Core
                 {
                     throw new Exception($"Unknown job type: {rawMessage.TypeTag}.");
                 }
-                
+
+                if (job.PeriodicRunInfo != null)
+                {
+                    // periodic jobs should not be added twice
+                    if (!_periodicJobIds.TryAdd(job.PeriodicRunInfo.RunId, true)) continue;
+                }
+
                 _scheduledJobs.TryAdd(rawMessage.DeliveryTag, job);
             }
         }
@@ -78,10 +86,23 @@ namespace MassiveJobs.Core
                     if (_cancellationTokenSource.IsCancellationRequested) return;
 
                     if (!_scheduledJobs.TryGetValue(key, out var job)) continue;
-                    if (job.RunAtUtc > now) continue;
+                    if (job.RunAtUtc == null || job.RunAtUtc.Value > now) continue;
+                    if (job.PeriodicRunInfo != null && job.PeriodicRunInfo.NextRunTime > now) continue;
 
                     batchToRun.Add(key, job);
-                    _scheduledJobs.TryRemove(key, out _);
+
+                    if (job.PeriodicRunInfo != null)
+                    {
+                        if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc.Value, now))
+                        {
+                            _scheduledJobs.TryRemove(key, out _);
+                            _periodicJobIds.TryRemove(job.PeriodicRunInfo.RunId, out _);
+                        }
+                    }
+                    else
+                    {
+                        _scheduledJobs.TryRemove(key, out _);
+                    }
                 }
 
                 RunBatch(batchToRun);
@@ -116,9 +137,12 @@ namespace MassiveJobs.Core
                     JobRunner.RunJobs(JobPublisher, batch.Values, serviceScope, _cancellationTokenSource.Token)
                         .Wait();
 
-                    foreach (var deliveryTag in batch.Keys)
+                    foreach (var kvp in batch)
                     {
-                        OnMessageProcessed(deliveryTag);
+                        // don't confirm periodic jobs, unless passed end time
+                        if (kvp.Value.PeriodicRunInfo != null && kvp.Value.PeriodicRunInfo.NextRunTime != DateTime.MinValue) continue;
+
+                        OnMessageProcessed(kvp.Key);
                     }
                 }
             }

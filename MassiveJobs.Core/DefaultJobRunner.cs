@@ -7,10 +7,12 @@ namespace MassiveJobs.Core
 {
     public class DefaultJobRunner : IJobRunner
     {
+        private readonly ILogger _logger;
         private readonly int _defaultJobTimeout;
 
-        public DefaultJobRunner(int defaultJobTimeoutMs = 5 * 1000)
+        public DefaultJobRunner(ILogger logger, int defaultJobTimeoutMs = 5 * 1000)
         {
+            _logger = logger;
             _defaultJobTimeout = defaultJobTimeoutMs;
         }
 
@@ -68,7 +70,13 @@ namespace MassiveJobs.Core
             }
             catch (Exception ex)
             {
-                publisher.RescheduleJob(jobInfo, ex);
+                _logger.LogError(ex, $"Failed running job: {jobInfo.JobType} / {jobInfo.ArgsType} / {jobInfo.PeriodicRunInfo?.RunId}");
+                
+                // do not reschedule periodic jobs
+                if (jobInfo.PeriodicRunInfo == null)
+                {
+                    publisher.RescheduleJob(jobInfo, ex);
+                }
             }
         }
 

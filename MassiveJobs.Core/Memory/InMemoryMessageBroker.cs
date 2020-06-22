@@ -56,6 +56,7 @@ namespace MassiveJobs.Core.Memory
 
             _messages.EnsureQueue(_settings.ErrorQueueName);
             _messages.EnsureQueue(_settings.FailedQueueName);
+            _messages.EnsureQueue(_settings.PeriodicQueueName);
         }
 
         public int GetJobCount(string queueName)
