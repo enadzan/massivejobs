@@ -148,10 +148,11 @@ To start a publisher, go to the project folder and run:
 ```powershell
 dotnet run publisher
 ```
-As you enter messages in the publisher console, you will notice them being processed in one of the workers.
-This is because jobs are distributed between the workers.
+As you enter messages in the publisher console, you will notice them being processed in one or the other worker, 
+but not both. This is because jobs are distributed between the workers.
   
-Note that you can start multiple publishers too. 
+Note that you can start multiple publishers too.
+  
 Workers and publishers can be on different machines, as long as they can access the RabbitMQ server.
 
 ## Official Documentation
