@@ -88,7 +88,7 @@ namespace MassiveJobs.Core.Tests
             publisher.StartJobWorkers();
 
             publisher.Publish<MockJob, bool>(true);
-            publisher.Publish<MockAsyncJobFailed, bool>(true);
+            publisher.Publish<MockAsyncJobFailed>();
 
             Thread.Sleep(100);
 
@@ -113,7 +113,7 @@ namespace MassiveJobs.Core.Tests
             publisher.StartJobWorkers();
 
             publisher.Publish<MockJob, bool>(true);
-            publisher.Publish<MockAsyncJobCanceled, bool>(true);
+            publisher.Publish<MockAsyncJobCanceled>();
 
             Thread.Sleep(200);
 
@@ -283,20 +283,9 @@ namespace MassiveJobs.Core.Tests
             }
         }
 
-        private class MockAsyncJob
-        {
-            public async Task Perform(bool increment, CancellationToken cancellationToken)
-            {
-                await Task.Delay(1000, cancellationToken);
-
-                if (increment) Interlocked.Increment(ref _performCount);
-                else Interlocked.Decrement(ref _performCount);
-            }
-        }
-
         private class MockAsyncJobFailed
         {
-            public async Task Perform(bool _, CancellationToken cancellationToken)
+            public async Task Perform(CancellationToken cancellationToken)
             {
                 await Task.Delay(10, cancellationToken);
 
@@ -306,7 +295,7 @@ namespace MassiveJobs.Core.Tests
 
         private class MockAsyncJobCanceled
         {
-            public async Task Perform(bool _, CancellationToken cancellationToken)
+            public async Task Perform(CancellationToken cancellationToken)
             {
                 await Task.Delay(100, cancellationToken);
                 throw new OperationCanceledException();
