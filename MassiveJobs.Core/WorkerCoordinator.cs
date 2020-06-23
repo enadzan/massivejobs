@@ -121,7 +121,7 @@ namespace MassiveJobs.Core
                 var worker = new WorkerImmediate(
                     MessageBroker,
                     queueName,
-                    _settings.ConsumeBatchSize,
+                    _settings.ImmediateWorkersBatchSize,
                     JobPublisher,
                     _settings.JobRunner,
                     _settings.Serializer,
@@ -141,7 +141,7 @@ namespace MassiveJobs.Core
                 var worker = new WorkerScheduled(
                     MessageBroker,
                     queueName,
-                    _settings.ConsumeBatchSize,
+                    _settings.ScheduledWorkersBatchSize,
                     JobPublisher,
                     _settings.JobRunner,
                     _settings.Serializer,
@@ -157,7 +157,7 @@ namespace MassiveJobs.Core
             var periodicWorker = new WorkerScheduled(
                MessageBroker,
                _settings.PeriodicQueueName,
-               _settings.ConsumeBatchSize,
+               _settings.PeriodicWorkersBatchSize,
                JobPublisher,
                _settings.JobRunner,
                _settings.Serializer,
@@ -172,7 +172,7 @@ namespace MassiveJobs.Core
             var errorWorker = new WorkerScheduled(
                 MessageBroker,
                 _settings.ErrorQueueName,
-                _settings.ConsumeBatchSize,
+                _settings.ScheduledWorkersBatchSize,
                 JobPublisher,
                 _settings.JobRunner,
                 _settings.Serializer,

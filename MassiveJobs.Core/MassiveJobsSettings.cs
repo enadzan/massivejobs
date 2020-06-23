@@ -12,9 +12,13 @@
 
         public int ImmediateWorkersCount { get; set; } = 2;
         public int ScheduledWorkersCount { get; set; } = 2;
+        public int PeriodicWorkersCount { get; set; } = 2;
 
         public ushort PublishBatchSize { get; set; } = 100;
-        public ushort ConsumeBatchSize { get; set; } = 1000;
+
+        public ushort ImmediateWorkersBatchSize { get; set; } = 100;
+        public ushort ScheduledWorkersBatchSize { get; set; } = 100;
+        public ushort PeriodicWorkersBatchSize { get; set; } = 100;
 
         public string ImmediateQueueNameTemplate { get; set; }
         public string ScheduledQueueNameTemplate { get; set; }
