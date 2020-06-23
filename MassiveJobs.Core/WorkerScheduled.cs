@@ -163,8 +163,7 @@ namespace MassiveJobs.Core
             {
                 using (var serviceScope = ServiceScopeFactory.SafeCreateScope())
                 {
-                    JobRunner.RunJobs(JobPublisher, batch.Values, serviceScope, _cancellationTokenSource.Token)
-                        .Wait();
+                    JobRunner.RunJobs(JobPublisher, batch.Values, serviceScope, _cancellationTokenSource.Token);
 
                     foreach (var kvp in batch)
                     {

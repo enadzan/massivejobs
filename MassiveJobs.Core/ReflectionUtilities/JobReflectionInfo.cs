@@ -4,17 +4,34 @@ namespace MassiveJobs.Core.ReflectionUtilities
 {
     public class JobReflectionInfo
     {
-        public ConstructorInfo Ctor1 { get; }
-        public ConstructorInfo Ctor2 { get; }
-        public MethodInfo Perf1 { get; }
-        public MethodInfo Perf2 { get; }
+        public ConstructorInfo Ctor { get; }
+        public ConstructorType CtorType { get; }
 
-        public JobReflectionInfo(ConstructorInfo ctor1, ConstructorInfo ctor2, MethodInfo perf1, MethodInfo perf2)
+        public MethodInfo PerfMethod { get; }
+        public PerformMethodType PerfMethodType { get; }
+
+        public JobReflectionInfo(ConstructorInfo ctor, ConstructorType ctorType, MethodInfo perfMethod, PerformMethodType perfMethodType)
         {
-            Ctor1 = ctor1;
-            Ctor2 = ctor2;
-            Perf1 = perf1;
-            Perf2 = perf2;
+            Ctor = ctor;
+            CtorType = ctorType;
+            PerfMethod = perfMethod;
+            PerfMethodType = perfMethodType;
         }
     }
+
+    public enum ConstructorType
+    {
+        Other = 0,
+        NoArgs = 1,
+        NeedsPublisher = 2
+    }
+
+    public enum PerformMethodType
+    {
+        NoArgs = 0,
+        NeedsArgs = 1,
+        NeedsCancellationToken = 2,
+        NeedsArgsAndCancellationToken = 3
+    }
+
 }

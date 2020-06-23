@@ -46,31 +46,67 @@ namespace MassiveJobs.Core.ReflectionUtilities
                     cache.Add(jobType, argTypeToInfoMap);
                 }
 
-                ConstructorInfo c1 = null, c2 = null;
-                MethodInfo m1 = null, m2 = null;
+                ConstructorInfo c = null;
+                ConstructorType cType = ConstructorType.Other;
 
                 foreach (var ctorArg in ctorArgs)
                 {
-                    c1 = jobType.GetConstructor(new[] { typeof(IJobPublisher) });
-                    if (c1 != null) break;
-                }
+                    c = jobType.GetConstructor(new[] { ctorArg });
 
-                if (c1 == null)
-                {
-                    c2 = jobType.GetConstructor(Type.EmptyTypes);
-                }
-
-                m1 = jobType.GetMethod(methodName, new[] { argsType, typeof(CancellationToken) });
-                if (m1 == null)
-                {
-                    m2 = jobType.GetMethod(methodName, new[] { argsType });
-                    if (m2 == null)
+                    if (c != null)
                     {
-                        throw new Exception($"Invalid type '{jobType}' for a job. {methodName} method not found.");
+                        cType = ConstructorType.NeedsPublisher;
+                        break;
                     }
                 }
 
-                reflectionInfo = new JobReflectionInfo(c1, c2, m1, m2);
+                if (c == null)
+                {
+                    c = jobType.GetConstructor(Type.EmptyTypes);
+                    if (c != null)
+                    {
+                        cType = ConstructorType.NoArgs;
+                    }
+                }
+
+                MethodInfo m;
+                PerformMethodType mType;
+
+                if (argsType == typeof(VoidArgs))
+                {
+                    mType = PerformMethodType.NeedsCancellationToken;
+                    m = jobType.GetMethod(methodName, new[] { typeof(CancellationToken) });
+
+                    if (m == null)
+                    {
+                        mType = PerformMethodType.NoArgs;
+                        m = jobType.GetMethod(methodName, Type.EmptyTypes);
+
+                        if (m == null)
+                        {
+                            throw new Exception($"Invalid type '{jobType}' for a job. {methodName} method with appropriate arguments not found.");
+                        }
+                    }
+                }
+                else
+                {
+                    mType = PerformMethodType.NeedsArgsAndCancellationToken;
+                    m = jobType.GetMethod(methodName, new[] { argsType, typeof(CancellationToken) });
+
+                    if (m == null)
+                    {
+                        mType = PerformMethodType.NeedsArgs;
+                        m = jobType.GetMethod(methodName, new[] { argsType });
+
+                        if (m == null)
+                        {
+                            throw new Exception($"Invalid type '{jobType}' for a job. {methodName} method with appropriate arguments not found.");
+                        }
+                    }
+                }
+
+                reflectionInfo = new JobReflectionInfo(c, cType, m, mType);
+
                 argTypeToInfoMap.Add(argsType, reflectionInfo);
 
                 return reflectionInfo;

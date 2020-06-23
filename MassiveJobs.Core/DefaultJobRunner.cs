@@ -16,36 +16,15 @@ namespace MassiveJobs.Core
             _defaultJobTimeout = defaultJobTimeoutMs;
         }
 
-        public async Task RunJobs(IJobPublisher publisher, IEnumerable<JobInfo> jobs, IServiceScope serviceScope, CancellationToken cancellationToken)
+        public void RunJobs(IJobPublisher publisher, IEnumerable<JobInfo> jobs, IServiceScope serviceScope, CancellationToken cancellationToken)
         {
-            var runningTasks = new List<Task>();
-            var runningJobs = new List<JobInfo>();
-
             foreach (var jobInfo in jobs)
             {
-                runningJobs.Add(jobInfo);
-                runningTasks.Add(Run(publisher, jobInfo, serviceScope, cancellationToken));
-            }
-
-            while (runningTasks.Count > 0)
-            {
-                var completedTask = await Task.WhenAny(runningTasks)
-                    .ConfigureAwait(false);
-
-                var position = runningTasks.IndexOf(completedTask);
-                if (position < 0) continue; // should not happen
-
-                if (completedTask.IsCanceled || completedTask.IsFaulted)
-                {
-                    publisher.RescheduleJob(runningJobs[position], completedTask.Exception);
-                }
-
-                runningTasks.RemoveAt(position);
-                runningJobs.RemoveAt(position);
+                Run(publisher, jobInfo, serviceScope, cancellationToken);
             }
         }
 
-        private async Task Run(IJobPublisher publisher, JobInfo jobInfo, IServiceScope serviceScope, CancellationToken cancellationToken)
+        private void Run(IJobPublisher publisher, JobInfo jobInfo, IServiceScope serviceScope, CancellationToken cancellationToken)
         {
             try
             {
@@ -57,8 +36,7 @@ namespace MassiveJobs.Core
                     {
                         try
                         {
-                            await InvokePerform(publisher, jobInfo, serviceScope, combinedTokenSource.Token)
-                                .ConfigureAwait(false);
+                            InvokePerform(publisher, jobInfo, serviceScope, combinedTokenSource.Token);
                         }
                         catch (OperationCanceledException)
                         {
@@ -75,41 +53,54 @@ namespace MassiveJobs.Core
             }
         }
 
-        private Task InvokePerform(IJobPublisher publisher, JobInfo jobInfo, IServiceScope serviceScope, CancellationToken cancellationToken)
+        private void InvokePerform(IJobPublisher publisher, JobInfo jobInfo, IServiceScope serviceScope, CancellationToken cancellationToken)
         {
             var reflectionInfo = ReflectionUtilities.ReflectionCache.GetJobReflectionInfo(jobInfo.JobType, jobInfo.ArgsType);
 
             object job;
 
-            if (reflectionInfo.Ctor1 != null)
+            switch (reflectionInfo.CtorType)
             {
-                job = reflectionInfo.Ctor1.Invoke(new[] { publisher });
+                case ReflectionUtilities.ConstructorType.NoArgs:
+                    job = reflectionInfo.Ctor.Invoke(null);
+                    break;
+                case ReflectionUtilities.ConstructorType.NeedsPublisher:
+                    job = reflectionInfo.Ctor.Invoke(new[] { publisher });
+                    break;
+                default:
+                    job = serviceScope.GetService(jobInfo.JobType);
+                    break;
             }
-            else if (reflectionInfo.Ctor2 != null)
+                
+            if (job == null)
             {
-                job = reflectionInfo.Ctor2.Invoke(null);
-            }
-            else
-            {
-                job = serviceScope.GetService(jobInfo.JobType);
-                if (job == null)
-                {
-                    throw new Exception($"Job type {jobInfo.JobType} is not registered in service scope and appropriate constructor does not exist!");
-                }
+                throw new Exception($"Job type {jobInfo.JobType} is not registered in service scope and appropriate constructor does not exist!");
             }
 
             object result;
 
-            if (reflectionInfo.Perf1 != null)
+            switch (reflectionInfo.PerfMethodType)
             {
-                result = reflectionInfo.Perf1.Invoke(job, new[] { jobInfo.Args, cancellationToken });
-            }
-            else
-            {
-                result = reflectionInfo.Perf2.Invoke(job, new[] { jobInfo.Args });
+                case ReflectionUtilities.PerformMethodType.NoArgs:
+                    result = reflectionInfo.PerfMethod.Invoke(job, null);
+                    break;
+                case ReflectionUtilities.PerformMethodType.NeedsArgs:
+                    result = reflectionInfo.PerfMethod.Invoke(job, new object[] { jobInfo.Args });
+                    break;
+                case ReflectionUtilities.PerformMethodType.NeedsCancellationToken:
+                    result = reflectionInfo.PerfMethod.Invoke(job, new object[] { cancellationToken });
+                    break;
+                case ReflectionUtilities.PerformMethodType.NeedsArgsAndCancellationToken:
+                    result = reflectionInfo.PerfMethod.Invoke(job, new object[] { jobInfo.Args, cancellationToken });
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(reflectionInfo.PerfMethodType));
             }
 
-            return result == null ? Task.CompletedTask : (Task)result;
+            if (result != null && result is Task taskResult)
+            {
+                taskResult.Wait(cancellationToken);
+            }
         }
     }
 }

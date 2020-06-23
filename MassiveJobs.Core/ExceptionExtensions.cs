@@ -19,7 +19,7 @@ namespace MassiveJobs.Core
                 ex = ex.InnerException;
             }
 
-            var stackTraceLines = ex.StackTrace
+            var stackTraceLines = (ex.StackTrace ?? "")
                 .Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries)
                 .Take(10);
 

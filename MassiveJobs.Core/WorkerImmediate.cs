@@ -40,8 +40,7 @@ namespace MassiveJobs.Core
 
             if (batch.Count > 0)
             {
-                JobRunner.RunJobs(JobPublisher, batch, serviceScope, cancellationToken)
-                    .Wait();
+                JobRunner.RunJobs(JobPublisher, batch, serviceScope, cancellationToken);
             }
 
             if (lastDeliveryTag.HasValue)

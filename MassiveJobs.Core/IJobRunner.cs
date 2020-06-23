@@ -6,6 +6,6 @@ namespace MassiveJobs.Core
 {
     public interface IJobRunner
     {
-        Task RunJobs(IJobPublisher publisher, IEnumerable<JobInfo> jobs, IServiceScope serviceScope, CancellationToken cancellationToken);
+        void RunJobs(IJobPublisher publisher, IEnumerable<JobInfo> jobs, IServiceScope serviceScope, CancellationToken cancellationToken);
     }
 }
