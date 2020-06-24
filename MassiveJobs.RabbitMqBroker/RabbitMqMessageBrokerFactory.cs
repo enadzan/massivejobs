@@ -16,10 +16,11 @@ namespace MassiveJobs.RabbitMqBroker
         public IMessageBroker CreateMessageBroker(MessageBrokerType brokerType)
         {
             return new RabbitMqMessageBroker(
-                _rabbitMqSettings, 
-                _massiveJobsSettings, 
+                _rabbitMqSettings,
+                _massiveJobsSettings,
                 brokerType == MessageBrokerType.JobPublisher ? true : false,
-                _massiveJobsSettings.LoggerFactory.SafeCreateLogger<RabbitMqMessageBroker>());
+                _massiveJobsSettings.LoggerFactory.SafeCreateLogger<RabbitMqMessageBroker>()
+            );
         }
     }
 }

@@ -36,7 +36,7 @@ namespace MassiveJobs.RabbitMqBroker
                 VirtualHost = rabbitMqSettings.VirtualHost,
                 AutomaticRecoveryEnabled = automaticRecoveryEnabled,
                 TopologyRecoveryEnabled = automaticRecoveryEnabled,
-                RequestedHeartbeat = TimeSpan.FromSeconds(60),
+                RequestedHeartbeat = TimeSpan.FromSeconds(10),
                 Ssl =
                 {
                     Enabled = rabbitMqSettings.SslEnabled,
@@ -63,8 +63,7 @@ namespace MassiveJobs.RabbitMqBroker
                 Connection.ConnectionUnblocked -= ConnectionOnConnectionUnblocked;
                 Connection.ConnectionShutdown -= ConnectionOnConnectionShutdown;
 
-                Connection.SafeClose();
-                Connection.SafeDispose();
+                Connection.SafeClose(Logger);
                 Connection = null;
             }
         }
@@ -109,6 +108,7 @@ namespace MassiveJobs.RabbitMqBroker
             try
             {
                 Disconnected?.Invoke(this);
+                CloseConnection();
             }
             catch (Exception ex)
             {
@@ -148,13 +148,24 @@ namespace MassiveJobs.RabbitMqBroker
         public virtual IMessageConsumer CreateConsumer(string queueName)
         {
             EnsureConnectionExists();
-            return new RabbitMqMessageConsumer(Connection, queueName, _rabbitMqSettings.PrefetchCount);
+
+            return new RabbitMqMessageConsumer(
+                Connection,
+                queueName,
+                _rabbitMqSettings.PrefetchCount,
+                _massiveJobsSettings.LoggerFactory.SafeCreateLogger<RabbitMqMessageConsumer>()
+            );
         }
 
         public virtual IMessagePublisher CreatePublisher()
         {
             EnsureConnectionExists();
-            return new RabbitMqMessagePublisher(Connection, _rabbitMqSettings);
+
+            return new RabbitMqMessagePublisher(
+                Connection, 
+                _rabbitMqSettings, 
+                _massiveJobsSettings.LoggerFactory.SafeCreateLogger<RabbitMqMessageConsumer>()
+            );
         }
 
         public virtual void DeclareTopology()
@@ -187,7 +198,7 @@ namespace MassiveJobs.RabbitMqBroker
                 DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.FailedQueueName, _massiveJobsSettings.MaxQueueLength);
                 DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.StatsQueueName, 1000, true, true);
 
-                model.SafeClose();
+                model.SafeClose(Logger);
             }
         }
 

@@ -1,28 +1,35 @@
 ﻿using RabbitMQ.Client;
+using System;
+
+using MassiveJobs.Core;
 
 namespace MassiveJobs.RabbitMqBroker
 {
     public static class ConnectionExtensions
     {
-        public static void SafeClose(this IConnection connection)
+        public static void SafeClose(this IConnection connection, ILogger logger = null)
         {
             try
             {
-                connection?.Close();
+                if (connection == null || !connection.IsOpen) return;
+                connection.Close();
             }
-            catch
+            catch (Exception ex)
             {
+                logger?.LogError(ex, "Failed closing RabbitMQ connection");
             }
         }
 
-        public static void SafeClose(this IModel model)
+        public static void SafeClose(this IModel model, ILogger logger = null)
         {
             try
             {
-                model?.Close();
+                if (model == null || model.IsClosed) return;
+                model.Close();
             }
-            catch
+            catch (Exception ex)
             {
+                logger?.LogError(ex, "Failed closing RabbitMQ model");
             }
         }
     }

@@ -9,11 +9,13 @@ namespace MassiveJobs.RabbitMqBroker
     {
         private readonly IModel _model;
         private readonly EventingBasicConsumer _consumer;
+        private readonly ILogger _logger;
 
         public event MessageReceivedHandler MessageReceived;
         
-        public RabbitMqMessageConsumer(IConnection connection, string queueName, ushort prefetchCount)
+        public RabbitMqMessageConsumer(IConnection connection, string queueName, ushort prefetchCount, ILogger logger)
         {
+            _logger = logger;
             _model = connection.CreateModel();
 
             _model.BasicQos(0, prefetchCount, false);
@@ -31,8 +33,7 @@ namespace MassiveJobs.RabbitMqBroker
                 _consumer.Received -= ConsumerOnReceived;
             }
 
-            _model.SafeClose();
-            _model.SafeDispose();
+            _model.SafeClose(_logger);
         }
        
         public void AckBatchProcessed(ulong lastDeliveryTag)

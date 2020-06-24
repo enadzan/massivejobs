@@ -10,13 +10,14 @@ namespace MassiveJobs.RabbitMqBroker
         private readonly IModel _model;
         private readonly IBasicProperties _props;
         private readonly RabbitMqSettings _settings;
+        private readonly ILogger _logger;
 
         public bool IsOk => _model.IsOpen;
 
-        public RabbitMqMessagePublisher(IConnection connection, RabbitMqSettings settings)
+        public RabbitMqMessagePublisher(IConnection connection, RabbitMqSettings settings, ILogger logger)
         {
             _settings = settings;
-
+            _logger = logger;
             _model = connection.CreateModel();
             _model.ConfirmSelect();
 
@@ -25,8 +26,7 @@ namespace MassiveJobs.RabbitMqBroker
 
         public void Dispose()
         {
-            _model.SafeClose();
-            _model.SafeDispose();
+            _model.SafeClose(_logger);
         }
 
         public void Publish(string routingKey, ReadOnlyMemory<byte> body, string typeTag, bool persistent)

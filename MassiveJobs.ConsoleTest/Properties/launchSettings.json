@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "MassiveJobs.ConsoleTest": {
+      "commandName": "Project",
+      "commandLineArgs": "periodic"
+    }
+  }
+}
