@@ -20,6 +20,7 @@ namespace MassiveJobs.Core
         {
             foreach (var jobInfo in jobs)
             {
+                if (cancellationToken.IsCancellationRequested) break;
                 Run(publisher, jobInfo, serviceScope, cancellationToken);
             }
         }

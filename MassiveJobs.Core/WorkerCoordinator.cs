@@ -28,18 +28,20 @@ namespace MassiveJobs.Core
 
         public virtual void Dispose()
         {
-            StopWorkers();
-            DisposeBroker();
+            lock (WorkersLock)
+            {
+                StopWorkers();
+                DisposeBroker();
+            }
         }
 
         public void StartWorkers()
         {
-            try
+            lock (WorkersLock)
             {
-                lock (WorkersLock)
+                if (Workers.Count > 0) return;
+                try
                 {
-                    if (Workers.Count > 0) return;
-
                     EnsureBrokerExists();
                     CreateWorkers();
 
@@ -48,21 +50,21 @@ namespace MassiveJobs.Core
                         worker.Start();
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Failed starting workers");
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Failed starting workers");
+                    StopWorkers();
 
-                StopWorkers();
-                _reconnectTimer.Change(5 * 1000, Timeout.Infinite);
+                    _reconnectTimer.Change(5 * 1000, Timeout.Infinite);
+                }
             }
         }
 
         public void StopWorkers()
         {
-            try
+            lock (WorkersLock)
             {
-                lock (WorkersLock)
+                try
                 {
                     foreach (var worker in Workers)
                     {
@@ -79,10 +81,10 @@ namespace MassiveJobs.Core
 
                     Workers.Clear();
                 }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Stopping workers failed");
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Stopping workers failed");
+                }
             }
         }
 
@@ -103,12 +105,17 @@ namespace MassiveJobs.Core
             if (MessageBroker != null) return;
 
             MessageBroker = _settings.MessageBrokerFactory.CreateMessageBroker();
+            MessageBroker.Disconnected += MessageBrokerDisconnected;
             MessageBroker.DeclareTopology();
 
             OnMessageBrokerCreated();
         }
 
         protected virtual void OnMessageBrokerCreated()
+        {
+        }
+
+        protected virtual void OnMessageBrokerDisposing()
         {
         }
 
@@ -190,12 +197,41 @@ namespace MassiveJobs.Core
             StartWorkers();
         }
 
-        private void DisposeBroker()
+        /// <summary>
+        /// This can be called from a different thread so must be in lock
+        /// </summary>
+        /// <param name="sender"></param>
+        private void MessageBrokerDisconnected(IMessageBroker sender)
         {
             lock (WorkersLock)
             {
-                MessageBroker.SafeDispose();
+                try
+                {
+                    StopWorkers();
+                    DisposeBroker();
+                }
+                finally
+                {
+                    _reconnectTimer.Change(5 * 1000, Timeout.Infinite);
+                }
             }
+        }
+
+        private void DisposeBroker()
+        {
+            if (MessageBroker == null) return;
+
+            try
+            {
+                OnMessageBrokerDisposing();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error in call to OnMessageBrokerDisposing");
+            }
+
+            MessageBroker.SafeDispose();
+            MessageBroker = null;
         }
     }
 }

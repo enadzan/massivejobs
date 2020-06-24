@@ -7,8 +7,12 @@ namespace MassiveJobs.Core
         IMessageBroker CreateMessageBroker();
     }
 
+    public delegate void MessageBrokerDisconnectedHandler(IMessageBroker sender);
+
     public interface IMessageBroker: IDisposable
     {
+        event MessageBrokerDisconnectedHandler Disconnected;
+
         IMessageConsumer CreateConsumer(string queueName);
         IMessagePublisher CreatePublisher();
 
@@ -21,7 +25,6 @@ namespace MassiveJobs.Core
     {
         event MessageReceivedHandler MessageReceived;
 
-        bool IsOk { get; }
         void AckBatchProcessed(ulong lastDeliveryTag);
         void AckMessageProcessed(ulong deliveryTag);
     }

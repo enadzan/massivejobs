@@ -26,6 +26,10 @@ namespace MassiveJobs.Core.Memory
         private readonly MassiveJobsSettings _settings;
         private readonly InMemoryMessages _messages;
 
+#pragma warning disable CS0067
+        public event MessageBrokerDisconnectedHandler Disconnected;
+#pragma warning restore CS0067
+
         public InMemoryMessageBroker(MassiveJobsSettings settings, InMemoryMessages messages)
         {
             _settings = settings;
@@ -113,8 +117,6 @@ namespace MassiveJobs.Core.Memory
         private volatile bool _disposed;
 
         public event MessageReceivedHandler MessageReceived;
-
-        public bool IsOk => true;
 
         public InMemoryMessageConsumer(string queueName, InMemoryMessages messages)
         {

@@ -82,11 +82,6 @@ namespace MassiveJobs.Core
             ClearQueue();
         }
 
-        protected bool CheckConsumer()
-        {
-            return _messageConsumer != null && _messageConsumer.IsOk;
-        }
-
         protected bool TryDeserializeJob(RawMessage rawMessage, out JobInfo job)
         {
             job = null;
@@ -100,8 +95,6 @@ namespace MassiveJobs.Core
 
         protected override void ProcessMessageBatch(List<RawMessage> messages, CancellationToken cancellationToken, out int pauseSec)
         {
-            if (!CheckConsumer()) throw new Exception("Consumer is not OK");
-
             var serviceScope = ServiceScopeFactory.SafeCreateScope();
             try
             {
