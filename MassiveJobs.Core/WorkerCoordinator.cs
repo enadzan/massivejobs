@@ -104,7 +104,7 @@ namespace MassiveJobs.Core
         {
             if (MessageBroker != null) return;
 
-            MessageBroker = _settings.MessageBrokerFactory.CreateMessageBroker();
+            MessageBroker = _settings.MessageBrokerFactory.CreateMessageBroker(MessageBrokerType.WorkerCoordinator);
             MessageBroker.Disconnected += MessageBrokerDisconnected;
             MessageBroker.DeclareTopology();
 

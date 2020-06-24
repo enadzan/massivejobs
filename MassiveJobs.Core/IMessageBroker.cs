@@ -2,9 +2,11 @@
 
 namespace MassiveJobs.Core
 {
+    public enum MessageBrokerType { JobPublisher = 0, WorkerCoordinator = 1 };
+
     public interface IMessageBrokerFactory
     {
-        IMessageBroker CreateMessageBroker();
+        IMessageBroker CreateMessageBroker(MessageBrokerType brokerType);
     }
 
     public delegate void MessageBrokerDisconnectedHandler(IMessageBroker sender);

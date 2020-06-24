@@ -15,7 +15,7 @@ namespace MassiveJobs.Core.Memory
             Messages = new InMemoryMessages();
         }
 
-        public IMessageBroker CreateMessageBroker()
+        public IMessageBroker CreateMessageBroker(MessageBrokerType brokerType)
         {
             return new InMemoryMessageBroker(_settings, Messages);
         }

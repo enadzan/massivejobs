@@ -255,7 +255,7 @@ namespace MassiveJobs.Core
             
             try
             {
-                MessageBroker = Settings.MessageBrokerFactory.CreateMessageBroker();
+                MessageBroker = Settings.MessageBrokerFactory.CreateMessageBroker(MessageBrokerType.JobPublisher);
                 MessageBroker.DeclareTopology();
 
                 PublishersPool = new PublishersPool(MessageBroker, 2);
