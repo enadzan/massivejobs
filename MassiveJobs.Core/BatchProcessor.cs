@@ -10,7 +10,7 @@ namespace MassiveJobs.Core
     {
         private readonly int _batchSize;
 
-        private readonly AutoResetEvent _stoppingSignal = new AutoResetEvent(false);
+        private readonly ManualResetEvent _stoppingSignal = new ManualResetEvent(false);
         private readonly object _startStopLock = new object();
 
         private readonly ConcurrentQueue<TMessage> _messages;
@@ -35,7 +35,8 @@ namespace MassiveJobs.Core
 
         public virtual void Dispose()
         {
-            Stop();
+            BeginStop();
+            WaitUntilStopped();
 
             _messageAddedSignal.Dispose();
             _stoppingSignal.Dispose();
@@ -46,6 +47,8 @@ namespace MassiveJobs.Core
             lock (_startStopLock)
             {
                 if (_processorThread != null) return;
+
+                _stoppingSignal.Reset();
 
                 Logger.LogDebug($"Starting batch processor");
 
@@ -58,7 +61,7 @@ namespace MassiveJobs.Core
             }
         }
 
-        public void Stop()
+        public void BeginStop()
         {
             lock (_startStopLock)
             {
@@ -66,11 +69,18 @@ namespace MassiveJobs.Core
 
                 Logger.LogDebug($"Stopping batch processor");
 
+                OnStopBegin();
+
                 _cancellationTokenSource.Cancel();
                 _messageAddedSignal.Set(); //to speed up the shutdown
-            
-                _stoppingSignal.WaitOne();
+            }
+        }
 
+        public void WaitUntilStopped()
+        {
+            lock (_startStopLock)
+            {
+                _stoppingSignal.WaitOne();
                 Logger.LogDebug($"Batch processor stopped");
             }
         }
@@ -91,6 +101,10 @@ namespace MassiveJobs.Core
         }
 
         protected virtual void OnStart()
+        {
+        }
+
+        protected virtual void OnStopBegin()
         {
         }
 
@@ -151,7 +165,7 @@ namespace MassiveJobs.Core
             _cancellationTokenSource = null;
             _processorThread = null;
 
-            OnStopSafe();
+            TryOnStop();
 
             _stoppingSignal.Set();
 
@@ -161,7 +175,7 @@ namespace MassiveJobs.Core
             }
         }
 
-        private void OnStopSafe()
+        private void TryOnStop()
         {
             try
             {

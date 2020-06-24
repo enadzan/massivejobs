@@ -190,13 +190,15 @@ namespace MassiveJobs.Core.Tests
         public void TestScheduleWithCancelledJobs()
         {
             InMemoryMessages messages = null;
-            string errorQueueName = null;
+            var immediateWorkersCount = 0;
+            var immediateWorkersNameTemplate = "";
 
             using var publisher = InMemoryPublisherBuilder.CreateBuilder()
                 .Configure(s =>
                 {
                     messages = ((InMemoryMessageBrokerFactory)s.MessageBrokerFactory).Messages;
-                    errorQueueName = s.ErrorQueueName;
+                    immediateWorkersCount = s.ImmediateWorkersCount;
+                    immediateWorkersNameTemplate = s.ImmediateQueueNameTemplate;
                 })
                 .Build();
 
@@ -207,7 +209,15 @@ namespace MassiveJobs.Core.Tests
             publisher.StopJobWorkers();
 
             Assert.AreEqual(0, _performCount);
-            Assert.AreEqual(1, messages.GetCount(errorQueueName));
+
+            var remainingCount = 0;
+
+            for (var i = 0; i < immediateWorkersCount; i++)
+            {
+                remainingCount += messages.GetCount(string.Format(immediateWorkersNameTemplate, i));
+            }
+
+            Assert.AreEqual(1, remainingCount);
         }
 
         [TestMethod]

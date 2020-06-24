@@ -70,21 +70,33 @@ namespace MassiveJobs.Core
                     {
                         try
                         {
-                            worker.Stop();
-                            worker.SafeDispose();
+                            worker.BeginStop();
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogError(ex, $"Begin stop for a worker failed");
+                        }
+                    }
+
+                    foreach (var worker in Workers)
+                    {
+                        try
+                        {
+                            worker.WaitUntilStopped();
+                            worker.SafeDispose(Logger);
                         }
                         catch (Exception ex)
                         {
                             Logger.LogError(ex, $"Stopping a worker failed");
                         }
                     }
-
-                    Workers.Clear();
                 }
                 catch (Exception ex)
                 {
                     Logger.LogError(ex, "Stopping workers failed");
                 }
+                
+                Workers.Clear();
             }
         }
 
@@ -161,7 +173,7 @@ namespace MassiveJobs.Core
                 Workers.Add(worker);
             }
 
-            for (var i = 0; i < _settings.ScheduledWorkersCount; i++)
+            for (var i = 0; i < _settings.PeriodicWorkersCount; i++)
             {
                 var queueName = string.Format(_settings.PeriodicQueueNameTemplate, i);
 
@@ -199,6 +211,7 @@ namespace MassiveJobs.Core
 
         private void Reconnect(object state)
         {
+            Logger.LogDebug("Reconnecting");
             StartWorkers();
         }
 
@@ -208,6 +221,7 @@ namespace MassiveJobs.Core
         /// <param name="sender"></param>
         private void MessageBrokerDisconnected(IMessageBroker sender)
         {
+            Logger.LogWarning("Message broker disconnected... stopping workers and disposing broker");
             lock (WorkersLock)
             {
                 try
@@ -217,9 +231,11 @@ namespace MassiveJobs.Core
                 }
                 finally
                 {
+                    Logger.LogDebug("Reconnect timer started");
                     _reconnectTimer.Change(5 * 1000, Timeout.Infinite);
                 }
             }
+            Logger.LogWarning("Message broker disconnected... stopped workers and disposed broker");
         }
 
         private void DisposeBroker()
@@ -235,6 +251,7 @@ namespace MassiveJobs.Core
                 Logger.LogError(ex, "Error in call to OnMessageBrokerDisposing");
             }
 
+            MessageBroker.Disconnected -= MessageBrokerDisconnected;
             MessageBroker.SafeDispose();
             MessageBroker = null;
         }

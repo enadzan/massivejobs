@@ -7,6 +7,7 @@ namespace MassiveJobs.Core
         event Action<Exception> Error;
 
         void Start();
-        void Stop();
+        void BeginStop();
+        void WaitUntilStopped();
     }
 }

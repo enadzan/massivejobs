@@ -43,6 +43,8 @@ namespace MassiveJobs.Core
                 JobRunner.RunJobs(JobPublisher, batch, serviceScope, cancellationToken);
             }
 
+            if (cancellationToken.IsCancellationRequested) return;
+
             if (lastDeliveryTag.HasValue)
             {
                 OnBatchProcessed(lastDeliveryTag.Value);

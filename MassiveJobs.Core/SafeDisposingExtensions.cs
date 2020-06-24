@@ -4,14 +4,21 @@ namespace MassiveJobs.Core
 {
     public static class SafeDisposingExtensions
     {
-        public static void SafeDispose(this IDisposable disposable)
+        public static void SafeDispose(this IDisposable disposable, ILogger logger = null)
         {
             try
             {
-                disposable?.Dispose();
+                if (disposable == null) return;
+
+                if (logger?.IsEnabled(LogLevel.Debug) ?? false) logger.LogDebug($"Disposing {disposable.GetType()}");
+
+                disposable.Dispose();
+
+                if (logger?.IsEnabled(LogLevel.Debug) ?? false) logger.LogDebug($"Disposed {disposable.GetType()}");
             }
-            catch
+            catch (Exception ex)
             {
+                logger?.LogError(ex, "Disposal error");
             }
         }
     }

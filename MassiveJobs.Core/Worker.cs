@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading;
 
 namespace MassiveJobs.Core
@@ -76,7 +75,7 @@ namespace MassiveJobs.Core
             if (_messageConsumer == null) return;
 
             _messageConsumer.MessageReceived -= ConsumerOnMessageReceived;
-            _messageConsumer.SafeDispose();
+            _messageConsumer.SafeDispose(Logger);
             _messageConsumer = null;
 
             ClearQueue();

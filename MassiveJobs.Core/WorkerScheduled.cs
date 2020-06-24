@@ -44,12 +44,12 @@ namespace MassiveJobs.Core
             _timer.Change(CheckIntervalMs, Timeout.Infinite);
         }
 
-        protected override void OnStop()
+        protected override void OnStopBegin()
         {
             _cancellationTokenSource.Cancel();
             _stoppingSignal.WaitOne();
 
-            base.OnStop();
+            base.OnStopBegin();
         }
 
         protected override void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope, CancellationToken cancellationToken, out int pauseSec)
@@ -164,6 +164,8 @@ namespace MassiveJobs.Core
                 using (var serviceScope = ServiceScopeFactory.SafeCreateScope())
                 {
                     JobRunner.RunJobs(JobPublisher, batch.Values, serviceScope, _cancellationTokenSource.Token);
+
+                    if (_cancellationTokenSource.IsCancellationRequested) return;
 
                     foreach (var kvp in batch)
                     {
