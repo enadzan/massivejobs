@@ -15,6 +15,8 @@
 
         public string ExchangeName { get; private set; } = Constants.ExchangeName;
 
+        public ushort PrefetchCount { get; set; } = 100;
+
         /// <summary>
         /// Prefix to be appended to the exchange name and all the queue names.
         /// </summary>

@@ -12,8 +12,6 @@ namespace MassiveJobs.RabbitMqBroker
 
         public event MessageReceivedHandler MessageReceived;
         
-        public bool IsOk => _model.IsOpen && _consumer.IsRunning;
-
         public RabbitMqMessageConsumer(IConnection connection, string queueName, ushort prefetchCount)
         {
             _model = connection.CreateModel();

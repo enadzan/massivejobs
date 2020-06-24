@@ -25,7 +25,7 @@ namespace MassiveJobs.RabbitMqBroker
                 ErrorQueueName = $"{settings.NamePrefix}{Constants.ErrorQueueName}",
                 FailedQueueName = $"{settings.NamePrefix}{Constants.FailedQueueName}",
                 StatsQueueName = $"{settings.NamePrefix}{Constants.StatsQueueName}",
-                PeriodicQueueName = $"{settings.NamePrefix}{Constants.PeriodicQueueName}"
+                PeriodicQueueNameTemplate = $"{settings.NamePrefix}{Constants.PeriodicQueueNameTemplate}"
             };
         }
 

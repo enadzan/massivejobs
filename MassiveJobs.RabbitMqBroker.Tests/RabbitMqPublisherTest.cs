@@ -72,8 +72,8 @@ namespace MassiveJobs.RabbitMqBroker.Tests
 
             Thread.Sleep(1000);
 
-            scheduler.PublishPeriodic<DummyJob, DummyJobArgs>(new DummyJobArgs(), "test_periodic", 1, null, DateTime.UtcNow.AddSeconds(4.5));
-            scheduler.PublishPeriodic<DummyJob, DummyJobArgs>(new DummyJobArgs(), "test_periodic", 1);
+            scheduler.PublishPeriodic<DummyJob>("test_periodic", 1, null, DateTime.UtcNow.AddSeconds(4.5));
+            scheduler.PublishPeriodic<DummyJob>("test_periodic", 1);
 
             Thread.Sleep(6000);
 
@@ -82,10 +82,15 @@ namespace MassiveJobs.RabbitMqBroker.Tests
 
         private class DummyJob
         {
-            public void Perform(DummyJobArgs _)
+            public void Perform()
             {
                 Interlocked.Increment(ref _performCount);
                 System.Diagnostics.Debug.WriteLine(DateTime.UtcNow);
+            }
+
+            public void Perform(DummyJobArgs _)
+            {
+                Interlocked.Increment(ref _performCount);
             }
 
             public void Perform(DummyJobArgs2 _)

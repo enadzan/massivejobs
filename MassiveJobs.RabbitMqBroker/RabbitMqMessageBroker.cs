@@ -19,7 +19,9 @@ namespace MassiveJobs.RabbitMqBroker
         private readonly RabbitMqSettings _rabbitMqSettings;
         private readonly MassiveJobsSettings _massiveJobsSettings;
 
-        public RabbitMqMessageBroker(RabbitMqSettings rabbitMqSettings, MassiveJobsSettings massiveJobsSettings, ILogger logger)
+        public event MessageBrokerDisconnectedHandler Disconnected;
+
+        public RabbitMqMessageBroker(RabbitMqSettings rabbitMqSettings, MassiveJobsSettings massiveJobsSettings, bool automaticRecoveryEnabled, ILogger logger)
         {
             Logger = logger;
 
@@ -32,8 +34,8 @@ namespace MassiveJobs.RabbitMqBroker
                 UserName = rabbitMqSettings.Username,
                 Password = rabbitMqSettings.Password,
                 VirtualHost = rabbitMqSettings.VirtualHost,
-                AutomaticRecoveryEnabled = true,
-                TopologyRecoveryEnabled = true,
+                AutomaticRecoveryEnabled = automaticRecoveryEnabled,
+                TopologyRecoveryEnabled = automaticRecoveryEnabled,
                 RequestedHeartbeat = TimeSpan.FromSeconds(60),
                 Ssl =
                 {
@@ -99,6 +101,19 @@ namespace MassiveJobs.RabbitMqBroker
         private void ConnectionOnConnectionShutdown(object sender, ShutdownEventArgs e)
         {
             Logger.LogError($"Connection shutdown: {e.Cause} / {e.ReplyCode} / {e.ReplyText} ");
+            OnDisconnected();
+        }
+
+        private void OnDisconnected()
+        {
+            try
+            {
+                Disconnected?.Invoke(this);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error in executing Disconnected event handler");
+            }
         }
 
         private void ConnectionOnConnectionUnblocked(object sender, EventArgs e)
@@ -133,7 +148,7 @@ namespace MassiveJobs.RabbitMqBroker
         public virtual IMessageConsumer CreateConsumer(string queueName)
         {
             EnsureConnectionExists();
-            return new RabbitMqMessageConsumer(Connection, queueName, _massiveJobsSettings.ConsumeBatchSize);
+            return new RabbitMqMessageConsumer(Connection, queueName, _rabbitMqSettings.PrefetchCount);
         }
 
         public virtual IMessagePublisher CreatePublisher()
@@ -162,7 +177,12 @@ namespace MassiveJobs.RabbitMqBroker
                     DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
                 }
 
-                DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.PeriodicQueueName, _massiveJobsSettings.MaxQueueLength, false, true);
+                for (var i = 0; i < _massiveJobsSettings.ImmediateWorkersCount; i++)
+                {
+                    var queueName = string.Format(_massiveJobsSettings.PeriodicQueueNameTemplate, i);
+                    DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength, false, true);
+                }
+
                 DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.ErrorQueueName, _massiveJobsSettings.MaxQueueLength);
                 DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.FailedQueueName, _massiveJobsSettings.MaxQueueLength);
                 DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.StatsQueueName, 1000, true, true);

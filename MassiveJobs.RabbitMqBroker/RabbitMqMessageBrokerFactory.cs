@@ -13,9 +13,13 @@ namespace MassiveJobs.RabbitMqBroker
             _massiveJobsSettings = massiveJobsSettings;
         }
 
-        public IMessageBroker CreateMessageBroker()
+        public IMessageBroker CreateMessageBroker(MessageBrokerType brokerType)
         {
-            return new RabbitMqMessageBroker(_rabbitMqSettings, _massiveJobsSettings, _massiveJobsSettings.LoggerFactory.SafeCreateLogger<RabbitMqMessageBroker>());
+            return new RabbitMqMessageBroker(
+                _rabbitMqSettings, 
+                _massiveJobsSettings, 
+                brokerType == MessageBrokerType.JobPublisher ? true : false,
+                _massiveJobsSettings.LoggerFactory.SafeCreateLogger<RabbitMqMessageBroker>());
         }
     }
 }
