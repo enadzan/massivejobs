@@ -4,8 +4,6 @@ namespace MassiveJobs.Core
 {
     public class PeriodicRunInfo
     {
-        public string RunId { get; set; }
-
         /// <summary>
         /// Repeat the job every specified number of seconds. 
         /// </summary>

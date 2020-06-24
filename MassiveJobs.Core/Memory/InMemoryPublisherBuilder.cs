@@ -13,16 +13,7 @@ namespace MassiveJobs.Core.Memory
 
         private InMemoryPublisherBuilder()
         {
-            _massiveJobsSettings = new MassiveJobsSettings
-            {
-                ImmediateQueueNameTemplate = "immediate_{0:#00}",
-                ScheduledQueueNameTemplate = "scheduled_{0:#00}",
-                ErrorQueueName = "error",
-                FailedQueueName = "failed",
-                StatsQueueName = "stats",
-                PeriodicQueueName = "periodic"
-            };
-
+            _massiveJobsSettings = new MassiveJobsSettings();
             _massiveJobsSettings.MessageBrokerFactory = new InMemoryMessageBrokerFactory(_massiveJobsSettings);
         }
 

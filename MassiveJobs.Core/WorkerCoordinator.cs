@@ -161,20 +161,25 @@ namespace MassiveJobs.Core
                 Workers.Add(worker);
             }
 
-            var periodicWorker = new WorkerScheduled(
-               MessageBroker,
-               _settings.PeriodicQueueName,
-               _settings.PeriodicWorkersBatchSize,
-               JobPublisher,
-               _settings.JobRunner,
-               _settings.Serializer,
-               _settings.TypeProvider,
-               _settings.ServiceScopeFactory,
-               _settings.LoggerFactory.SafeCreateLogger<WorkerScheduled>()
-               );
+            for (var i = 0; i < _settings.ScheduledWorkersCount; i++)
+            {
+                var queueName = string.Format(_settings.PeriodicQueueNameTemplate, i);
 
-            periodicWorker.Error += OnWorkerError;
-            Workers.Add(periodicWorker);
+                var periodicWorker = new WorkerScheduled(
+                   MessageBroker,
+                   queueName,
+                   _settings.PeriodicWorkersBatchSize,
+                   JobPublisher,
+                   _settings.JobRunner,
+                   _settings.Serializer,
+                   _settings.TypeProvider,
+                   _settings.ServiceScopeFactory,
+                   _settings.LoggerFactory.SafeCreateLogger<WorkerScheduled>()
+                   );
+
+                periodicWorker.Error += OnWorkerError;
+                Workers.Add(periodicWorker);
+            }
 
             var errorWorker = new WorkerScheduled(
                 MessageBroker,

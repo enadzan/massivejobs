@@ -136,7 +136,8 @@ namespace MassiveJobs.Core
 
             if (jobInfo.PeriodicRunInfo != null)
             {
-                return Settings.PeriodicQueueName;
+                var workerIndex = jobInfo.GetGroupKeyHashCode() % Settings.PeriodicWorkersCount;
+                return FormatRoutingKey(Settings.PeriodicQueueNameTemplate, Settings.PeriodicWorkersCount, ref workerIndex);
             }
 
             if (jobInfo.RunAtUtc > now)

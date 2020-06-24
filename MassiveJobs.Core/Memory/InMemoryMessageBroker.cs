@@ -58,9 +58,13 @@ namespace MassiveJobs.Core.Memory
                 _messages.EnsureQueue(string.Format(_settings.ScheduledQueueNameTemplate, i));
             }
 
+            for (var i = 0; i < _settings.PeriodicWorkersCount; i++)
+            {
+                _messages.EnsureQueue(string.Format(_settings.PeriodicQueueNameTemplate, i));
+            }
+
             _messages.EnsureQueue(_settings.ErrorQueueName);
             _messages.EnsureQueue(_settings.FailedQueueName);
-            _messages.EnsureQueue(_settings.PeriodicQueueName);
         }
 
         public int GetJobCount(string queueName)

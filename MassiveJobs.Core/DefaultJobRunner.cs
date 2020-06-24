@@ -50,7 +50,7 @@ namespace MassiveJobs.Core
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed running job: {jobInfo.JobType} / {jobInfo.ArgsType} / {jobInfo.PeriodicRunInfo?.RunId}");
+                _logger.LogError(ex, $"Failed running job: {jobInfo.JobType} / {jobInfo.ArgsType} / {jobInfo.GroupKey}");
                 publisher.RescheduleJob(jobInfo, ex);
             }
         }

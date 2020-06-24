@@ -66,7 +66,7 @@ namespace MassiveJobs.Core
                 if (job.PeriodicRunInfo != null)
                 {
                     // periodic jobs should not be added twice
-                    if (_periodicJobIds.TryGetValue(job.PeriodicRunInfo.RunId, out var duplicateTags))
+                    if (_periodicJobIds.TryGetValue(job.GroupKey, out var duplicateTags))
                     {
                         duplicateTags.Add(rawMessage.DeliveryTag);
                         continue;
@@ -74,7 +74,7 @@ namespace MassiveJobs.Core
 
                     duplicateTags = new List<ulong>();
 
-                    _periodicJobIds.TryAdd(job.PeriodicRunInfo.RunId, duplicateTags);
+                    _periodicJobIds.TryAdd(job.GroupKey, duplicateTags);
 
                     if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc, DateTime.UtcNow))
                     {
@@ -112,7 +112,7 @@ namespace MassiveJobs.Core
                         if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc, now))
                         {
                             _scheduledJobs.TryRemove(key, out _);
-                            _periodicJobIds.TryRemove(job.PeriodicRunInfo.RunId, out _);
+                            _periodicJobIds.TryRemove(job.GroupKey, out _);
                         }
                     }
                     else
