@@ -20,7 +20,6 @@ namespace MassiveJobs.Core
         {
             foreach (var jobInfo in jobs)
             {
-                if (cancellationToken.IsCancellationRequested) break;
                 Run(publisher, jobInfo, serviceScope, cancellationToken);
             }
         }
@@ -29,6 +28,8 @@ namespace MassiveJobs.Core
         {
             try
             {
+                if (cancellationToken.IsCancellationRequested) throw new OperationCanceledException();
+
                 using (var timeoutTokenSource = new CancellationTokenSource(jobInfo.TimeoutMs ?? _defaultJobTimeout))
                 {
                     var timeoutToken = timeoutTokenSource.Token;

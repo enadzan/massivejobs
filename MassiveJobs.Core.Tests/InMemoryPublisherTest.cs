@@ -27,7 +27,7 @@ namespace MassiveJobs.Core.Tests
 
             publisher.Publish<MockJob, bool>(true);
 
-            Thread.Sleep(50);
+            Thread.Sleep(100);
 
             Assert.AreEqual(1, _performCount);
         }
@@ -41,7 +41,7 @@ namespace MassiveJobs.Core.Tests
 
             publisher.Publish<MockJob, bool>(false);
 
-            Thread.Sleep(50);
+            Thread.Sleep(100);
 
             Assert.AreEqual(-1, _performCount);
         }
@@ -65,7 +65,7 @@ namespace MassiveJobs.Core.Tests
             publisher.Publish<MockJob, bool>(true);
             publisher.Publish<MockJobFailed, bool>(true);
 
-            Thread.Sleep(50);
+            Thread.Sleep(100);
 
             Assert.AreEqual(1, _performCount);
             Assert.AreEqual(1, messages.GetCount(errorQueueName));
