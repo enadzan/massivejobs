@@ -12,7 +12,7 @@ namespace MassiveJobs.Core
 
         public DefaultJobRunner(ILogger logger, int defaultJobTimeoutMs = 5 * 1000)
         {
-            _logger = logger;
+            _logger = logger ?? new DefaultLogger<DefaultJobRunner>();
             _defaultJobTimeout = defaultJobTimeoutMs;
         }
 

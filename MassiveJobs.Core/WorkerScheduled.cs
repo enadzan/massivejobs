@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 
 namespace MassiveJobs.Core
 {
-    public class WorkerScheduled : Worker
+    public sealed class WorkerScheduled : Worker
     {
         private const int CheckIntervalMs = 100;
 
@@ -19,16 +20,13 @@ namespace MassiveJobs.Core
         private CancellationTokenSource _cancellationTokenSource;
 
         public WorkerScheduled(
-            IMessageBroker messageBroker,
-            string queueName,
-            int batchSize,
-            IJobPublisher jobPublisher,
-            IJobRunner jobRunner,
-            IJobSerializer serializer,
-            IJobTypeProvider typeProvider,
-            IServiceScopeFactory scopeFactory,
+            string queueName, 
+            int batchSize, 
+            IMessageConsumer messageConsumer, 
+            IServiceScopeFactory serviceScopeFactory, 
+            IJobPublisher jobPublisher, 
             ILogger logger)
-            : base(messageBroker, queueName, batchSize, jobPublisher, jobRunner, serializer, typeProvider, scopeFactory, logger)
+            : base(queueName, batchSize, messageConsumer, serviceScopeFactory, jobPublisher, logger)
         {
             _timer = new Timer(CheckScheduledJobs);
             _scheduledJobs = new ConcurrentDictionary<ulong, JobInfo>();
@@ -58,7 +56,7 @@ namespace MassiveJobs.Core
 
             foreach (var rawMessage in messages)
             {
-                if (!TryDeserializeJob(rawMessage, out var job))
+                if (!TryDeserializeJob(rawMessage, serviceScope, out var job))
                 {
                     throw new Exception($"Unknown job type: {rawMessage.TypeTag}.");
                 }
@@ -163,7 +161,7 @@ namespace MassiveJobs.Core
             {
                 using (var serviceScope = ServiceScopeFactory.SafeCreateScope())
                 {
-                    JobRunner.RunJobs(JobPublisher, batch.Values, serviceScope, _cancellationTokenSource.Token);
+                    RunJobs(batch.Values.ToList(), serviceScope, _cancellationTokenSource.Token);
 
                     if (_cancellationTokenSource.IsCancellationRequested) return;
 

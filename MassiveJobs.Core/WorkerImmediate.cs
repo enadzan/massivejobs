@@ -4,19 +4,16 @@ using System.Threading;
 
 namespace MassiveJobs.Core
 {
-    public class WorkerImmediate : Worker
+    public sealed class WorkerImmediate : Worker
     {
         public WorkerImmediate(
-            IMessageBroker messageBroker,
-            string queueName,
-            int batchSize,
-            IJobPublisher jobPublisher,
-            IJobRunner jobRunner,
-            IJobSerializer serializer,
-            IJobTypeProvider typeProvider,
-            IServiceScopeFactory scopeFactory,
+            string queueName, 
+            int batchSize, 
+            IMessageConsumer messageConsumer, 
+            IServiceScopeFactory serviceScopeFactory, 
+            IJobPublisher jobPublisher, 
             ILogger logger)
-            : base(messageBroker, queueName, batchSize, jobPublisher, jobRunner, serializer, typeProvider, scopeFactory, logger)
+            : base(queueName, batchSize, messageConsumer, serviceScopeFactory, jobPublisher, logger)
         {
         }
 
@@ -29,7 +26,7 @@ namespace MassiveJobs.Core
 
             foreach (var rawMessage in messages)
             {
-                if (!TryDeserializeJob(rawMessage, out var job))
+                if (!TryDeserializeJob(rawMessage, serviceScope, out var job))
                 {
                     throw new Exception($"Unknown job type: {rawMessage.TypeTag}.");
                 }
@@ -38,10 +35,7 @@ namespace MassiveJobs.Core
                 lastDeliveryTag = rawMessage.DeliveryTag;
             }
 
-            if (batch.Count > 0)
-            {
-                JobRunner.RunJobs(JobPublisher, batch, serviceScope, cancellationToken);
-            }
+            RunJobs(batch, serviceScope, cancellationToken);
 
             if (cancellationToken.IsCancellationRequested) return;
 

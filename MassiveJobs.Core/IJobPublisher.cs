@@ -6,8 +6,5 @@ namespace MassiveJobs.Core
     public interface IJobPublisher : IDisposable
     {
         void Publish(IEnumerable<JobInfo> jobs);
-
-        void StartJobWorkers();
-        void StopJobWorkers();
     }
 }

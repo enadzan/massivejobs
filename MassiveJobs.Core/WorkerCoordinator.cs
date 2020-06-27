@@ -7,42 +7,44 @@ namespace MassiveJobs.Core
     public class WorkerCoordinator: IDisposable
     {
         protected readonly ILogger Logger;
-        protected readonly IJobPublisher JobPublisher;
         protected readonly List<IWorker> Workers;
         protected readonly object WorkersLock = new object();
 
-        protected volatile IMessageBroker MessageBroker;
+        protected readonly IMessageConsumer MessageConsumer;
+        protected readonly IJobPublisher JobPublisher;
 
         private readonly Timer _reconnectTimer;
         private readonly MassiveJobsSettings _settings;
 
-        public WorkerCoordinator(IJobPublisher jobPublisher, MassiveJobsSettings settings, ILogger logger = null)
+        public WorkerCoordinator(MassiveJobsSettings settings, IMessageConsumer messageConsumer, IJobPublisher jobPublisher, ILogger logger = null)
         {
-            _reconnectTimer = new Timer(Reconnect);
             _settings = settings;
+            _reconnectTimer = new Timer(Reconnect);
+
+            Workers = new List<IWorker>();
             Logger = logger ?? settings.LoggerFactory.SafeCreateLogger<WorkerCoordinator>();
 
+            MessageConsumer = messageConsumer;
+            MessageConsumer.Disconnected += MessageBrokerDisconnected;
+
             JobPublisher = jobPublisher;
-            Workers = new List<IWorker>();
         }
 
         public virtual void Dispose()
         {
             lock (WorkersLock)
             {
-                StopWorkers();
-                DisposeBroker();
+                StopJobWorkers();
             }
         }
 
-        public void StartWorkers()
+        public void StartJobWorkers()
         {
             lock (WorkersLock)
             {
                 if (Workers.Count > 0) return;
                 try
                 {
-                    EnsureBrokerExists();
                     CreateWorkers();
 
                     foreach (var worker in Workers)
@@ -53,14 +55,14 @@ namespace MassiveJobs.Core
                 catch (Exception ex)
                 {
                     Logger.LogError(ex, "Failed starting workers");
-                    StopWorkers();
+                    StopJobWorkers();
 
                     _reconnectTimer.Change(5 * 1000, Timeout.Infinite);
                 }
             }
         }
 
-        public void StopWorkers()
+        public void StopJobWorkers()
         {
             lock (WorkersLock)
             {
@@ -104,7 +106,7 @@ namespace MassiveJobs.Core
         {
             try
             {
-                StopWorkers();
+                StopJobWorkers();
             }
             finally
             {
@@ -112,40 +114,20 @@ namespace MassiveJobs.Core
             }
         }
 
-        protected void EnsureBrokerExists()
-        {
-            if (MessageBroker != null) return;
-
-            MessageBroker = _settings.MessageBrokerFactory.CreateMessageBroker(MessageBrokerType.WorkerCoordinator);
-            MessageBroker.Disconnected += MessageBrokerDisconnected;
-            MessageBroker.DeclareTopology();
-
-            OnMessageBrokerCreated();
-        }
-
-        protected virtual void OnMessageBrokerCreated()
-        {
-        }
-
-        protected virtual void OnMessageBrokerDisposing()
-        {
-        }
-
         protected virtual void CreateWorkers()
         {
+            MessageConsumer.Connect();
+
             for (var i = 0; i < _settings.ImmediateWorkersCount; i++)
             {
                 var queueName = string.Format(_settings.ImmediateQueueNameTemplate, i);
 
                 var worker = new WorkerImmediate(
-                    MessageBroker,
                     queueName,
                     _settings.ImmediateWorkersBatchSize,
-                    JobPublisher,
-                    _settings.JobRunner,
-                    _settings.Serializer,
-                    _settings.TypeProvider,
+                    MessageConsumer,
                     _settings.ServiceScopeFactory,
+                    JobPublisher,
                     _settings.LoggerFactory.SafeCreateLogger<WorkerImmediate>()
                     );
 
@@ -158,14 +140,11 @@ namespace MassiveJobs.Core
                 var queueName = string.Format(_settings.ScheduledQueueNameTemplate, i);
 
                 var worker = new WorkerScheduled(
-                    MessageBroker,
                     queueName,
                     _settings.ScheduledWorkersBatchSize,
-                    JobPublisher,
-                    _settings.JobRunner,
-                    _settings.Serializer,
-                    _settings.TypeProvider,
+                    MessageConsumer,
                     _settings.ServiceScopeFactory,
+                    JobPublisher,
                     _settings.LoggerFactory.SafeCreateLogger<WorkerScheduled>()
                     );
 
@@ -178,30 +157,24 @@ namespace MassiveJobs.Core
                 var queueName = string.Format(_settings.PeriodicQueueNameTemplate, i);
 
                 var periodicWorker = new WorkerScheduled(
-                   MessageBroker,
-                   queueName,
-                   _settings.PeriodicWorkersBatchSize,
-                   JobPublisher,
-                   _settings.JobRunner,
-                   _settings.Serializer,
-                   _settings.TypeProvider,
-                   _settings.ServiceScopeFactory,
-                   _settings.LoggerFactory.SafeCreateLogger<WorkerScheduled>()
-                   );
+                    queueName,
+                    _settings.PeriodicWorkersBatchSize,
+                    MessageConsumer,
+                    _settings.ServiceScopeFactory,
+                    JobPublisher,
+                    _settings.LoggerFactory.SafeCreateLogger<WorkerScheduled>()
+                    );
 
                 periodicWorker.Error += OnWorkerError;
                 Workers.Add(periodicWorker);
             }
 
             var errorWorker = new WorkerScheduled(
-                MessageBroker,
                 _settings.ErrorQueueName,
                 _settings.ScheduledWorkersBatchSize,
-                JobPublisher,
-                _settings.JobRunner,
-                _settings.Serializer,
-                _settings.TypeProvider,
+                MessageConsumer,
                 _settings.ServiceScopeFactory,
+                JobPublisher,
                 _settings.LoggerFactory.SafeCreateLogger<WorkerScheduled>()
                 );
 
@@ -212,22 +185,22 @@ namespace MassiveJobs.Core
         private void Reconnect(object state)
         {
             Logger.LogDebug("Reconnecting");
-            StartWorkers();
+            StartJobWorkers();
         }
 
         /// <summary>
         /// This can be called from a different thread so must be in lock
         /// </summary>
         /// <param name="sender"></param>
-        private void MessageBrokerDisconnected(IMessageBroker sender)
+        private void MessageBrokerDisconnected(IMessageConsumer sender)
         {
             Logger.LogWarning("Message broker disconnected... stopping workers and disposing broker");
+
             lock (WorkersLock)
             {
                 try
                 {
-                    StopWorkers();
-                    DisposeBroker();
+                    StopJobWorkers();
                 }
                 finally
                 {
@@ -235,25 +208,8 @@ namespace MassiveJobs.Core
                     _reconnectTimer.Change(5 * 1000, Timeout.Infinite);
                 }
             }
+
             Logger.LogWarning("Message broker disconnected... stopped workers and disposed broker");
-        }
-
-        private void DisposeBroker()
-        {
-            if (MessageBroker == null) return;
-
-            try
-            {
-                OnMessageBrokerDisposing();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error in call to OnMessageBrokerDisposing");
-            }
-
-            MessageBroker.Disconnected -= MessageBrokerDisconnected;
-            MessageBroker.SafeDispose();
-            MessageBroker = null;
         }
     }
 }

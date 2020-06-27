@@ -5,7 +5,7 @@ using System.Threading;
 
 namespace MassiveJobs.Core.Memory
 {
-    class InMemoryMessages
+    public class InMemoryMessages
     {
         private ulong _lastDeliveryTag = 0;
 

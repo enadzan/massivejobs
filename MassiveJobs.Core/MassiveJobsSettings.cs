@@ -2,13 +2,8 @@
 {
     public class MassiveJobsSettings
     {
-        public IMessageBrokerFactory MessageBrokerFactory { get; set; }
-        public IServiceScopeFactory ServiceScopeFactory { get; set; }
         public ILoggerFactory LoggerFactory { get; set; }
-
-        public IJobRunner JobRunner { get; set; }
-        public IJobSerializer Serializer = new DefaultSerializer();
-        public IJobTypeProvider TypeProvider = new DefaultTypeProvider();
+        public IServiceScopeFactory ServiceScopeFactory { get; set; }
 
         public int ImmediateWorkersCount { get; set; } = 2;
         public int ScheduledWorkersCount { get; set; } = 2;

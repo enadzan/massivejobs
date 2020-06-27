@@ -14,11 +14,16 @@ namespace MassiveJobs.Core
         }
     }
 
-    public static class ServiceScopeFactoryExtensions
+    public static class ServiceScopeExtensions
     {
-        public static IServiceScope SafeCreateScope(this IServiceScopeFactory scopeFactory)
+        public static IServiceScope SafeCreateScope(this IServiceScopeFactory serviceScopeFactory)
         {
-            return scopeFactory == null ? new DefaultServiceScope() : scopeFactory.CreateScope();
+            return serviceScopeFactory == null ? new DefaultServiceScope() : serviceScopeFactory.CreateScope();
+        }
+
+        public static TService GetService<TService>(this IServiceScope scope)
+        {
+            return (TService)scope?.GetService(typeof(TService));
         }
     }
 }

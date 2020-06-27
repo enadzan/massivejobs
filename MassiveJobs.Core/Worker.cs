@@ -5,37 +5,24 @@ namespace MassiveJobs.Core
 {
     public abstract class Worker : BatchProcessor<RawMessage>, IWorker
     {
-        private volatile IMessageConsumer _messageConsumer;
+        private readonly IMessageConsumer _messageConsumer;
 
-        protected readonly IMessageBroker MessageBroker;
+        private volatile IMessageReceiver _messageReceiver;
+
         protected readonly string QueueName;
-        protected readonly IJobPublisher JobPublisher;
-        protected readonly IJobRunner JobRunner;
-        protected readonly IJobSerializer Serializer;
-        protected readonly IJobTypeProvider TypeProvider;
         protected readonly IServiceScopeFactory ServiceScopeFactory;
+        protected readonly IJobPublisher JobPublisher;
        
         protected abstract void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope, CancellationToken cancellationToken, out int pauseSec);
 
-        protected Worker(
-            IMessageBroker messageBroker,
-            string queueName,
-            int batchSize,
-            IJobPublisher jobPublisher,
-            IJobRunner jobRunner,
-            IJobSerializer serializer,
-            IJobTypeProvider typeProvider,
-            IServiceScopeFactory scopeFactory,
-            ILogger logger)
+        protected Worker(string queueName, int batchSize, IMessageConsumer messageConsumer, IServiceScopeFactory serviceScopeFactory, IJobPublisher jobPublisher, ILogger logger)
             : base(batchSize, logger)
         {
-            MessageBroker = messageBroker;
+            _messageConsumer = messageConsumer;
+
             QueueName = queueName;
+            ServiceScopeFactory = serviceScopeFactory;
             JobPublisher = jobPublisher;
-            JobRunner = jobRunner;
-            Serializer = serializer;
-            TypeProvider = typeProvider;
-            ServiceScopeFactory = scopeFactory;
         }
 
         protected override void OnStart()
@@ -64,32 +51,48 @@ namespace MassiveJobs.Core
 
         protected void CreateConsumer()
         {
-            if (_messageConsumer != null) return;
+            if (_messageReceiver != null) return;
 
-            _messageConsumer = MessageBroker.CreateConsumer(QueueName);
-            _messageConsumer.MessageReceived += ConsumerOnMessageReceived;
+            _messageReceiver = _messageConsumer.CreateReceiver(QueueName);
+            _messageReceiver.MessageReceived += OnMessageReceived;
+            _messageReceiver.Start();
         }
 
         protected void DisposeConsumer()
         {
-            if (_messageConsumer == null) return;
+            if (_messageReceiver == null) return;
 
-            _messageConsumer.MessageReceived -= ConsumerOnMessageReceived;
-            _messageConsumer.SafeDispose(Logger);
-            _messageConsumer = null;
+            _messageReceiver.MessageReceived -= OnMessageReceived;
+            _messageReceiver.SafeDispose(Logger);
+            _messageReceiver = null;
 
             ClearQueue();
         }
 
-        protected bool TryDeserializeJob(RawMessage rawMessage, out JobInfo job)
+        protected bool TryDeserializeJob(RawMessage rawMessage, IServiceScope serviceScope, out JobInfo job)
         {
             job = null;
 
             var argsTag = rawMessage.TypeTag;
             if (argsTag == null || argsTag == string.Empty) return false;
 
-            job = Serializer.Deserialize(rawMessage.Body, argsTag, TypeProvider);
+            var serializer = serviceScope.GetService<IJobSerializer>() ?? new DefaultSerializer();
+            var typeProvider = serviceScope.GetService<IJobTypeProvider>() ?? new DefaultTypeProvider();
+
+            job = serializer.Deserialize(rawMessage.Body, argsTag, typeProvider);
+
             return job != null;
+        }
+
+        protected void RunJobs(IReadOnlyList<JobInfo> batch, IServiceScope serviceScope, CancellationToken cancellationToken)
+        {
+            if (batch.Count > 0)
+            {
+                var jobRunner = serviceScope.GetService<IJobRunner>()
+                    ?? new DefaultJobRunner(serviceScope.GetService<ILogger<DefaultJobRunner>>());
+
+                jobRunner.RunJobs(JobPublisher, batch, serviceScope, cancellationToken);
+            }
         }
 
         protected override void ProcessMessageBatch(List<RawMessage> messages, CancellationToken cancellationToken, out int pauseSec)
@@ -107,15 +110,15 @@ namespace MassiveJobs.Core
 
         protected void OnBatchProcessed(ulong lastDeliveryTag)
         {
-            _messageConsumer.AckBatchProcessed(lastDeliveryTag);
+            _messageReceiver.AckBatchProcessed(lastDeliveryTag);
         }
 
         protected void OnMessageProcessed(ulong deliveryTag)
         {
-            _messageConsumer.AckMessageProcessed(deliveryTag);
+            _messageReceiver.AckMessageProcessed(deliveryTag);
         }
 
-        private void ConsumerOnMessageReceived(IMessageConsumer sender, RawMessage message)
+        private void OnMessageReceived(IMessageReceiver sender, RawMessage message)
         {
             // constructing string is expensive and this is hot path
             if (Logger.IsEnabled(LogLevel.Trace))

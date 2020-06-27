@@ -3,51 +3,16 @@ using System.Threading;
 
 namespace MassiveJobs.Core.Memory
 {
-    class InMemoryMessageBrokerFactory : IMessageBrokerFactory
-    {
-        private readonly MassiveJobsSettings _settings;
-
-        public InMemoryMessages Messages { get; }
-
-        public InMemoryMessageBrokerFactory(MassiveJobsSettings settings)
-        {
-            _settings = settings;
-            Messages = new InMemoryMessages();
-        }
-
-        public IMessageBroker CreateMessageBroker(MessageBrokerType brokerType)
-        {
-            return new InMemoryMessageBroker(_settings, Messages);
-        }
-    }
-
-    class InMemoryMessageBroker : IMessageBroker
+    public class InMemoryMessagePublisher : IMessagePublisher
     {
         private readonly MassiveJobsSettings _settings;
         private readonly InMemoryMessages _messages;
 
-#pragma warning disable CS0067
-        public event MessageBrokerDisconnectedHandler Disconnected;
-#pragma warning restore CS0067
-
-        public InMemoryMessageBroker(MassiveJobsSettings settings, InMemoryMessages messages)
+        public InMemoryMessagePublisher(MassiveJobsSettings settings, InMemoryMessages messages)
         {
             _settings = settings;
             _messages = messages;
-        }
 
-        public IMessageConsumer CreateConsumer(string queueName)
-        {
-            return new InMemoryMessageConsumer(queueName, _messages);
-        }
-
-        public IMessagePublisher CreatePublisher()
-        {
-            return new InMemoryMessagePublisher(_settings, _messages);
-        }
-
-        public void DeclareTopology()
-        {
             for (var i = 0; i < _settings.ImmediateWorkersCount; i++)
             {
                 _messages.EnsureQueue(string.Format(_settings.ImmediateQueueNameTemplate, i));
@@ -67,33 +32,6 @@ namespace MassiveJobs.Core.Memory
             _messages.EnsureQueue(_settings.FailedQueueName);
         }
 
-        public int GetJobCount(string queueName)
-        {
-            return _messages.GetCount(queueName);
-        }
-
-        public void Dispose()
-        {
-        }
-    }
-
-    class InMemoryMessagePublisher : IMessagePublisher
-    {
-        private readonly MassiveJobsSettings _settings;
-        private readonly InMemoryMessages _messages;
-
-        public bool IsOk => true;
-
-        public InMemoryMessagePublisher(MassiveJobsSettings settings, InMemoryMessages messages)
-        {
-            _settings = settings;
-            _messages = messages;
-        }
-
-        public void Dispose()
-        {
-        }
-
         public void Publish(string routingKey, ReadOnlyMemory<byte> body, string typeTag, bool persistent)
         {
             if (routingKey == _settings.StatsQueueName) return;
@@ -110,27 +48,66 @@ namespace MassiveJobs.Core.Memory
         public void WaitForConfirmsOrDie(TimeSpan timeout)
         {
         }
+
+        public int GetJobCount(string queueName)
+        {
+            return _messages.GetCount(queueName);
+        }
+
+        public void Dispose()
+        {
+        }
     }
 
-    class InMemoryMessageConsumer : IMessageConsumer
+    public class InMemoryMessageConsumer : IMessageConsumer
     {
-        private readonly string _queueName;
         private readonly InMemoryMessages _messages;
+
+#pragma warning disable CS0067
+        public event MessageConsumerDisconnected Disconnected;
+#pragma warning restore CS0067
+
+        public InMemoryMessageConsumer(InMemoryMessages messages)
+        {
+            _messages = messages;
+        }
+
+        public void Dispose()
+        {
+        }
+
+        public void Connect()
+        {
+        }
+
+        public IMessageReceiver CreateReceiver(string queueName)
+        {
+            return new InMemoryMessageReceiver(_messages, queueName);
+        }
+    }
+
+    class InMemoryMessageReceiver : IMessageReceiver
+    {
+        private readonly InMemoryMessages _messages;
+        private readonly string _queueName;
         private readonly Thread _consumerThread;
 
         private volatile bool _disposed;
 
         public event MessageReceivedHandler MessageReceived;
 
-        public InMemoryMessageConsumer(string queueName, InMemoryMessages messages)
+        public InMemoryMessageReceiver(InMemoryMessages messages, string queueName)
         {
-            _queueName = queueName;
             _messages = messages;
-
+            _queueName = queueName;
             _consumerThread = new Thread(ConsumerFunction) { IsBackground = true };
+        }
+
+        public void Start()
+        {
             _consumerThread.Start();
         }
-        
+
         public void AckBatchProcessed(ulong lastDeliveryTag)
         {
             _messages.RemoveBatch(_queueName, lastDeliveryTag);

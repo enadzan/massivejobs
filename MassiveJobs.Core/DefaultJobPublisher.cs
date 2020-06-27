@@ -1,129 +1,67 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace MassiveJobs.Core
 {
     public class DefaultJobPublisher : IJobPublisher
     {
-        private const int StatsTimerPeriodSec = 5;
         protected const int BatchPublishTimeoutMs = 5 * 1000;
 
         private readonly ushort _batchSize;
-
-        private readonly StatsMessage _stats;
-        private readonly Timer _statsTimer;
 
         private int _nextImmediateWorkerIndex;
         private int _nextScheduledWorkerIndex;
 
         protected readonly ILogger Logger;
         protected readonly MassiveJobsSettings Settings;
-        protected readonly object PublishersLock = new object();
+        protected readonly IMessagePublisher MessagePublisher;
+        protected readonly IJobTypeProvider JobTypeProvider;
+        protected readonly IJobSerializer JobSerializer;
 
-        protected WorkerCoordinator WorkerCoordinator;
-        protected IMessageBroker MessageBroker;
-        protected PublishersPool PublishersPool;
-
-        public DefaultJobPublisher(MassiveJobsSettings settings)
-            : this(settings, settings.LoggerFactory.SafeCreateLogger<DefaultJobPublisher>())
-        {
-            WorkerCoordinator = new WorkerCoordinator(this, settings);
-        }
-
-        protected DefaultJobPublisher(MassiveJobsSettings settings, ILogger logger) 
+        public DefaultJobPublisher(MassiveJobsSettings settings, 
+            IMessagePublisher messagePublisher, 
+            IJobTypeProvider jobTypeProvider = null, 
+            IJobSerializer jobSerializer = null, 
+            ILogger logger = null) 
         {
             _batchSize = settings.PublishBatchSize;
-            _stats = new StatsMessage
-            {
-                PublisherId = Guid.NewGuid().ToString(),
-                Stats = new Dictionary<string, string>
-                {
-                    { "::masivejobs::machine_name", Environment.MachineName }
-                }
-            };
 
             Settings = settings;
-            Logger = logger;
-
-            _statsTimer = new Timer(PublishStats, null, StatsTimerPeriodSec * 1000, Timeout.Infinite);
+            MessagePublisher = messagePublisher;
+            JobTypeProvider = jobTypeProvider ?? new DefaultTypeProvider();
+            JobSerializer = jobSerializer ?? new DefaultSerializer();
+            Logger = logger ?? settings.LoggerFactory.SafeCreateLogger<DefaultJobPublisher>();
         }
 
         public virtual void Dispose()
         {
-            WorkerCoordinator.SafeDispose();
-
-            lock (PublishersLock)
-            {
-                DisposePublishers();
-            }
-        }
-
-        public void StartJobWorkers()
-        {
-            WorkerCoordinator.StartWorkers();
-        }
-
-        public void StopJobWorkers()
-        {
-            WorkerCoordinator.StopWorkers();
         }
 
         public void Publish(IEnumerable<JobInfo> jobs)
         {
-            lock (PublishersLock)
+            var jobsPerKey = new Dictionary<string, List<JobInfo>>();
+
+            var now = DateTime.UtcNow;
+
+            foreach (var jobInfo in jobs)
             {
-                EnsurePublishersExist();
+                var routingKey = GetRoutingKey(jobInfo, now);
 
-                try
+                if (!jobsPerKey.TryGetValue(routingKey, out var jobList))
                 {
-                    var jobsPerKey = new Dictionary<string, List<JobInfo>>();
-
-                    var now = DateTime.UtcNow;
-
-                    foreach (var jobInfo in jobs)
-                    {
-                        var routingKey = GetRoutingKey(jobInfo, now);
-
-                        if (!jobsPerKey.TryGetValue(routingKey, out var jobList))
-                        {
-                            jobList = new List<JobInfo>();
-                            jobsPerKey.Add(routingKey, jobList);
-                        }
-
-                        jobList.Add(jobInfo);
-                    }
-
-                    var tasks = new Task[jobsPerKey.Count];
-                    var taskIndex = 0;
-
-                    foreach (var kvp in jobsPerKey)
-                    {
-                        var routingKey = kvp.Key;
-                        var batch = kvp.Value;
-
-                        tasks[taskIndex++] = Task.Run(() => PublishJobs(batch, routingKey));
-                    }
-
-                    Task.WaitAll(tasks);
+                    jobList = new List<JobInfo>();
+                    jobsPerKey.Add(routingKey, jobList);
                 }
-                catch
-                {
-                    DisposePublishers();
-                    throw;
-                }
+
+                jobList.Add(jobInfo);
             }
-        }
 
-        internal void ReportStats(IReadOnlyDictionary<string, string> stats)
-        {
-            lock (PublishersLock)
+            foreach (var kvp in jobsPerKey)
             {
-                foreach (var kvp in stats)
-                {
-                    _stats.Stats[kvp.Key] = kvp.Value;
-                }
+                var routingKey = kvp.Key;
+                var batch = kvp.Value;
+
+                PublishJobs(batch, routingKey);
             }
         }
 
@@ -157,96 +95,34 @@ namespace MassiveJobs.Core
             return routingKey;
         }
 
-        private void PublishStats(object state)
-        {
-            try
-            {
-                lock (PublishersLock)
-                {
-                    EnsurePublishersExist();
-
-                    var publisher = PublishersPool.Get();
-                    try
-                    {
-
-                        publisher.Publish(
-                            Settings.StatsQueueName,
-                            DefaultSerializer.SerializeObject(_stats),
-                            Settings.TypeProvider.TypeToTag(typeof(StatsMessage)),
-                            false
-                        );
-
-                        publisher.WaitForConfirmsOrDie(TimeSpan.FromMilliseconds(BatchPublishTimeoutMs));
-                        PublishersPool.Return(publisher);
-                    }
-                    catch
-                    {
-                        PublishersPool.Return(publisher);
-                        DisposePublishers();
-                        throw;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error in publishling statistics");
-            }
-            finally
-            {
-                _statsTimer.Change(StatsTimerPeriodSec * 1000, Timeout.Infinite);
-            }
-        }
-
         protected void PublishJobs(IReadOnlyList<JobInfo> jobs, string routingKey)
         {
             if (jobs.Count == 0) return;
 
-            var publisher = PublishersPool.Get();
-            try
+            var batchCount = 0;
+
+            foreach (var job in jobs)
             {
-                var batchCount = 0;
+                var serializedJob = JobSerializer.Serialize(job, JobTypeProvider);
 
-                foreach (var job in jobs)
+                MessagePublisher.Publish(routingKey, serializedJob, JobTypeProvider.TypeToTag(job.ArgsType), true);
+
+                batchCount++;
+
+                if (batchCount >= _batchSize)
                 {
-                    PublishJob(job, publisher, routingKey, Settings.Serializer, Settings.TypeProvider);
-
-                    batchCount++;
-
-                    if (batchCount >= _batchSize)
-                    {
-                        publisher.WaitForConfirmsOrDie(TimeSpan.FromMilliseconds(BatchPublishTimeoutMs));
-                        batchCount = 0;
-                    }
-                }
-
-                if (batchCount > 0)
-                {
-                    publisher.WaitForConfirmsOrDie(TimeSpan.FromMilliseconds(BatchPublishTimeoutMs));
+                    MessagePublisher.WaitForConfirmsOrDie(TimeSpan.FromMilliseconds(BatchPublishTimeoutMs));
+                    batchCount = 0;
                 }
             }
-            finally
+
+            if (batchCount > 0)
             {
-                PublishersPool.Return(publisher);
+                MessagePublisher.WaitForConfirmsOrDie(TimeSpan.FromMilliseconds(BatchPublishTimeoutMs));
             }
         }
 
-        private static void PublishJob(
-            JobInfo job,
-            IMessagePublisher publisher, 
-            string routingKey,
-            IJobSerializer serializer,
-            IJobTypeProvider typeProvider) 
-        {
-            var serializedJob = serializer.Serialize(job, typeProvider);
-
-            publisher.Publish(
-                routingKey,
-                serializedJob,
-                typeProvider.TypeToTag(job.ArgsType),
-                true
-            );
-        }
-
+        /*
         protected void EnsurePublishersExist()
         {
             if (PublishersPool != null && PublishersPool.AllOk()) return;
@@ -281,5 +157,7 @@ namespace MassiveJobs.Core
         protected virtual void OnMessageBrokerCreated()
         {
         }
+
+        */
     }
 }
