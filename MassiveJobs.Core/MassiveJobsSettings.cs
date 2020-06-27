@@ -4,6 +4,8 @@
     {
         public ILoggerFactory LoggerFactory { get; set; }
         public IServiceScopeFactory ServiceScopeFactory { get; set; }
+        public IJobSerializer JobSerializer { get; set; }
+        public IJobTypeProvider JobTypeProvider { get; set; }
 
         public int ImmediateWorkersCount { get; set; } = 2;
         public int ScheduledWorkersCount { get; set; } = 2;

@@ -11,9 +11,8 @@ namespace MassiveJobs.Core
             int batchSize, 
             IMessageConsumer messageConsumer, 
             IServiceScopeFactory serviceScopeFactory, 
-            IJobPublisher jobPublisher, 
             ILogger logger)
-            : base(queueName, batchSize, messageConsumer, serviceScopeFactory, jobPublisher, logger)
+            : base(queueName, batchSize, messageConsumer, serviceScopeFactory, logger)
         {
         }
 

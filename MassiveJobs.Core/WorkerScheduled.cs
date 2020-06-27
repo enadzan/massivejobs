@@ -24,9 +24,8 @@ namespace MassiveJobs.Core
             int batchSize, 
             IMessageConsumer messageConsumer, 
             IServiceScopeFactory serviceScopeFactory, 
-            IJobPublisher jobPublisher, 
             ILogger logger)
-            : base(queueName, batchSize, messageConsumer, serviceScopeFactory, jobPublisher, logger)
+            : base(queueName, batchSize, messageConsumer, serviceScopeFactory, logger)
         {
             _timer = new Timer(CheckScheduledJobs);
             _scheduledJobs = new ConcurrentDictionary<ulong, JobInfo>();
@@ -159,7 +158,7 @@ namespace MassiveJobs.Core
         {
             if (batch.Count > 0)
             {
-                using (var serviceScope = ServiceScopeFactory.SafeCreateScope())
+                using (var serviceScope = ServiceScopeFactory.CreateScope())
                 {
                     RunJobs(batch.Values.ToList(), serviceScope, _cancellationTokenSource.Token);
 

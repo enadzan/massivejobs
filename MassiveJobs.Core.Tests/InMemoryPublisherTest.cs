@@ -12,15 +12,20 @@ namespace MassiveJobs.Core.Tests
     {
         private static int _performCount;
 
-        private readonly MassiveJobsSettings _settings = new MassiveJobsSettings { ImmediateWorkersCount = 1, ScheduledWorkersCount = 1, PeriodicWorkersCount = 1 };
+        private readonly MassiveJobsSettings _settings = new MassiveJobsSettings
+        {
+            ImmediateWorkersCount = 1,
+            ScheduledWorkersCount = 1,
+            PeriodicWorkersCount = 1
+        };
 
         private InMemoryMessages _messages;
         private InMemoryMessagePublisher _messagePublisher;
         private InMemoryMessageConsumer _messageConsumer;
 
+        private IServiceScope _serviceScope;
         private IJobPublisher _jobPublisher;
-        private WorkerCoordinator _workerCoordinator;
-
+        private IWorkerCoordinator _workerCoordinator;
 
         [TestInitialize]
         public void TestInit()
@@ -31,8 +36,10 @@ namespace MassiveJobs.Core.Tests
             _messagePublisher = new InMemoryMessagePublisher(_settings, _messages);
             _messageConsumer = new InMemoryMessageConsumer(_messages);
 
-            _jobPublisher = new DefaultJobPublisher(_settings, _messagePublisher);
-            _workerCoordinator = new WorkerCoordinator(_settings, _messageConsumer, _jobPublisher);
+            _serviceScope = new DefaultServiceScope(_settings, _messagePublisher, _messageConsumer);
+
+            _jobPublisher = _serviceScope.GetService<IJobPublisher>();
+            _workerCoordinator = _serviceScope.GetService<IWorkerCoordinator>();
         }
 
         [TestCleanup]
@@ -40,6 +47,9 @@ namespace MassiveJobs.Core.Tests
         {
             _workerCoordinator.SafeDispose();
             _jobPublisher.SafeDispose();
+
+            _serviceScope.SafeDispose();
+
             _messageConsumer.SafeDispose();
             _messagePublisher.SafeDispose();
         }

@@ -4,30 +4,37 @@ using System.Collections.Generic;
 
 namespace MassiveJobs.Core
 {
-    public class WorkerCoordinator: IDisposable
+    public class WorkerCoordinator : IWorkerCoordinator
     {
         protected readonly ILogger Logger;
         protected readonly List<IWorker> Workers;
         protected readonly object WorkersLock = new object();
 
         protected readonly IMessageConsumer MessageConsumer;
-        protected readonly IJobPublisher JobPublisher;
+        protected readonly ILoggerFactory LoggerFactory;
+        protected readonly IServiceScopeFactory ServiceScopeFactory;
 
         private readonly Timer _reconnectTimer;
         private readonly MassiveJobsSettings _settings;
 
-        public WorkerCoordinator(MassiveJobsSettings settings, IMessageConsumer messageConsumer, IJobPublisher jobPublisher, ILogger logger = null)
+        public WorkerCoordinator(
+            MassiveJobsSettings settings, 
+            IMessageConsumer messageConsumer, 
+            IServiceScopeFactory serviceScopeFactory, 
+            ILoggerFactory loggerFactory, 
+            ILogger logger = null)
         {
             _settings = settings;
             _reconnectTimer = new Timer(Reconnect);
 
             Workers = new List<IWorker>();
-            Logger = logger ?? settings.LoggerFactory.SafeCreateLogger<WorkerCoordinator>();
+            Logger = logger ?? loggerFactory.SafeCreateLogger<WorkerCoordinator>();
+
+            ServiceScopeFactory = serviceScopeFactory;
+            LoggerFactory = loggerFactory;
 
             MessageConsumer = messageConsumer;
             MessageConsumer.Disconnected += MessageBrokerDisconnected;
-
-            JobPublisher = jobPublisher;
         }
 
         public virtual void Dispose()
@@ -97,7 +104,7 @@ namespace MassiveJobs.Core
                 {
                     Logger.LogError(ex, "Stopping workers failed");
                 }
-                
+
                 Workers.Clear();
             }
         }
@@ -126,9 +133,8 @@ namespace MassiveJobs.Core
                     queueName,
                     _settings.ImmediateWorkersBatchSize,
                     MessageConsumer,
-                    _settings.ServiceScopeFactory,
-                    JobPublisher,
-                    _settings.LoggerFactory.SafeCreateLogger<WorkerImmediate>()
+                    ServiceScopeFactory,
+                    LoggerFactory.SafeCreateLogger<WorkerImmediate>()
                     );
 
                 worker.Error += OnWorkerError;
@@ -143,9 +149,8 @@ namespace MassiveJobs.Core
                     queueName,
                     _settings.ScheduledWorkersBatchSize,
                     MessageConsumer,
-                    _settings.ServiceScopeFactory,
-                    JobPublisher,
-                    _settings.LoggerFactory.SafeCreateLogger<WorkerScheduled>()
+                    ServiceScopeFactory,
+                    LoggerFactory.SafeCreateLogger<WorkerScheduled>()
                     );
 
                 worker.Error += OnWorkerError;
@@ -160,9 +165,8 @@ namespace MassiveJobs.Core
                     queueName,
                     _settings.PeriodicWorkersBatchSize,
                     MessageConsumer,
-                    _settings.ServiceScopeFactory,
-                    JobPublisher,
-                    _settings.LoggerFactory.SafeCreateLogger<WorkerScheduled>()
+                    ServiceScopeFactory,
+                    LoggerFactory.SafeCreateLogger<WorkerScheduled>()
                     );
 
                 periodicWorker.Error += OnWorkerError;
@@ -173,9 +177,8 @@ namespace MassiveJobs.Core
                 _settings.ErrorQueueName,
                 _settings.ScheduledWorkersBatchSize,
                 MessageConsumer,
-                _settings.ServiceScopeFactory,
-                JobPublisher,
-                _settings.LoggerFactory.SafeCreateLogger<WorkerScheduled>()
+                ServiceScopeFactory,
+                LoggerFactory.SafeCreateLogger<WorkerScheduled>()
                 );
 
             errorWorker.Error += OnWorkerError;

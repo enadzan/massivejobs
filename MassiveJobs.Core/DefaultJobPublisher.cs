@@ -20,17 +20,17 @@ namespace MassiveJobs.Core
 
         public DefaultJobPublisher(MassiveJobsSettings settings, 
             IMessagePublisher messagePublisher, 
-            IJobTypeProvider jobTypeProvider = null, 
-            IJobSerializer jobSerializer = null, 
-            ILogger logger = null) 
+            IJobTypeProvider jobTypeProvider, 
+            IJobSerializer jobSerializer, 
+            ILogger logger) 
         {
             _batchSize = settings.PublishBatchSize;
 
             Settings = settings;
             MessagePublisher = messagePublisher;
-            JobTypeProvider = jobTypeProvider ?? new DefaultTypeProvider();
-            JobSerializer = jobSerializer ?? new DefaultSerializer();
-            Logger = logger ?? settings.LoggerFactory.SafeCreateLogger<DefaultJobPublisher>();
+            JobTypeProvider = jobTypeProvider;
+            JobSerializer = jobSerializer;
+            Logger = logger;
         }
 
         public virtual void Dispose()

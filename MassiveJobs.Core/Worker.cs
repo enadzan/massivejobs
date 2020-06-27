@@ -11,18 +11,16 @@ namespace MassiveJobs.Core
 
         protected readonly string QueueName;
         protected readonly IServiceScopeFactory ServiceScopeFactory;
-        protected readonly IJobPublisher JobPublisher;
        
         protected abstract void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope, CancellationToken cancellationToken, out int pauseSec);
 
-        protected Worker(string queueName, int batchSize, IMessageConsumer messageConsumer, IServiceScopeFactory serviceScopeFactory, IJobPublisher jobPublisher, ILogger logger)
+        protected Worker(string queueName, int batchSize, IMessageConsumer messageConsumer, IServiceScopeFactory serviceScopeFactory, ILogger logger)
             : base(batchSize, logger)
         {
             _messageConsumer = messageConsumer;
 
             QueueName = queueName;
             ServiceScopeFactory = serviceScopeFactory;
-            JobPublisher = jobPublisher;
         }
 
         protected override void OnStart()
@@ -76,8 +74,8 @@ namespace MassiveJobs.Core
             var argsTag = rawMessage.TypeTag;
             if (argsTag == null || argsTag == string.Empty) return false;
 
-            var serializer = serviceScope.GetService<IJobSerializer>() ?? new DefaultSerializer();
-            var typeProvider = serviceScope.GetService<IJobTypeProvider>() ?? new DefaultTypeProvider();
+            var serializer = serviceScope.GetService<IJobSerializer>();
+            var typeProvider = serviceScope.GetService<IJobTypeProvider>();
 
             job = serializer.Deserialize(rawMessage.Body, argsTag, typeProvider);
 
@@ -88,16 +86,16 @@ namespace MassiveJobs.Core
         {
             if (batch.Count > 0)
             {
-                var jobRunner = serviceScope.GetService<IJobRunner>()
-                    ?? new DefaultJobRunner(serviceScope.GetService<ILogger<DefaultJobRunner>>());
+                var jobRunner = serviceScope.GetService<IJobRunner>();
+                var jobPublisher = serviceScope.GetService<IJobPublisher>();
 
-                jobRunner.RunJobs(JobPublisher, batch, serviceScope, cancellationToken);
+                jobRunner.RunJobs(jobPublisher, batch, serviceScope, cancellationToken);
             }
         }
 
         protected override void ProcessMessageBatch(List<RawMessage> messages, CancellationToken cancellationToken, out int pauseSec)
         {
-            var serviceScope = ServiceScopeFactory.SafeCreateScope();
+            var serviceScope = ServiceScopeFactory.CreateScope();
             try
             {
                 ProcessMessageBatch(messages, serviceScope, cancellationToken, out pauseSec);
