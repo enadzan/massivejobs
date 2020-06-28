@@ -30,7 +30,7 @@ namespace MassiveJobs.ConsoleTest
                 NamePrefix = "console."
             };
 
-            using var scopeFactory = RabbitMqBrokerBuilder
+            using var jobs = RabbitMqJobsBuilder
                     .FromSettings(mqSettings)
                     .Configure(s =>
                     {
@@ -38,19 +38,13 @@ namespace MassiveJobs.ConsoleTest
                         s.MaxQueueLength = QueueLength.NoLimit;
                         s.PublishBatchSize = 400;
                     })
-                    .GetScopeFactory();
+                    .Build();
 
-            using var scope = scopeFactory.CreateScope();
-
-            var workers = scope.GetService<IWorkerCoordinator>();
-
-            workers.StartJobWorkers();
-
-            var publisher = scope.GetService<IJobPublisher>();
+            jobs.StartJobWorkers();
 
             Console.WriteLine("Testing periodic jobs. Press Enter to quit!");
 
-            publisher.PublishPeriodic<PeriodicJob>("test_periodic", 2, DateTime.UtcNow.Date);
+            jobs.PublishPeriodic<PeriodicJob>("test_periodic", 2, DateTime.UtcNow.Date);
 
             Console.ReadLine();
         }

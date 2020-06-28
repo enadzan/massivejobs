@@ -13,8 +13,7 @@ namespace MassiveJobs.RabbitMqBroker.Tests
         private static int _performCount;
         private RabbitMqSettings _settings;
 
-        private IServiceScopeFactory _scopeFactory;
-        private IServiceScope _scope;
+        private Jobs _jobs;
 
         [TestInitialize]
         public void TestInit()
@@ -30,40 +29,34 @@ namespace MassiveJobs.RabbitMqBroker.Tests
                 NamePrefix = "tests."
             };
 
-            _scopeFactory = RabbitMqBrokerBuilder
+            _jobs = RabbitMqJobsBuilder
                 .FromSettings(_settings)
                 .Configure(s =>
                 {
                     s.PublishBatchSize = 400;
                 })
-                .GetScopeFactory();
-
-            _scope = _scopeFactory.CreateScope();
+                .Build();
         }
 
         [TestCleanup]
         public void TestCleanup()
         {
-            _scope.SafeDispose();
-            _scopeFactory.SafeDispose();
+            _jobs.SafeDispose();
         }
 
         [TestMethod]
         public void Publish_should_not_throw_exception()
         {
-            var workers = _scope.GetService<IWorkerCoordinator>();
-            var publisher = _scope.GetService<IJobPublisher>();
-
             var jobArgs = new List<DummyJobArgs>();
 
             for (var i = 0; i < 10000; i++) {
                 jobArgs.Add(new DummyJobArgs { SomeId = i + 1, SomeName = "Meho" });
             }
 
-            workers.StartJobWorkers();
+            _jobs.StartJobWorkers();
 
-            publisher.Publish<DummyJob, DummyJobArgs>(jobArgs, null);
-            publisher.Publish<DummyJob, DummyJobArgs2>(new DummyJobArgs2());
+            _jobs.Publish<DummyJob, DummyJobArgs>(jobArgs, null);
+            _jobs.Publish<DummyJob, DummyJobArgs2>(new DummyJobArgs2());
 
             Thread.Sleep(1000);
 
@@ -73,15 +66,12 @@ namespace MassiveJobs.RabbitMqBroker.Tests
         [TestMethod]
         public void PublishPeriodic_should_run_jobs_periodically_until_end()
         {
-            var workers = _scope.GetService<IWorkerCoordinator>();
-            var publisher = _scope.GetService<IJobPublisher>();
-            
-            workers.StartJobWorkers();
+            _jobs.StartJobWorkers();
 
             Thread.Sleep(1000);
 
-            publisher.PublishPeriodic<DummyJob>("test_periodic", 1, null, DateTime.UtcNow.AddSeconds(4.5));
-            publisher.PublishPeriodic<DummyJob>("test_periodic", 1);
+            _jobs.PublishPeriodic<DummyJob>("test_periodic", 1, null, DateTime.UtcNow.AddSeconds(4.5));
+            _jobs.PublishPeriodic<DummyJob>("test_periodic", 1);
 
             Thread.Sleep(6000);
 
