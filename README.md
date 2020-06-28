@@ -89,24 +89,22 @@ namespace MassiveJobs.QuickStart
                 Password = "guest"
             };
 
-            using (var jobPublisher = RabbitMqPublisherBuilder
-                .FromSettings(rmqSettings)
-                .Build())
+            using (var jobs = RabbitMqJobsBuilder.FromSettings(rmqSettings).Build())
             {
                 if (args.Length > 0 && args[0].ToLower() == "publisher")
                 {
-                    RunPublisher(jobPublisher);
+                    RunPublisher(jobs);
                 }
                 else
                 {
-                    RunWorker(jobPublisher);
+                    RunWorker(jobs);
                 }
             }
         }
 
-        private static void RunWorker(IJobPublisher jobPublisher)
+        private static void RunWorker(Jobs jobs)
         {
-            jobPublisher.StartJobWorkers();
+            jobs.StartJobWorkers();
 
             Console.WriteLine("Started job worker.");
             Console.WriteLine("Press Enter to end the application.");
@@ -114,7 +112,7 @@ namespace MassiveJobs.QuickStart
             Console.ReadLine();
         }
 
-        private static void RunPublisher(IJobPublisher jobPublisher)
+        private static void RunPublisher(Jobs jobs)
         {
             Console.WriteLine("Started publisher.");
             Console.WriteLine("Write a message and press Enter to publish it (empty message to end).");
@@ -129,7 +127,7 @@ namespace MassiveJobs.QuickStart
                 // On publish we must specify the job type (MessageReceiver) 
                 // and the argument type (string).
 
-                jobPublisher.Publish<MessageReceiver, string>(message);
+                jobs.Publish<MessageReceiver, string>(message);
             }
         }
     }
