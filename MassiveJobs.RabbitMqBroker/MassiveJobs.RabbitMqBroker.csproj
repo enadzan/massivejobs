@@ -4,7 +4,7 @@
     <TargetFrameworks>netstandard2.0;net461</TargetFrameworks>
     <Authors>MassiveJobs.NET</Authors>
     <Description>Open source library for publishing scheduled and "out-of-band" jobs using RabbitMQ message broker. Published jobs can be performed by multiple workers distributed across multiple machines.</Description>
-    <Version>0.23.1</Version>
+    <Version>0.23.2</Version>
     <RepositoryUrl>https://github.com/enadzan/massivejobs-rabbitmq</RepositoryUrl>
     <PackageLicenseExpression>LGPL-3.0-only</PackageLicenseExpression>
     <PackageIcon>icon.png</PackageIcon>
