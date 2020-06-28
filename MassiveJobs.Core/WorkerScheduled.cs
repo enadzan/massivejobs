@@ -13,7 +13,7 @@ namespace MassiveJobs.Core
         private readonly ManualResetEvent _stoppingSignal = new ManualResetEvent(false);
 
         private readonly ConcurrentDictionary<ulong, JobInfo> _scheduledJobs;
-        private readonly ConcurrentDictionary<string, List<ulong>> _periodicSkipJobs;
+        private readonly ConcurrentDictionary<string, ConcurrentBag<ulong>> _periodicSkipJobs;
         private readonly ConcurrentDictionary<string, ulong> _periodicJobs;
 
         private Timer _timer;
@@ -31,7 +31,7 @@ namespace MassiveJobs.Core
             _timer = new Timer(CheckScheduledJobs);
             _scheduledJobs = new ConcurrentDictionary<ulong, JobInfo>();
             _periodicJobs = new ConcurrentDictionary<string, ulong>();
-            _periodicSkipJobs = new ConcurrentDictionary<string, List<ulong>>();
+            _periodicSkipJobs = new ConcurrentDictionary<string, ConcurrentBag<ulong>>();
         }
 
         protected override void OnStart()
@@ -68,7 +68,8 @@ namespace MassiveJobs.Core
                 {
                     if (!_periodicSkipJobs.TryGetValue(job.GroupKey, out var duplicateTags))
                     {
-                        duplicateTags = new List<ulong>();
+                        duplicateTags = new ConcurrentBag<ulong>();
+                        _periodicSkipJobs.TryAdd(job.GroupKey, duplicateTags);
                     }
 
                     // Periodic jobs should not be added twice. New job will be added, old job will be confirmed.
@@ -162,12 +163,13 @@ namespace MassiveJobs.Core
         {
             foreach (var kvp in _periodicSkipJobs)
             {
-                foreach (var deliveryTag in kvp.Value)
+                while (kvp.Value.Count > 0)
                 {
-                    OnMessageProcessed(deliveryTag);
+                    if (kvp.Value.TryTake(out var deliveryTag))
+                    {
+                        OnMessageProcessed(deliveryTag);
+                    }
                 }
-
-                kvp.Value.Clear();
             }
         }
 
