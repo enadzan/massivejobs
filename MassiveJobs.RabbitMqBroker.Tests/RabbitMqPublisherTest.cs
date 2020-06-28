@@ -70,8 +70,11 @@ namespace MassiveJobs.RabbitMqBroker.Tests
 
             Thread.Sleep(1000);
 
-            _jobs.PublishPeriodic<DummyJob>("test_periodic", 1, null, DateTime.UtcNow.AddSeconds(4.5));
-            _jobs.PublishPeriodic<DummyJob>("test_periodic", 1);
+            var endAtUtc = DateTime.UtcNow.AddSeconds(4.5);
+
+            _jobs.PublishPeriodic<DummyJob>("test_periodic", 1, null, endAtUtc);
+            _jobs.PublishPeriodic<DummyJob>("test_periodic", 1, null, endAtUtc);
+            _jobs.PublishPeriodic<DummyJob>("test_periodic", 1, null, endAtUtc);
 
             Thread.Sleep(6000);
 
