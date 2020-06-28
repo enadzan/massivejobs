@@ -13,7 +13,8 @@ namespace MassiveJobs.Core
         private readonly AutoResetEvent _stoppingSignal = new AutoResetEvent(false);
 
         private readonly ConcurrentDictionary<ulong, JobInfo> _scheduledJobs;
-        private readonly ConcurrentDictionary<string, List<ulong>> _periodicJobIds;
+        private readonly ConcurrentDictionary<string, List<ulong>> _periodicSkipJobs;
+        private readonly ConcurrentDictionary<string, ulong> _periodicJobs;
 
         private Timer _timer;
 
@@ -29,7 +30,8 @@ namespace MassiveJobs.Core
         {
             _timer = new Timer(CheckScheduledJobs);
             _scheduledJobs = new ConcurrentDictionary<ulong, JobInfo>();
-            _periodicJobIds = new ConcurrentDictionary<string, List<ulong>>();
+            _periodicJobs = new ConcurrentDictionary<string, ulong>();
+            _periodicSkipJobs = new ConcurrentDictionary<string, List<ulong>>();
         }
 
         protected override void OnStart()
@@ -62,22 +64,29 @@ namespace MassiveJobs.Core
 
                 if (job.PeriodicRunInfo != null)
                 {
-                    // periodic jobs should not be added twice
-                    if (_periodicJobIds.TryGetValue(job.GroupKey, out var duplicateTags))
+                    if (!_periodicSkipJobs.TryGetValue(job.GroupKey, out var duplicateTags))
                     {
-                        duplicateTags.Add(rawMessage.DeliveryTag);
-                        continue;
+                        duplicateTags = new List<ulong>();
                     }
 
-                    duplicateTags = new List<ulong>();
+                    // Periodic jobs should not be added twice. New job will be added, old job will be confirmed.
+                    // This will enable cancelling of the periodic jobs, by sending a new job with the same GroupKey.
 
-                    _periodicJobIds.TryAdd(job.GroupKey, duplicateTags);
+                    if (_periodicJobs.TryGetValue(job.GroupKey, out var runningTag))
+                    {
+                        _periodicJobs.TryRemove(job.GroupKey, out _);
+                        _scheduledJobs.TryRemove(runningTag, out _);
+
+                        duplicateTags.Add(runningTag);
+                    }
 
                     if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc, DateTime.UtcNow))
                     {
                         duplicateTags.Add(rawMessage.DeliveryTag);
                         continue;
                     }
+
+                    _periodicJobs.TryAdd(job.GroupKey, rawMessage.DeliveryTag);
                 }
 
                 _scheduledJobs.TryAdd(rawMessage.DeliveryTag, job);
@@ -109,7 +118,7 @@ namespace MassiveJobs.Core
                         if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc, now))
                         {
                             _scheduledJobs.TryRemove(key, out _);
-                            _periodicJobIds.TryRemove(job.GroupKey, out _);
+                            _periodicSkipJobs.TryRemove(job.GroupKey, out _);
                         }
                     }
                     else
@@ -143,7 +152,7 @@ namespace MassiveJobs.Core
 
         private void ConfirmSkippedMessages()
         {
-            foreach (var kvp in _periodicJobIds)
+            foreach (var kvp in _periodicSkipJobs)
             {
                 foreach (var deliveryTag in kvp.Value)
                 {
@@ -170,6 +179,13 @@ namespace MassiveJobs.Core
                         if (kvp.Value.PeriodicRunInfo != null && kvp.Value.PeriodicRunInfo.NextRunTime != DateTime.MinValue) continue;
 
                         OnMessageProcessed(kvp.Key);
+
+                        _scheduledJobs.TryRemove(kvp.Key, out _);
+
+                        if (kvp.Value.PeriodicRunInfo != null)
+                        {
+                            _periodicJobs.TryRemove(kvp.Value.GroupKey, out _);
+                        }
                     }
                 }
             }

@@ -15,16 +15,12 @@ namespace MassiveJobs.Core.Tests
         private readonly MassiveJobsSettings _settings = new MassiveJobsSettings
         {
             ImmediateWorkersCount = 2,
-            ScheduledWorkersCount = 2,
-            PeriodicWorkersCount = 2
+            ScheduledWorkersCount = 0,
+            PeriodicWorkersCount = 1
         };
 
         private InMemoryMessages _messages;
-        private IServiceScope _scope;
-        private DefaultServiceScopeFactory _scopeFactory;
-
-        private IWorkerCoordinator _workerCoordinator;
-        private IJobPublisher _jobPublisher;
+        private Jobs _jobs;
 
         [TestInitialize]
         public void TestInit()
@@ -36,33 +32,29 @@ namespace MassiveJobs.Core.Tests
             var messagePublisher = new InMemoryMessagePublisher(_settings, _messages);
             var messageConsumer = new InMemoryMessageConsumer(_messages);
 
-            _scopeFactory = new DefaultServiceScopeFactory(_settings);
+            var scopeFactory = new DefaultServiceScopeFactory(_settings);
 
-            _scopeFactory.ServiceCollection.AddSingleton<IMessagePublisher>(messagePublisher);
-            _scopeFactory.ServiceCollection.AddSingleton<IMessageConsumer>(messageConsumer);
-            _scopeFactory.ServiceCollection.AddSingleton<IWorkerCoordinator>(
-                new WorkerCoordinator(_settings, messageConsumer, _scopeFactory, _settings.LoggerFactory)
+            scopeFactory.ServiceCollection.AddSingleton<IMessagePublisher>(messagePublisher);
+            scopeFactory.ServiceCollection.AddSingleton<IMessageConsumer>(messageConsumer);
+            scopeFactory.ServiceCollection.AddSingleton<IWorkerCoordinator>(
+                new WorkerCoordinator(_settings, messageConsumer, scopeFactory, _settings.LoggerFactory)
             );
 
-            _scope = _scopeFactory.CreateScope();
-
-            _workerCoordinator = _scope.GetService<IWorkerCoordinator>();
-            _jobPublisher = _scope.GetService<IJobPublisher>();
+            _jobs = new Jobs(scopeFactory, _settings.LoggerFactory.SafeCreateLogger<Jobs>());
         }
 
         [TestCleanup]
         public void TestCleanup()
         {
-            _scope.SafeDispose();
-            _scopeFactory.SafeDispose();
+            _jobs.SafeDispose();
         }
 
         [TestMethod]
         public void TestPublishInc()
         {
-            _workerCoordinator.StartJobWorkers();
+            _jobs.StartJobWorkers();
 
-            _jobPublisher.Publish<MockJob, bool>(true);
+            _jobs.Publish<MockJob, bool>(true);
 
             Thread.Sleep(100);
 
@@ -72,9 +64,9 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestPublishDec()
         {
-            _workerCoordinator.StartJobWorkers();
+            _jobs.StartJobWorkers();
 
-            _jobPublisher.Publish<MockJob, bool>(false);
+            _jobs.Publish<MockJob, bool>(false);
 
             Thread.Sleep(100);
 
@@ -84,10 +76,10 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestFailedJobs()
         {
-            _workerCoordinator.StartJobWorkers();
+            _jobs.StartJobWorkers();
 
-            _jobPublisher.Publish<MockJob, bool>(true);
-            _jobPublisher.Publish<MockJobFailed, bool>(true);
+            _jobs.Publish<MockJob, bool>(true);
+            _jobs.Publish<MockJobFailed, bool>(true);
 
             Thread.Sleep(100);
 
@@ -98,10 +90,10 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestFailedAsyncJobs()
         {
-            _workerCoordinator.StartJobWorkers();
+            _jobs.StartJobWorkers();
 
-            _jobPublisher.Publish<MockJob, bool>(true);
-            _jobPublisher.Publish<MockAsyncJobFailed>();
+            _jobs.Publish<MockJob, bool>(true);
+            _jobs.Publish<MockAsyncJobFailed>();
 
             Thread.Sleep(100);
 
@@ -112,10 +104,10 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestCanceledAsyncJobs()
         {
-            _workerCoordinator.StartJobWorkers();
+            _jobs.StartJobWorkers();
 
-            _jobPublisher.Publish<MockJob, bool>(true);
-            _jobPublisher.Publish<MockAsyncJobCanceled>();
+            _jobs.Publish<MockJob, bool>(true);
+            _jobs.Publish<MockAsyncJobCanceled>();
 
             Thread.Sleep(200);
 
@@ -126,11 +118,11 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestScheduleParallel()
         {
-            _workerCoordinator.StartJobWorkers();
+            _jobs.StartJobWorkers();
 
             for (var i = 0; i < 10000; i++)
             {
-                _jobPublisher.Publish<MockJob, bool>(true);
+                _jobs.Publish<MockJob, bool>(true);
             }
 
             Thread.Sleep(500);
@@ -141,9 +133,9 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestScheduleWithTimeoutDefault()
         {
-            _workerCoordinator.StartJobWorkers();
+            _jobs.StartJobWorkers();
 
-            _jobPublisher.Publish<LongRunningJobAsync, int>(6000);
+            _jobs.Publish<LongRunningJobAsync, int>(6000);
 
             Thread.Sleep(6000);
 
@@ -154,9 +146,9 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestScheduleWithTimeoutCustom()
         {
-            _workerCoordinator.StartJobWorkers();
+            _jobs.StartJobWorkers();
 
-            _jobPublisher.Publish<LongRunningJobAsync, int>(2000, null, 1000);
+            _jobs.Publish<LongRunningJobAsync, int>(2000, null, 1000);
 
             Thread.Sleep(2000);
 
@@ -167,11 +159,11 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestScheduleWithCancelledJobs()
         {
-            _workerCoordinator.StartJobWorkers();
+            _jobs.StartJobWorkers();
 
-            _jobPublisher.Publish<LongRunningJobAsync, int>(2000);
+            _jobs.Publish<LongRunningJobAsync, int>(2000);
 
-            _workerCoordinator.StopJobWorkers();
+            _jobs.StopJobWorkers();
 
             Assert.AreEqual(0, _performCount);
 
@@ -188,9 +180,9 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestPeriodicJob()
         {
-            _workerCoordinator.StartJobWorkers();
+            _jobs.StartJobWorkers();
 
-            _jobPublisher.PublishPeriodic<MockJob, bool>(true, "test_job", 1);
+            _jobs.PublishPeriodic<MockJob, bool>(true, "test_job", 1);
 
             Thread.Sleep(3500);
 
@@ -200,15 +192,29 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestPeriodicJobWithEndTime()
         {
-            _workerCoordinator.StartJobWorkers();
+            _jobs.StartJobWorkers();
 
-            System.Diagnostics.Debug.WriteLine(DateTime.Now);
-
-            _jobPublisher.PublishPeriodic<MockJob, bool>(true, "test_job", 1, null, DateTime.UtcNow.AddMilliseconds(4500));
+            _jobs.PublishPeriodic<MockJob, bool>(true, "test_job", 1, null, DateTime.UtcNow.AddMilliseconds(4500));
 
             Thread.Sleep(6000);
 
             Assert.AreEqual(4, _performCount);
+        }
+
+        [TestMethod]
+        public void TestPeriodicJobCancelling()
+        {
+            _jobs.StartJobWorkers();
+
+            _jobs.PublishPeriodic<MockJob, bool>(true, "test_job", 1);
+
+            Thread.Sleep(3500);
+
+            _jobs.PublishPeriodic<MockJob, bool>(true, "test_job", 0);
+
+            Thread.Sleep(1000);
+
+            Assert.AreEqual(3, _performCount);
         }
 
         private class MockJob
