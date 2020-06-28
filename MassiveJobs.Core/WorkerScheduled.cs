@@ -10,7 +10,7 @@ namespace MassiveJobs.Core
     {
         private const int CheckIntervalMs = 100;
 
-        private readonly AutoResetEvent _stoppingSignal = new AutoResetEvent(false);
+        private readonly ManualResetEvent _stoppingSignal = new ManualResetEvent(false);
 
         private readonly ConcurrentDictionary<ulong, JobInfo> _scheduledJobs;
         private readonly ConcurrentDictionary<string, List<ulong>> _periodicSkipJobs;
@@ -37,6 +37,8 @@ namespace MassiveJobs.Core
         protected override void OnStart()
         {
             base.OnStart();
+
+            _stoppingSignal.Reset();
 
             _cancellationTokenSource = new CancellationTokenSource();
             _scheduledJobs.Clear();
@@ -132,6 +134,12 @@ namespace MassiveJobs.Core
             catch (Exception ex)
             {
                 Logger.LogError(ex, $"Error in scheduled worker: {QueueName}");
+                
+                // we must call this before OnError to avoid deadlock
+                // when the error occured while the worker is stopping
+
+                _stoppingSignal.Set();
+
                 OnError(ex);
             }
             finally
