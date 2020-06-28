@@ -99,65 +99,31 @@ namespace MassiveJobs.Core
         {
             if (jobs.Count == 0) return;
 
-            var batchCount = 0;
+            var batch = new List<RawMessage>();
 
             foreach (var job in jobs)
             {
                 var serializedJob = JobSerializer.Serialize(job, JobTypeProvider);
 
-                MessagePublisher.Publish(routingKey, serializedJob, JobTypeProvider.TypeToTag(job.ArgsType), true);
-
-                batchCount++;
-
-                if (batchCount >= _batchSize)
+                batch.Add(new RawMessage
                 {
-                    MessagePublisher.WaitForConfirmsOrDie(TimeSpan.FromMilliseconds(BatchPublishTimeoutMs));
-                    batchCount = 0;
+                    TypeTag = JobTypeProvider.TypeToTag(job.ArgsType),
+                    Body = serializedJob.ToArray(),
+                    IsPersistent = true
+                });
+
+                if (batch.Count >= _batchSize)
+                {
+                    MessagePublisher.Publish(routingKey, batch, TimeSpan.FromMilliseconds(BatchPublishTimeoutMs));
+                    batch.Clear();
                 }
             }
 
-            if (batchCount > 0)
+            if (batch.Count > 0)
             {
-                MessagePublisher.WaitForConfirmsOrDie(TimeSpan.FromMilliseconds(BatchPublishTimeoutMs));
+                MessagePublisher.Publish(routingKey, batch, TimeSpan.FromMilliseconds(BatchPublishTimeoutMs));
+                batch.Clear();
             }
         }
-
-        /*
-        protected void EnsurePublishersExist()
-        {
-            if (PublishersPool != null && PublishersPool.AllOk()) return;
-
-            DisposePublishers();
-            
-            try
-            {
-                MessageBroker = Settings.MessageBrokerFactory.CreateMessageBroker(MessageBrokerType.JobPublisher);
-                MessageBroker.DeclareTopology();
-
-                PublishersPool = new PublishersPool(MessageBroker, 2);
-
-                OnMessageBrokerCreated();
-            }
-            catch
-            {
-                DisposePublishers();
-                throw;
-            }
-        }
-
-        protected void DisposePublishers()
-        {
-            PublishersPool.SafeDispose();
-            PublishersPool = null;
-
-            MessageBroker.SafeDispose();
-            MessageBroker = null;
-        }
-
-        protected virtual void OnMessageBrokerCreated()
-        {
-        }
-
-        */
     }
 }

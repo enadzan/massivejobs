@@ -14,18 +14,17 @@ namespace MassiveJobs.Core.Tests
 
         private readonly MassiveJobsSettings _settings = new MassiveJobsSettings
         {
-            ImmediateWorkersCount = 1,
-            ScheduledWorkersCount = 1,
-            PeriodicWorkersCount = 1
+            ImmediateWorkersCount = 2,
+            ScheduledWorkersCount = 2,
+            PeriodicWorkersCount = 2
         };
 
         private InMemoryMessages _messages;
-        private InMemoryMessagePublisher _messagePublisher;
-        private InMemoryMessageConsumer _messageConsumer;
+        private IServiceScope _scope;
+        private DefaultServiceScopeFactory _scopeFactory;
 
-        private IServiceScope _serviceScope;
-        private IJobPublisher _jobPublisher;
         private IWorkerCoordinator _workerCoordinator;
+        private IJobPublisher _jobPublisher;
 
         [TestInitialize]
         public void TestInit()
@@ -33,25 +32,29 @@ namespace MassiveJobs.Core.Tests
             _performCount = 0;
 
             _messages = new InMemoryMessages();
-            _messagePublisher = new InMemoryMessagePublisher(_settings, _messages);
-            _messageConsumer = new InMemoryMessageConsumer(_messages);
 
-            _serviceScope = new DefaultServiceScope(_settings, _messagePublisher, _messageConsumer);
+            var messagePublisher = new InMemoryMessagePublisher(_settings, _messages);
+            var messageConsumer = new InMemoryMessageConsumer(_messages);
 
-            _jobPublisher = _serviceScope.GetService<IJobPublisher>();
-            _workerCoordinator = _serviceScope.GetService<IWorkerCoordinator>();
+            _scopeFactory = new DefaultServiceScopeFactory(_settings);
+
+            _scopeFactory.ServiceCollection.AddSingleton<IMessagePublisher>(messagePublisher);
+            _scopeFactory.ServiceCollection.AddSingleton<IMessageConsumer>(messageConsumer);
+            _scopeFactory.ServiceCollection.AddSingleton<IWorkerCoordinator>(
+                new WorkerCoordinator(_settings, messageConsumer, _scopeFactory, _settings.LoggerFactory)
+            );
+
+            _scope = _scopeFactory.CreateScope();
+
+            _workerCoordinator = _scope.GetService<IWorkerCoordinator>();
+            _jobPublisher = _scope.GetService<IJobPublisher>();
         }
 
         [TestCleanup]
         public void TestCleanup()
         {
-            _workerCoordinator.SafeDispose();
-            _jobPublisher.SafeDispose();
-
-            _serviceScope.SafeDispose();
-
-            _messageConsumer.SafeDispose();
-            _messagePublisher.SafeDispose();
+            _scope.SafeDispose();
+            _scopeFactory.SafeDispose();
         }
 
         [TestMethod]
@@ -212,8 +215,6 @@ namespace MassiveJobs.Core.Tests
         {
             public void Perform(bool increment)
             {
-                System.Diagnostics.Debug.WriteLine(DateTime.Now);
-
                 if (increment) Interlocked.Increment(ref _performCount);
                 else Interlocked.Decrement(ref _performCount);
             }

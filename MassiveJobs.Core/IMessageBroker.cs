@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace MassiveJobs.Core
 {
@@ -9,13 +10,13 @@ namespace MassiveJobs.Core
     {
         public string TypeTag;
         public byte[] Body;
+        public bool IsPersistent;
         public ulong DeliveryTag;
     }
 
     public interface IMessagePublisher: IDisposable
-    { 
-        void Publish(string routingKey, ReadOnlyMemory<byte> body, string typeTag, bool persistent);
-        void WaitForConfirmsOrDie(TimeSpan timeout);
+    {
+        void Publish(string rountingKey, IEnumerable<RawMessage> messages, TimeSpan timeout);
     }
 
     public interface IMessageConsumer: IDisposable

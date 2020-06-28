@@ -26,28 +26,28 @@ namespace MassiveJobs.Core
         protected override void OnStart()
         {
             base.OnStart();
-            CreateConsumer();
+            CreateReceiver();
         }
 
         protected override void OnResume()
         {
             base.OnResume();
-            CreateConsumer();
+            CreateReceiver();
         }
 
         protected override void OnStop()
         {
-            DisposeConsumer();
+            DisposeReceiver();
             base.OnStop();
         }
 
         protected override void OnPause()
         {
-            DisposeConsumer();
+            DisposeReceiver();
             base.OnPause();
         }
 
-        protected void CreateConsumer()
+        protected void CreateReceiver()
         {
             if (_messageReceiver != null) return;
 
@@ -56,7 +56,7 @@ namespace MassiveJobs.Core
             _messageReceiver.Start();
         }
 
-        protected void DisposeConsumer()
+        protected void DisposeReceiver()
         {
             if (_messageReceiver == null) return;
 

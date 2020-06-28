@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace MassiveJobs.Core.Memory
@@ -32,21 +33,14 @@ namespace MassiveJobs.Core.Memory
             _messages.EnsureQueue(_settings.FailedQueueName);
         }
 
-        public void Publish(string routingKey, ReadOnlyMemory<byte> body, string typeTag, bool persistent)
+        public void Publish(string routingKey, IEnumerable<RawMessage> messages, TimeSpan timeout)
         {
             if (routingKey == _settings.StatsQueueName) return;
 
-            var rawMessage = new RawMessage
+            foreach (var msg in messages)
             {
-                Body = body.ToArray(),
-                TypeTag = typeTag,
-            };
-
-            _messages.EnqueueMessage(routingKey, rawMessage, _settings.MaxQueueLength);
-        }
-
-        public void WaitForConfirmsOrDie(TimeSpan timeout)
-        {
+                _messages.EnqueueMessage(routingKey, msg, _settings.MaxQueueLength);
+            }
         }
 
         public int GetJobCount(string queueName)
