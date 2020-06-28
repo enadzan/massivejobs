@@ -9,17 +9,17 @@ using MassiveJobs.Core;
 
 namespace MassiveJobs.RabbitMqBroker
 {
-    public class RabbitMqMessageBroker: IMessageBroker
+    public abstract class RabbitMqMessageBroker
     {
         protected volatile IConnection Connection;
+        protected volatile ModelPool ModelPool;
+
         protected readonly ILogger Logger;
 
         private readonly object _connectionLock = new object();
-        private readonly IConnectionFactory _connectionFactory;
+        private readonly ConnectionFactory _connectionFactory;
         private readonly RabbitMqSettings _rabbitMqSettings;
         private readonly MassiveJobsSettings _massiveJobsSettings;
-
-        public event MessageBrokerDisconnectedHandler Disconnected;
 
         public RabbitMqMessageBroker(RabbitMqSettings rabbitMqSettings, MassiveJobsSettings massiveJobsSettings, bool automaticRecoveryEnabled, ILogger logger)
         {
@@ -58,6 +58,8 @@ namespace MassiveJobs.RabbitMqBroker
             {
                 if (Connection == null) return;
 
+                ModelPool.SafeDispose(Logger);
+
                 Connection.CallbackException -= ConnectionOnCallbackException;
                 Connection.ConnectionBlocked -= ConnectionOnConnectionBlocked;
                 Connection.ConnectionUnblocked -= ConnectionOnConnectionUnblocked;
@@ -86,6 +88,10 @@ namespace MassiveJobs.RabbitMqBroker
                     Connection.ConnectionBlocked += ConnectionOnConnectionBlocked;
                     Connection.ConnectionUnblocked += ConnectionOnConnectionUnblocked;
                     Connection.ConnectionShutdown += ConnectionOnConnectionShutdown;
+
+                    ModelPool = new ModelPool(Connection, 2);
+
+                    DeclareTopology();
                 }
                 catch (Exception ex)
                 {
@@ -100,20 +106,23 @@ namespace MassiveJobs.RabbitMqBroker
         private void ConnectionOnConnectionShutdown(object sender, ShutdownEventArgs e)
         {
             Logger.LogError($"Connection shutdown: {e.Cause} / {e.ReplyCode} / {e.ReplyText} ");
-            OnDisconnected();
-        }
-
-        private void OnDisconnected()
-        {
             try
             {
-                Disconnected?.Invoke(this);
-                CloseConnection();
+                OnDisconnected();
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Error in executing Disconnected event handler");
             }
+
+            if (!_connectionFactory.AutomaticRecoveryEnabled)
+            {
+                CloseConnection();
+            }
+        }
+
+        protected virtual void OnDisconnected()
+        {
         }
 
         private void ConnectionOnConnectionUnblocked(object sender, EventArgs e)
@@ -145,33 +154,8 @@ namespace MassiveJobs.RabbitMqBroker
             }
         }
 
-        public virtual IMessageConsumer CreateConsumer(string queueName)
+        protected virtual void DeclareTopology()
         {
-            EnsureConnectionExists();
-
-            return new RabbitMqMessageConsumer(
-                Connection,
-                queueName,
-                _rabbitMqSettings.PrefetchCount,
-                _massiveJobsSettings.LoggerFactory.SafeCreateLogger<RabbitMqMessageConsumer>()
-            );
-        }
-
-        public virtual IMessagePublisher CreatePublisher()
-        {
-            EnsureConnectionExists();
-
-            return new RabbitMqMessagePublisher(
-                Connection, 
-                _rabbitMqSettings, 
-                _massiveJobsSettings.LoggerFactory.SafeCreateLogger<RabbitMqMessageConsumer>()
-            );
-        }
-
-        public virtual void DeclareTopology()
-        {
-            EnsureConnectionExists();
-
             using (var model = Connection.CreateModel())
             {
                 model.ExchangeDeclare(_rabbitMqSettings.ExchangeName, ExchangeType.Direct, true);

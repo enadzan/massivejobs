@@ -1,45 +1,42 @@
 ﻿using System;
+using System.Collections.Generic;
+
+using RabbitMQ.Client;
 
 using MassiveJobs.Core;
-using RabbitMQ.Client;
 
 namespace MassiveJobs.RabbitMqBroker
 {
-    public class RabbitMqMessagePublisher : IMessagePublisher
+    public class RabbitMqMessagePublisher : RabbitMqMessageBroker, IMessagePublisher
     {
-        private readonly IModel _model;
-        private readonly IBasicProperties _props;
-        private readonly RabbitMqSettings _settings;
-        private readonly ILogger _logger;
+        private readonly RabbitMqSettings _rmqSettings;
 
-        public bool IsOk => _model.IsOpen;
-
-        public RabbitMqMessagePublisher(IConnection connection, RabbitMqSettings settings, ILogger logger)
+        public RabbitMqMessagePublisher(RabbitMqSettings rmqSettings, MassiveJobsSettings jobsSettings, ILogger logger = null)
+            : base(rmqSettings, jobsSettings, true, logger ?? jobsSettings.LoggerFactory.SafeCreateLogger<RabbitMqMessagePublisher>())
         {
-            _settings = settings;
-            _logger = logger;
-            _model = connection.CreateModel();
-            _model.ConfirmSelect();
-
-            _props = _model.CreateBasicProperties();
+            _rmqSettings = rmqSettings;
         }
 
-        public void Dispose()
+        public void Publish(string routingKey, IEnumerable<RawMessage> messages, TimeSpan timeout)
         {
-            _model.SafeClose(_logger);
-        }
+            EnsureConnectionExists();
 
-        public void Publish(string routingKey, ReadOnlyMemory<byte> body, string typeTag, bool persistent)
-        {
-            _props.Type = typeTag;
-            _props.Persistent = persistent;
+            var poolEntry = ModelPool.Get();
+            try
+            {
+                foreach (var msg in messages)
+                {
+                    poolEntry.BasicProperties.Type = msg.TypeTag;
+                    poolEntry.BasicProperties.Persistent = msg.IsPersistent;
+                    poolEntry.Model.BasicPublish(_rmqSettings.ExchangeName, routingKey, poolEntry.BasicProperties, msg.Body);
+                }
 
-            _model.BasicPublish(_settings.ExchangeName, routingKey, _props, body);
-        }
-
-        public void WaitForConfirmsOrDie(TimeSpan timeout)
-        {
-            _model.WaitForConfirmsOrDie(timeout);
+                poolEntry.Model.WaitForConfirmsOrDie(timeout);
+            }
+            finally
+            {
+                ModelPool.Return(poolEntry);
+            }
         }
     }
 }

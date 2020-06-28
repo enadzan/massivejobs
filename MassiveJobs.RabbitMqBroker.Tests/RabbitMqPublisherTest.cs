@@ -13,6 +13,9 @@ namespace MassiveJobs.RabbitMqBroker.Tests
         private static int _performCount;
         private RabbitMqSettings _settings;
 
+        private IServiceScopeFactory _scopeFactory;
+        private IServiceScope _scope;
+
         [TestInitialize]
         public void TestInit()
         {
@@ -26,20 +29,30 @@ namespace MassiveJobs.RabbitMqBroker.Tests
                 Password = "guest",
                 NamePrefix = "tests."
             };
+
+            _scopeFactory = RabbitMqBrokerBuilder
+                .FromSettings(_settings)
+                .Configure(s =>
+                {
+                    s.PublishBatchSize = 400;
+                })
+                .GetScopeFactory();
+
+            _scope = _scopeFactory.CreateScope();
+        }
+
+        [TestCleanup]
+        public void TestCleanup()
+        {
+            _scope.SafeDispose();
+            _scopeFactory.SafeDispose();
         }
 
         [TestMethod]
         public void Publish_should_not_throw_exception()
         {
-            using var scheduler = RabbitMqPublisherBuilder
-                .FromSettings(_settings)
-                .ConfigurePublisher(s =>
-                {
-                    s.PublishBatchSize = 400;
-                })
-                .Build();
-
-            scheduler.StartJobWorkers();
+            var workers = _scope.GetService<IWorkerCoordinator>();
+            var publisher = _scope.GetService<IJobPublisher>();
 
             var jobArgs = new List<DummyJobArgs>();
 
@@ -47,12 +60,12 @@ namespace MassiveJobs.RabbitMqBroker.Tests
                 jobArgs.Add(new DummyJobArgs { SomeId = i + 1, SomeName = "Meho" });
             }
 
+            workers.StartJobWorkers();
+
+            publisher.Publish<DummyJob, DummyJobArgs>(jobArgs, null);
+            publisher.Publish<DummyJob, DummyJobArgs2>(new DummyJobArgs2());
+
             Thread.Sleep(1000);
-
-            scheduler.Publish<DummyJob, DummyJobArgs>(jobArgs, null);
-            scheduler.Publish<DummyJob, DummyJobArgs2>(new DummyJobArgs2());
-
-            Thread.Sleep(2000);
 
             Assert.AreEqual(10002, _performCount);
         }
@@ -60,20 +73,15 @@ namespace MassiveJobs.RabbitMqBroker.Tests
         [TestMethod]
         public void PublishPeriodic_should_run_jobs_periodically_until_end()
         {
-            using var scheduler = RabbitMqPublisherBuilder
-                .FromSettings(_settings)
-                .ConfigurePublisher(s =>
-                {
-                    s.PublishBatchSize = 400;
-                })
-                .Build();
-
-            scheduler.StartJobWorkers();
+            var workers = _scope.GetService<IWorkerCoordinator>();
+            var publisher = _scope.GetService<IJobPublisher>();
+            
+            workers.StartJobWorkers();
 
             Thread.Sleep(1000);
 
-            scheduler.PublishPeriodic<DummyJob>("test_periodic", 1, null, DateTime.UtcNow.AddSeconds(4.5));
-            scheduler.PublishPeriodic<DummyJob>("test_periodic", 1);
+            publisher.PublishPeriodic<DummyJob>("test_periodic", 1, null, DateTime.UtcNow.AddSeconds(4.5));
+            publisher.PublishPeriodic<DummyJob>("test_periodic", 1);
 
             Thread.Sleep(6000);
 
