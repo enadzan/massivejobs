@@ -31,6 +31,17 @@ namespace MassiveJobs.Core
             JobTypeProvider = jobTypeProvider;
             JobSerializer = jobSerializer;
             Logger = logger;
+
+            // This is just to avoid always publishing to a first worker 
+            // since the new instance of publisher is created on each job batch
+            // for scheduled/periodic workers. Actually, immediate workers will
+            // also create one instance of publisher per batch to inject into
+            // jobs if jobs require it in their constructors.
+
+            var tickCount = Environment.TickCount;
+
+            if (settings.ImmediateWorkersCount > 0) _nextImmediateWorkerIndex = tickCount % settings.ImmediateWorkersCount;
+            if (settings.ScheduledWorkersCount > 0) _nextScheduledWorkerIndex = tickCount % settings.ScheduledWorkersCount;
         }
 
         public virtual void Dispose()
