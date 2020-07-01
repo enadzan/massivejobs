@@ -34,6 +34,9 @@ namespace MassiveJobs.RabbitMqBroker.Tests
                 .Configure(s =>
                 {
                     s.PublishBatchSize = 400;
+                    s.ImmediateWorkersCount = 2;
+                    s.ScheduledWorkersCount = 2;
+                    s.PeriodicWorkersCount = 2;
                 })
                 .Build();
         }
