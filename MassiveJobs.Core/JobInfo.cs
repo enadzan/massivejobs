@@ -37,6 +37,22 @@ namespace MassiveJobs.Core
             return unchecked(hash1 + (hash2 * 1566083941));
         }
 
+        public JobInfo ToImmediateJob()
+        {
+            return new JobInfo
+            {
+                JobType = JobType,
+                ArgsType = ArgsType,
+                Args = Args,
+                Retries = Retries,
+                Err = Err,
+                TimeoutMs = TimeoutMs,
+                RunAtUtc = null,
+                GroupKey = null,
+                PeriodicRunInfo = null
+            };
+        }
+
         public static JobInfo For<TJob, TJobArgs>(TJobArgs jobArgs, TimeSpan runIn, string groupKey = null, int? jobTimeoutMs = null, PeriodicRunInfo periodicRunInfo = null)
         {
             return For<TJob, TJobArgs>(jobArgs, DateTime.UtcNow.Add(runIn), groupKey, jobTimeoutMs, periodicRunInfo);

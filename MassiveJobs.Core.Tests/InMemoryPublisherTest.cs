@@ -15,8 +15,8 @@ namespace MassiveJobs.Core.Tests
         private readonly MassiveJobsSettings _settings = new MassiveJobsSettings
         {
             ImmediateWorkersCount = 2,
-            ScheduledWorkersCount = 0,
-            PeriodicWorkersCount = 1
+            ScheduledWorkersCount = 2,
+            PeriodicWorkersCount = 2
         };
 
         private InMemoryMessages _messages;
@@ -59,6 +59,23 @@ namespace MassiveJobs.Core.Tests
             Thread.Sleep(100);
 
             Assert.AreEqual(1, _performCount);
+        }
+
+        [TestMethod]
+        public void TestPublishWithDelay()
+        {
+            _jobs.StartJobWorkers();
+
+            _jobs.Publish<MockJob, bool>(true, TimeSpan.FromSeconds(2));
+            _jobs.Publish<MockJob, bool>(true, TimeSpan.FromSeconds(2));
+
+            Thread.Sleep(1000);
+
+            Assert.AreEqual(0, _performCount);
+
+            Thread.Sleep(1500);
+
+            Assert.AreEqual(2, _performCount);
         }
 
         [TestMethod]

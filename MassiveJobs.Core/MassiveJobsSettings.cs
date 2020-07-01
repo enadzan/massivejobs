@@ -6,8 +6,8 @@
         public IServiceScopeFactory ServiceScopeFactory { get; set; }
 
         public int ImmediateWorkersCount { get; set; } = 2;
-        public int ScheduledWorkersCount { get; set; } = 2;
-        public int PeriodicWorkersCount { get; set; } = 2;
+        public int ScheduledWorkersCount { get; set; } = 1;
+        public int PeriodicWorkersCount { get; set; } = 1;
 
         public ushort PublishBatchSize { get; set; } = 100;
 

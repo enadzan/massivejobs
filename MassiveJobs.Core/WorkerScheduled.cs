@@ -179,7 +179,10 @@ namespace MassiveJobs.Core
             {
                 using (var serviceScope = ServiceScopeFactory.CreateScope())
                 {
-                    RunJobs(batch.Values.ToList(), serviceScope, _cancellationTokenSource.Token);
+                    var jobPublisher = serviceScope.GetService<IJobPublisher>();
+                    if (jobPublisher == null) return; // this can happen only this worker is being stopped;
+
+                    jobPublisher.Publish(batch.Select(j => j.Value.ToImmediateJob()));
 
                     if (_cancellationTokenSource.IsCancellationRequested) return;
 
