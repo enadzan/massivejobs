@@ -16,17 +16,20 @@ namespace MassiveJobs.Core
             _defaultJobTimeout = defaultJobTimeoutMs;
         }
 
-        public void RunJobs(IJobPublisher publisher, IEnumerable<JobInfo> jobs, IServiceScope serviceScope, CancellationToken cancellationToken)
+        public void RunJobs(IJobPublisher publisher, IReadOnlyList<JobInfo> jobs, IServiceScope serviceScope, CancellationToken cancellationToken)
         {
-            foreach (var jobInfo in jobs)
+            var tasks = new Task[jobs.Count];
+
+            for (var i = 0; i < jobs.Count; i++)
             {
                 if (cancellationToken.IsCancellationRequested) break;
-
-                Run(publisher, jobInfo, serviceScope, cancellationToken);
+                tasks[i] = RunAsync(publisher, jobs[i], serviceScope, cancellationToken);
             }
+
+            Task.WaitAll(tasks, cancellationToken);
         }
 
-        private void Run(IJobPublisher publisher, JobInfo jobInfo, IServiceScope serviceScope, CancellationToken cancellationToken)
+        private async Task RunAsync(IJobPublisher publisher, JobInfo jobInfo, IServiceScope serviceScope, CancellationToken cancellationToken)
         {
             try
             {
@@ -38,7 +41,7 @@ namespace MassiveJobs.Core
                     {
                         try
                         {
-                            InvokePerform(publisher, jobInfo, serviceScope, combinedTokenSource.Token);
+                            await InvokePerformAsync(publisher, jobInfo, serviceScope, combinedTokenSource.Token);
                         }
                         catch (OperationCanceledException)
                         {
@@ -55,7 +58,7 @@ namespace MassiveJobs.Core
             }
         }
 
-        private void InvokePerform(IJobPublisher publisher, JobInfo jobInfo, IServiceScope serviceScope, CancellationToken cancellationToken)
+        private Task InvokePerformAsync(IJobPublisher publisher, JobInfo jobInfo, IServiceScope serviceScope, CancellationToken cancellationToken)
         {
             var reflectionInfo = ReflectionUtilities.ReflectionCache.GetJobReflectionInfo(jobInfo.JobType, jobInfo.ArgsType);
 
@@ -101,8 +104,10 @@ namespace MassiveJobs.Core
 
             if (result != null && result is Task taskResult)
             {
-                taskResult.Wait(cancellationToken);
+                return taskResult;
             }
+
+            return Task.CompletedTask;
         }
     }
 }
