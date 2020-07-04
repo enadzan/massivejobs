@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace MassiveJobs.Core
 {
@@ -67,13 +68,18 @@ namespace MassiveJobs.Core
                 jobList.Add(jobInfo);
             }
 
+            var tasks = new Task[jobsPerKey.Count];
+
+            var index = 0;
             foreach (var kvp in jobsPerKey)
             {
                 var routingKey = kvp.Key;
                 var batch = kvp.Value;
 
-                PublishJobs(batch, routingKey);
+                tasks[index++] = Task.Run(() => PublishJobs(batch, routingKey));
             }
+
+            Task.WaitAll(tasks);
         }
 
         protected virtual string GetRoutingKey(JobInfo jobInfo, DateTime now)
