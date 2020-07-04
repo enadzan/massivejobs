@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 
 using MassiveJobs.Core;
+using System.Threading.Tasks;
 
 namespace MassiveJobs.RabbitMqBroker.Tests
 {
@@ -26,7 +27,8 @@ namespace MassiveJobs.RabbitMqBroker.Tests
                 VirtualHost = "massivejobs.tests",
                 Username = "guest",
                 Password = "guest",
-                NamePrefix = "tests."
+                NamePrefix = "tests.",
+                PrefetchCount = 1000
             };
 
             _jobs = RabbitMqJobsBuilder
@@ -34,7 +36,7 @@ namespace MassiveJobs.RabbitMqBroker.Tests
                 .Configure(s =>
                 {
                     s.PublishBatchSize = 400;
-                    s.ImmediateWorkersCount = 2;
+                    s.ImmediateWorkersCount = 3;
                     s.ScheduledWorkersCount = 2;
                     s.PeriodicWorkersCount = 2;
                 })
@@ -50,20 +52,27 @@ namespace MassiveJobs.RabbitMqBroker.Tests
         [TestMethod]
         public void Publish_should_not_throw_exception()
         {
+            _jobs.StartJobWorkers();
+
             var jobArgs = new List<DummyJobArgs>();
 
-            for (var i = 0; i < 10000; i++) {
-                jobArgs.Add(new DummyJobArgs { SomeId = i + 1, SomeName = "Meho" });
+            for (var i = 0; i < 100_000; i++)
+            {
+                jobArgs.Add(new DummyJobArgs { SomeId = i });
             }
-
-            _jobs.StartJobWorkers();
 
             _jobs.Publish<DummyJob, DummyJobArgs>(jobArgs, null);
             _jobs.Publish<DummyJob, DummyJobArgs2>(new DummyJobArgs2());
 
-            Thread.Sleep(1000);
+            using (var tokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+            {
+                while (_performCount < 100_002)
+                {
+                    Task.Delay(100, tokenSource.Token).Wait();
+                }
+            }
 
-            Assert.AreEqual(10002, _performCount);
+            Assert.AreEqual(100_002, _performCount);
         }
 
         [TestMethod]
