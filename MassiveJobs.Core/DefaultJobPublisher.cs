@@ -85,7 +85,7 @@ namespace MassiveJobs.Core
 
             if (jobInfo.PeriodicRunInfo != null)
             {
-                var workerIndex = jobInfo.GetGroupKeyHashCode() % Settings.PeriodicWorkersCount;
+                var workerIndex = Math.Abs(jobInfo.GetGroupKeyHashCode()) % Settings.PeriodicWorkersCount;
                 return FormatRoutingKey(Settings.PeriodicQueueNameTemplate, Settings.PeriodicWorkersCount, ref workerIndex);
             }
 
@@ -133,7 +133,6 @@ namespace MassiveJobs.Core
             if (batch.Count > 0)
             {
                 MessagePublisher.Publish(routingKey, batch, TimeSpan.FromMilliseconds(BatchPublishTimeoutMs));
-                batch.Clear();
             }
         }
     }

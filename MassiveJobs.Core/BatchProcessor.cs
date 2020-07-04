@@ -10,7 +10,7 @@ namespace MassiveJobs.Core
     {
         private readonly int _batchSize;
 
-        private readonly ManualResetEvent _stoppingSignal = new ManualResetEvent(false);
+        private readonly ManualResetEvent _stoppingSignal = new ManualResetEvent(true);
         private readonly object _startStopLock = new object();
 
         private readonly ConcurrentQueue<TMessage> _messages;

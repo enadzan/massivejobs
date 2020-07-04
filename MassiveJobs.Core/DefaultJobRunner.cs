@@ -58,7 +58,7 @@ namespace MassiveJobs.Core
             }
         }
 
-        private Task InvokePerformAsync(IJobPublisher publisher, JobInfo jobInfo, IServiceScope serviceScope, CancellationToken cancellationToken)
+        protected Task InvokePerformAsync(IJobPublisher publisher, JobInfo jobInfo, IServiceScope serviceScope, CancellationToken cancellationToken)
         {
             var reflectionInfo = ReflectionUtilities.ReflectionCache.GetJobReflectionInfo(jobInfo.JobType, jobInfo.ArgsType);
 

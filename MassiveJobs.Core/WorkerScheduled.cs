@@ -10,7 +10,7 @@ namespace MassiveJobs.Core
     {
         private const int CheckIntervalMs = 100;
 
-        private readonly ManualResetEvent _stoppingSignal = new ManualResetEvent(false);
+        private readonly ManualResetEvent _stoppingSignal = new ManualResetEvent(true);
 
         private readonly ConcurrentDictionary<ulong, JobInfo> _scheduledJobs;
         private readonly ConcurrentDictionary<string, ConcurrentBag<ulong>> _periodicSkipJobs;
