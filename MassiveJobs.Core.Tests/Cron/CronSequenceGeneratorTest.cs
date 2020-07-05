@@ -1,14 +1,22 @@
 ﻿using MassiveJobs.Core.Cron;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Runtime.InteropServices;
 
 namespace MassiveJobs.Core.Tests.Cron
 {
     [TestClass]
     public class CronSequenceGeneratorTest
     {
-        private static readonly TimeZoneInfo SarajevoTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time");
-        
+        private static readonly TimeZoneInfo SarajevoTimeZone;
+
+        static CronSequenceGeneratorTest()
+        {
+            SarajevoTimeZone = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time")
+                : TimeZoneInfo.FindSystemTimeZoneById("Europe/Sarajevo");
+        }
+
         [TestMethod]
         public void Expression_should_run_every_second()
         {
