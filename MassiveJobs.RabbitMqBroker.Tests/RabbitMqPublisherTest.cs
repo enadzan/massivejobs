@@ -95,7 +95,7 @@ namespace MassiveJobs.RabbitMqBroker.Tests
         {
             _jobs.StartJobWorkers();
 
-            var endAtUtc = DateTime.UtcNow.AddSeconds(4);
+            var endAtUtc = DateTime.UtcNow.AddMilliseconds(4250);
 
             _jobs.PublishPeriodic<DummyJob>("test_periodic", "0/2 * * ? * *", null, null, endAtUtc);
 
