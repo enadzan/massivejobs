@@ -44,6 +44,83 @@ namespace MassiveJobs.Core.Tests.Cron
         }
 
         [TestMethod]
+        public void Expression_should_handle_ambiguous_time_exit()
+        {
+            var cronGen = new CronSequenceGenerator("* * * ? * *", SarajevoTimeZone);
+
+            var nowUtc = new DateTime(2020, 10, 25, 01, 59, 59, 0, DateTimeKind.Utc);
+            var originalUtc = nowUtc;
+
+            for (var i = 0; i < 10; i++)
+            {
+                var nextTimeUtc = cronGen.NextUtc(nowUtc);
+                Assert.AreEqual(originalUtc.AddSeconds(i + 1), nextTimeUtc);
+
+                nowUtc = nextTimeUtc;
+            }
+        }
+
+        [TestMethod]
+        public void Expression_should_handle_ambiguous_time_entry()
+        {
+            var cronGen = new CronSequenceGenerator("* * * ? * *", SarajevoTimeZone);
+
+            var nowUtc = new DateTime(2020, 10, 24, 23, 59, 59, 0, DateTimeKind.Utc);
+            var originalUtc = nowUtc;
+
+            for (var i = 0; i < 10; i++)
+            {
+                var nextTimeUtc = cronGen.NextUtc(nowUtc);
+                Assert.AreEqual(originalUtc.AddSeconds(i + 1), nextTimeUtc);
+
+                nowUtc = nextTimeUtc;
+            }
+        }
+
+        [TestMethod]
+        public void Expression_should_not_fire_twice_in_ambiguous_time()
+        {
+            var cronGen = new CronSequenceGenerator("0 0,30 2 ? * *", SarajevoTimeZone);
+
+            var nowUtc = new DateTime(2020, 10, 24, 23, 0, 0, 0, DateTimeKind.Utc);
+
+            var nextTimeUtc = cronGen.NextUtc(nowUtc);
+            Assert.AreEqual( new DateTime(2020, 10, 25, 0, 0, 0, 0, DateTimeKind.Utc), nextTimeUtc);
+
+            nowUtc = nextTimeUtc;
+
+            nextTimeUtc = cronGen.NextUtc(nowUtc);
+            Assert.AreEqual( new DateTime(2020, 10, 25, 0, 30, 0, 0, DateTimeKind.Utc), nextTimeUtc);
+
+            nowUtc = nextTimeUtc;
+
+            nextTimeUtc = cronGen.NextUtc(nowUtc);
+            Assert.AreEqual( new DateTime(2020, 10, 26, 1, 0, 0, 0, DateTimeKind.Utc), nextTimeUtc);
+        }
+
+        [TestMethod]
+        public void Expression_should_handle_periodic_ambiguous_time()
+        {
+            var cronGen = new CronSequenceGenerator("0 * 2 ? * *", SarajevoTimeZone);
+
+            var nowUtc = new DateTime(2020, 10, 24, 23, 0, 0, 0, DateTimeKind.Utc);
+            var beginUtc = new DateTime(2020, 10, 25, 0, 0, 0, 0, DateTimeKind.Utc);
+
+            DateTime nextTimeUtc;
+
+            for (var i = 0; i < 120; i++) // test both ambiguous periods
+            {
+                nextTimeUtc = cronGen.NextUtc(nowUtc);
+                Assert.AreEqual(beginUtc.AddMinutes(i), nextTimeUtc);
+
+                nowUtc = nextTimeUtc;
+            }
+
+            nextTimeUtc = cronGen.NextUtc(nowUtc);
+            Assert.AreEqual(new DateTime(2020, 10, 26, 1, 0, 0, 0, DateTimeKind.Utc), nextTimeUtc);
+        }
+
+        [TestMethod]
         public void Expression_should_run_every_even_minute()
         {
             var cronGen = new CronSequenceGenerator("0 */2 * ? * *", SarajevoTimeZone);

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace MassiveJobs.Core.Cron
 {
@@ -20,6 +21,8 @@ namespace MassiveJobs.Core.Cron
 		private readonly BitArray _minutes = new BitArray(60);
 		private readonly BitArray _seconds = new BitArray(60);
 
+		private bool _isIntervalBased;
+
 		public CronSequenceGenerator(string expression, string timeZoneInfoId = null)
 			: this(expression, string.IsNullOrWhiteSpace(timeZoneInfoId) ? TimeZoneInfo.Local : TimeZoneInfo.FindSystemTimeZoneById(timeZoneInfoId))
 		{
@@ -35,42 +38,72 @@ namespace MassiveJobs.Core.Cron
 
 		public DateTime NextUtc(DateTime dateTimeUtc)
 		{
-			/*
-			The plan:
-			1 Start with whole second (rounding up if necessary)
-			2 If seconds match move on, otherwise find the next match:
-			2.1 If next match is in the next minute then roll forwards
-			3 If minute matches move on, otherwise find the next match
-			3.1 If next match is in the next hour then roll forwards
-			3.2 Reset the seconds and go to 2
-			4 If hour matches move on, otherwise find the next match
-			4.1 If next match is in the next day then roll forwards,
-			4.2 Reset the minutes and seconds and go to 2
-			*/
+			var truncatedUtc = dateTimeUtc.TruncateMs();
 
-			var dateTime = TimeZoneInfo
-				.ConvertTimeFromUtc(dateTimeUtc, _timeZoneInfo)
-				.TruncateMs();
+			var dateTime = TimeZoneInfo.ConvertTimeFromUtc(truncatedUtc, _timeZoneInfo);
 
-			var originalTimestamp = dateTime.Ticks;
+			var offsets = new List<TimeSpan>();
 
-			DoNext(ref dateTime, dateTime.Year);
-
-			if (dateTime.Ticks == originalTimestamp)
+			if (_timeZoneInfo.IsAmbiguousTime(dateTime))
 			{
-				// We arrived at the original timestamp - round up to the next whole second and try again...
-				dateTime = dateTime.AddSeconds(1);
-				DoNext(ref dateTime, dateTime.Year);
+				offsets.AddRange(_timeZoneInfo.GetAmbiguousTimeOffsets(dateTime));
+			}
+			else
+			{
+				offsets.Add(_timeZoneInfo.GetUtcOffset(dateTime));
 			}
 
-			// try to skip invalid time for the time zone
-			while (_timeZoneInfo.IsInvalidTime(dateTime))
-            {
-				dateTime = dateTime.AddSeconds(1);
-				DoNext(ref dateTime, dateTime.Year);
-            }
+			var possibleResults = new List<DateTime?>();
 
-			return TimeZoneInfo.ConvertTimeToUtc(dateTime, _timeZoneInfo);
+			DateTime nextDateTime, originalDateTime;
+			foreach (var offset in offsets) 
+			{
+				nextDateTime = originalDateTime = DateTime.SpecifyKind(truncatedUtc.Add(offset), DateTimeKind.Unspecified);
+				
+				DoNext(ref nextDateTime, nextDateTime.Year);
+
+				if (nextDateTime == originalDateTime)
+				{
+					// We arrived at the original timestamp - round up to the next whole second and try again...
+					nextDateTime = nextDateTime.AddSeconds(1);
+					DoNext(ref nextDateTime, nextDateTime.Year);
+				}
+
+				// try to skip invalid time for the time zone
+				while (_timeZoneInfo.IsInvalidTime(nextDateTime))
+				{
+					nextDateTime = nextDateTime.AddSeconds(1);
+					DoNext(ref nextDateTime, nextDateTime.Year);
+				}
+
+				if (_timeZoneInfo.IsAmbiguousTime(nextDateTime))
+				{
+					var nextOffsets = _timeZoneInfo.GetAmbiguousTimeOffsets(nextDateTime);
+
+					if (_isIntervalBased)
+					{
+						foreach (var nextOffset in nextOffsets)
+						{
+							possibleResults.Add(DateTime.SpecifyKind(nextDateTime.Subtract(nextOffset), DateTimeKind.Utc));
+						}
+					}
+					else
+                    {
+						// if the expression is not interval based (doesn't have */- in sec, min, hour field)
+						// we only use one of the intervals (the last one), which has the largest offset and yields smallest time after subtract.
+						possibleResults.Add(DateTime.SpecifyKind(nextDateTime.Subtract(nextOffsets.Last()), DateTimeKind.Utc));
+                    }
+				}
+				else
+				{
+					possibleResults.Add(TimeZoneInfo.ConvertTimeToUtc(nextDateTime));
+				}
+			}
+
+			return possibleResults
+				.OrderBy(utc => utc)
+				.FirstOrDefault(utc => utc > dateTimeUtc)
+				?? throw new Exception("Possible bug in code - couldn't find next cron time");
 		}
 
 		/// <summary>
@@ -217,9 +250,9 @@ namespace MassiveJobs.Core.Cron
 				throw new ArgumentException($"Cron expression must consist of 6 fields (found {fields.Length} in '{Expression}')");
 			}
 
-			SetNumberHits(_seconds, fields[0], 0, 60);
-			SetNumberHits(_minutes, fields[1], 0, 60);
-			SetNumberHits(_hours, fields[2], 0, 24);
+			SetNumberHits(_seconds, fields[0], 0, 60, out var isIntervalSec);
+			SetNumberHits(_minutes, fields[1], 0, 60, out var isIntervalMin);
+			SetNumberHits(_hours, fields[2], 0, 24, out var isIntervalHr);
 			SetDaysOfMonth(_daysOfMonth, fields[3]);
 			SetMonths(_months, fields[4]);
 			SetDays(_daysOfWeek, ReplaceOrdinals(fields[5], "SUN,MON,TUE,WED,THU,FRI,SAT"), 8);
@@ -229,6 +262,8 @@ namespace MassiveJobs.Core.Cron
 				_daysOfWeek.Set(0, true);
 				_daysOfWeek.Set(7, false);
 			}
+
+			_isIntervalBased = isIntervalSec || isIntervalMin || isIntervalHr;
 		}
 
 		private void SetDaysOfMonth(BitArray bits, string field)
@@ -249,7 +284,7 @@ namespace MassiveJobs.Core.Cron
 				field = "*";
 			}
 
-			SetNumberHits(bits, field, 0, max);
+			SetNumberHits(bits, field, 0, max, out _);
 		}
 
 		private void SetMonths(BitArray bits, string value)
@@ -258,14 +293,16 @@ namespace MassiveJobs.Core.Cron
 			value = ReplaceOrdinals(value, "FOO,JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC");
 
 			// Months start with 1 (in Cron and DateTime) so add one
-			SetNumberHits(bits, value, 1, max + 1);
+			SetNumberHits(bits, value, 1, max + 1, out _);
 
             // ... and remove it from the front
 			bits.Set(0, false);
 		}
 
-		private void SetNumberHits(BitArray bits, string value, int min, int max)
+		private void SetNumberHits(BitArray bits, string value, int min, int max, out bool isInterval)
 		{
+			isInterval = false;
+
 			var fields = value.Split(',');
 
 			foreach (var field in fields)
@@ -278,9 +315,13 @@ namespace MassiveJobs.Core.Cron
 					{
 						bits.Set(i, true);
 					}
+
+					isInterval = range[0] != range[1];
 				}
 				else
 				{
+					isInterval = true;
+
 					var split = field.Split('/');
 					if (split.Length != 2) throw new ArgumentException($"Incrementer has more than two fields: '{field}' in expression '{Expression}'");
 

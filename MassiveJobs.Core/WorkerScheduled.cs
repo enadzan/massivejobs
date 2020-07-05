@@ -91,8 +91,19 @@ namespace MassiveJobs.Core
                         duplicateTags.Add(runningTag);
                     }
 
-                    if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc, DateTime.UtcNow))
+                    try
                     {
+                        if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc, DateTime.UtcNow))
+                        {
+                            duplicateTags.Add(rawMessage.DeliveryTag);
+                            continue;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Setting the next time could throw in cron expressions.
+                        // It shouldn't happen, but if it does, log error and skip.
+                        Logger.LogError(ex, $"Failed setting next run time in job with group key '{job.GroupKey}' (last run utc: {job.PeriodicRunInfo.LastRunTimeUtc})");
                         duplicateTags.Add(rawMessage.DeliveryTag);
                         continue;
                     }
