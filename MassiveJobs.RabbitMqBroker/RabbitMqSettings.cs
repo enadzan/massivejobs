@@ -2,11 +2,11 @@
 {
     public class RabbitMqSettings
     {
-        public string[] HostNames { get; set; } = new string[0];
+        public string[] HostNames { get; set; } = new[] { "localhost" };
         public int Port { get; set; } = -1;
         public string VirtualHost { get; set; } = "/";
-        public string Username { get; set; }
-        public string Password { get; set; }
+        public string Username { get; set; } = "guest";
+        public string Password { get; set; } = "guest";
 
         public bool SslEnabled { get; set; }
         public string SslServerName { get; set; }

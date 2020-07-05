@@ -23,10 +23,7 @@ namespace MassiveJobs.RabbitMqBroker.Tests
 
             _settings = new RabbitMqSettings
             {
-                HostNames = new[] { "localhost" },
                 VirtualHost = "massivejobs.tests",
-                Username = "guest",
-                Password = "guest",
                 NamePrefix = "tests.",
                 PrefetchCount = 1000
             };
@@ -91,6 +88,24 @@ namespace MassiveJobs.RabbitMqBroker.Tests
             Thread.Sleep(6000);
 
             Assert.AreEqual(4, _performCount);
+        }
+
+        [TestMethod]
+        public void CronJob_should_run_jobs_periodically_until_end()
+        {
+            _jobs.StartJobWorkers();
+
+            var endAtUtc = DateTime.UtcNow.AddSeconds(4);
+
+            _jobs.PublishPeriodic<DummyJob>("test_periodic", "0/2 * * ? * *", null, null, endAtUtc);
+
+            // these should be ignored
+            _jobs.PublishPeriodic<DummyJob>("test_periodic", 1, null, endAtUtc);
+            _jobs.PublishPeriodic<DummyJob>("test_periodic", 1, null, endAtUtc);
+
+            Thread.Sleep(6000);
+
+            Assert.AreEqual(2, _performCount);
         }
 
         private class DummyJob

@@ -23,10 +23,7 @@ namespace MassiveJobs.ConsoleTest
 
             var mqSettings = new RabbitMqSettings
             {
-                HostNames = new[] { "localhost" },
                 VirtualHost = "massivejobs",
-                Username = "guest",
-                Password = "guest",
                 NamePrefix = "console."
             };
 
@@ -44,7 +41,7 @@ namespace MassiveJobs.ConsoleTest
 
             Console.WriteLine("Testing periodic jobs. Press Enter to quit!");
 
-            jobs.PublishPeriodic<PeriodicJob>("test_periodic", 2, DateTime.UtcNow.Date);
+            jobs.PublishPeriodic<PeriodicJob>("test_periodic", "0/2 * * ? * *", null);
 
             Console.ReadLine();
         }

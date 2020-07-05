@@ -8,15 +8,16 @@ namespace MassiveJobs.RabbitMqBroker
 {
     public class ModelPool: IDisposable
     {
+        private readonly ILogger _logger;
         private readonly IConnection _connection;
         private readonly int _maxRetained;
-
         private readonly Queue<ModelPoolEntry> _models;
 
-        public ModelPool(IConnection connection, int maxRetained)
+        public ModelPool(IConnection connection, int maxRetained, ILogger logger)
         {
             _connection = connection;
             _maxRetained = maxRetained;
+            _logger = logger;
             _models = new Queue<ModelPoolEntry>();
         }
 
@@ -46,7 +47,7 @@ namespace MassiveJobs.RabbitMqBroker
                 }
             }
 
-            pooledModel.SafeDispose();
+            pooledModel.Close(_logger);
         }
 
         public bool AllOk()
@@ -70,7 +71,7 @@ namespace MassiveJobs.RabbitMqBroker
                 {
                     _models
                         .Dequeue()
-                        .SafeDispose();
+                        .Close(_logger);
                 }
             }
         }

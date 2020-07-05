@@ -1,9 +1,10 @@
-﻿using System;
-using RabbitMQ.Client;
+﻿using RabbitMQ.Client;
+
+using MassiveJobs.Core;
 
 namespace MassiveJobs.RabbitMqBroker
 {
-    public class ModelPoolEntry: IDisposable
+    public class ModelPoolEntry
     {
         public IModel Model { get; }
         public IBasicProperties BasicProperties { get; }
@@ -22,9 +23,9 @@ namespace MassiveJobs.RabbitMqBroker
             }
         }
 
-        public void Dispose()
+        public void Close(ILogger logger)
         {
-            Model.SafeClose();
+            Model.SafeClose(logger);
         }
     }
 }

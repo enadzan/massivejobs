@@ -59,6 +59,7 @@ namespace MassiveJobs.RabbitMqBroker
                 if (Connection == null) return;
 
                 ModelPool.SafeDispose(Logger);
+                ModelPool = null;
 
                 Connection.CallbackException -= ConnectionOnCallbackException;
                 Connection.ConnectionBlocked -= ConnectionOnConnectionBlocked;
@@ -67,18 +68,18 @@ namespace MassiveJobs.RabbitMqBroker
 
                 Connection.SafeClose(Logger);
                 Connection = null;
+
+                Logger.LogWarning("Connection closed and set to null");
             }
         }
         
         protected void EnsureConnectionExists()
         {
-            if (Connection != null) return;
-
             lock (_connectionLock)
             {
                 if (Connection != null) return;
 
-                Logger.LogDebug("Connecting");
+                Logger.LogDebug("Connecting...");
 
                 try
                 {
@@ -89,7 +90,7 @@ namespace MassiveJobs.RabbitMqBroker
                     Connection.ConnectionUnblocked += ConnectionOnConnectionUnblocked;
                     Connection.ConnectionShutdown += ConnectionOnConnectionShutdown;
 
-                    ModelPool = new ModelPool(Connection, 2);
+                    ModelPool = new ModelPool(Connection, 2, _massiveJobsSettings.LoggerFactory.SafeCreateLogger<ModelPool>());
 
                     var model = ModelPool.Get();
                     try
@@ -108,7 +109,7 @@ namespace MassiveJobs.RabbitMqBroker
                 }
             }
 
-            Logger.LogInformation("Connected");
+            Logger.LogWarning("Connected");
         }
 
         private void ConnectionOnConnectionShutdown(object sender, ShutdownEventArgs e)
