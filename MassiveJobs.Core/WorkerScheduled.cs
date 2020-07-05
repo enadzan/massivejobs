@@ -8,7 +8,7 @@ namespace MassiveJobs.Core
 {
     public sealed class WorkerScheduled : Worker
     {
-        private const int CheckIntervalMs = 100;
+        private const int CheckIntervalMs = 250;
 
         private readonly ManualResetEvent _stoppingSignal = new ManualResetEvent(true);
 
@@ -106,28 +106,20 @@ namespace MassiveJobs.Core
 
                 var now = DateTime.UtcNow;
 
-                foreach (var key in _scheduledJobs.Keys)
+                foreach (var kvp in _scheduledJobs)
                 {
                     if (_cancellationTokenSource.IsCancellationRequested) return;
 
-                    if (!_scheduledJobs.TryGetValue(key, out var job)) continue;
+                    var deliveryTag = kvp.Key;
+                    var job = kvp.Value;
+
                     if (job.RunAtUtc > now) continue;
                     if (job.PeriodicRunInfo != null && job.PeriodicRunInfo.NextRunTime > now) continue;
 
-                    batchToRun.Add(key, job);
+                    batchToRun.Add(deliveryTag, job);
 
-                    if (job.PeriodicRunInfo != null)
-                    {
-                        if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc, now))
-                        {
-                            _scheduledJobs.TryRemove(key, out _);
-                            _periodicSkipJobs.TryRemove(job.GroupKey, out _);
-                        }
-                    }
-                    else
-                    {
-                        _scheduledJobs.TryRemove(key, out _);
-                    }
+                    if (job.PeriodicRunInfo != null) _periodicJobs.TryRemove(job.GroupKey, out _);
+                    _scheduledJobs.TryRemove(deliveryTag, out _);
                 }
 
                 RunBatch(batchToRun);
@@ -184,21 +176,18 @@ namespace MassiveJobs.Core
 
                     jobPublisher.Publish(batch.Select(j => j.Value.ToImmediateJob()));
 
-                    if (_cancellationTokenSource.IsCancellationRequested) return;
+                    var periodicJobs = batch
+                        .Where(j => j.Value.PeriodicRunInfo != null)
+                        .Select(j => j.Value)
+                        .ToList();
+
+                    periodicJobs.ForEach(j => j.PeriodicRunInfo.LastRunTimeUtc = DateTime.UtcNow);
+
+                    jobPublisher.Publish(periodicJobs);
 
                     foreach (var kvp in batch)
                     {
-                        // don't confirm periodic jobs, unless passed end time
-                        if (kvp.Value.PeriodicRunInfo != null && kvp.Value.PeriodicRunInfo.NextRunTime != DateTime.MinValue) continue;
-
                         OnMessageProcessed(kvp.Key);
-
-                        _scheduledJobs.TryRemove(kvp.Key, out _);
-
-                        if (kvp.Value.PeriodicRunInfo != null)
-                        {
-                            _periodicJobs.TryRemove(kvp.Value.GroupKey, out _);
-                        }
                     }
                 }
             }
