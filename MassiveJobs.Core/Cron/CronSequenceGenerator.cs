@@ -38,6 +38,8 @@ namespace MassiveJobs.Core.Cron
 
 		public DateTime NextUtc(DateTime dateTimeUtc)
 		{
+			if (dateTimeUtc.Kind != DateTimeKind.Utc) throw new ArgumentException("Only UTC times can be used", nameof(dateTimeUtc));
+
 			var truncatedUtc = dateTimeUtc.TruncateMs();
 
 			var dateTime = TimeZoneInfo.ConvertTimeFromUtc(truncatedUtc, _timeZoneInfo);
@@ -96,7 +98,8 @@ namespace MassiveJobs.Core.Cron
 				}
 				else
 				{
-					possibleResults.Add(TimeZoneInfo.ConvertTimeToUtc(nextDateTime));
+					var nextOffset = _timeZoneInfo.GetUtcOffset(nextDateTime);
+					possibleResults.Add(DateTime.SpecifyKind(nextDateTime.Subtract(nextOffset), DateTimeKind.Utc));
 				}
 			}
 
