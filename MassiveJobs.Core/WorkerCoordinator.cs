@@ -197,7 +197,7 @@ namespace MassiveJobs.Core
         /// <param name="sender"></param>
         private void MessageBrokerDisconnected(IMessageConsumer sender)
         {
-            Logger.LogWarning("Message broker disconnected... stopping workers and disposing broker");
+            Logger.LogWarning("Message broker disconnected... stopping workers");
 
             lock (WorkersLock)
             {
@@ -212,7 +212,7 @@ namespace MassiveJobs.Core
                 }
             }
 
-            Logger.LogWarning("Message broker disconnected... stopped workers and disposed broker");
+            Logger.LogWarning("Message broker disconnected... stopped workers");
         }
     }
 }
