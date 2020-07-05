@@ -72,11 +72,19 @@ namespace MassiveJobs.Core
                         _periodicSkipJobs.TryAdd(job.GroupKey, duplicateTags);
                     }
 
-                    // Periodic jobs should not be added twice. New job will be added, old job will be confirmed.
-                    // This will enable cancelling of the periodic jobs, by sending a new job with the same GroupKey.
+                    // Periodic jobs should not be added twice. 
+                    // If the new job has "LastRunTime", it will replace the old job, otherwise it is discarded.
+                    // This is because we don't want restarts of applications (that will schedule a periodic job without "LastRunTime")
+                    // to interfere with the execution of jobs.
 
                     if (_periodicJobs.TryGetValue(job.GroupKey, out var runningTag))
                     {
+                        if (!job.PeriodicRunInfo.LastRunTimeUtc.HasValue)
+                        {
+                            duplicateTags.Add(rawMessage.DeliveryTag);
+                            continue;
+                        }
+
                         _periodicJobs.TryRemove(job.GroupKey, out _);
                         _scheduledJobs.TryRemove(runningTag, out _);
 

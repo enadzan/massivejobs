@@ -219,6 +219,18 @@ namespace MassiveJobs.Core.Tests
         }
 
         [TestMethod]
+        public void TestCronJobWithEndTime()
+        {
+            _jobs.StartJobWorkers();
+
+            _jobs.PublishPeriodic<MockJob, bool>(true, "test_job", "0/2 * * ? * *", null, null, DateTime.UtcNow.AddSeconds(4));
+
+            Thread.Sleep(6000);
+
+            Assert.IsTrue(_performCount == 2);
+        }
+
+        [TestMethod]
         public void TestPeriodicJobCancelling()
         {
             _jobs.StartJobWorkers();
@@ -227,7 +239,7 @@ namespace MassiveJobs.Core.Tests
 
             Thread.Sleep(3500);
 
-            _jobs.PublishPeriodic<MockJob, bool>(true, "test_job", 0);
+            _jobs.CancelPeriodic<MockJob, bool>(true, "test_job");
 
             Thread.Sleep(1000);
 

@@ -23,6 +23,36 @@ namespace MassiveJobs.Core
             publisher.Publish(new[] { JobInfo.For<TJob, TArgs>(jobArgs, periodicRunInfo.NextRunTime, groupKey, jobTimeoutMs, periodicRunInfo) });
         }
 
+        public static void PublishPeriodic<TJob, TArgs>(this IJobPublisher publisher, TArgs jobArgs, string groupKey, string cronExpression, 
+            TimeZoneInfo timeZoneInfo = null, DateTime? runAtUtc = null, DateTime? endAtUtc = null, int? jobTimeoutMs = null)
+        {
+            if (!Cron.CronSequenceGenerator.IsValidExpression(cronExpression))
+            {
+                throw new ArgumentException($"Invalid cron expression ('{cronExpression}')", nameof(cronExpression));
+            }
+
+            var periodicRunInfo = new PeriodicRunInfo
+            {
+                NextRunTime = runAtUtc ?? DateTime.UtcNow,
+                EndAtUtc = endAtUtc,
+                CronExp = cronExpression,
+                TzId = timeZoneInfo?.Id
+            };
+
+            publisher.Publish(new[] { JobInfo.For<TJob, TArgs>(jobArgs, periodicRunInfo.NextRunTime, groupKey, jobTimeoutMs, periodicRunInfo) });
+        }
+
+        public static void CancelPeriodic<TJob, TArgs>(this IJobPublisher publisher, TArgs jobArgs, string groupKey)
+        {
+            var periodicRunInfo = new PeriodicRunInfo
+            {
+                NextRunTime = DateTime.MinValue,
+                LastRunTimeUtc = DateTime.MinValue, //important to replace existing job
+            };
+
+            publisher.Publish(new[] { JobInfo.For<TJob, TArgs>(jobArgs, periodicRunInfo.NextRunTime, groupKey, null, periodicRunInfo) });
+        }
+
         public static void Publish<TJob, TArgs>(this IJobPublisher publisher, TArgs jobArgs, TimeSpan runIn, int? jobTimeoutMs = null)
         {
             publisher.Publish(new[] { JobInfo.For<TJob, TArgs>(jobArgs, DateTime.UtcNow.Add(runIn), null, jobTimeoutMs) });

@@ -6,10 +6,11 @@ namespace MassiveJobs.Core.Cron
 {
     /// <summary>
     /// Modeled by Java Spring Frameworks's CronSequenceGenerator
+	/// https://github.com/spring-projects/spring-framework/blob/master/spring-context/src/main/java/org/springframework/scheduling/support/CronSequenceGenerator.java
     /// </summary>
     class CronSequenceGenerator
 	{
-		private string Expression { get; }
+		public string Expression { get; }
 
         private readonly TimeZoneInfo _timeZoneInfo;
         private readonly BitArray _months = new BitArray(13); // zero index is not used, that's why 13 and not 12
@@ -19,10 +20,15 @@ namespace MassiveJobs.Core.Cron
 		private readonly BitArray _minutes = new BitArray(60);
 		private readonly BitArray _seconds = new BitArray(60);
 
-        public CronSequenceGenerator(string expression, TimeZoneInfo timeZoneInfo = null)
+		public CronSequenceGenerator(string expression, string timeZoneInfoId = null)
+			: this(expression, string.IsNullOrWhiteSpace(timeZoneInfoId) ? TimeZoneInfo.Local : TimeZoneInfo.FindSystemTimeZoneById(timeZoneInfoId))
+		{
+		}
+
+        public CronSequenceGenerator(string expression, TimeZoneInfo timeZoneInfo)
         {
 			Expression = expression;
-			_timeZoneInfo = timeZoneInfo ?? TimeZoneInfo.Local;
+			_timeZoneInfo = timeZoneInfo;
 
 			Parse();
         }
