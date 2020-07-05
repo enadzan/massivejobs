@@ -223,7 +223,7 @@ namespace MassiveJobs.Core.Tests
         {
             _jobs.StartJobWorkers();
 
-            _jobs.PublishPeriodic<MockJob, bool>(true, "test_job", "0/2 * * ? * *", null, null, DateTime.UtcNow.AddSeconds(4));
+            _jobs.PublishPeriodic<MockJob>("test_job", "0/2 * * ? * *", null, null, DateTime.UtcNow.AddSeconds(4));
 
             Thread.Sleep(6000);
 
@@ -248,6 +248,11 @@ namespace MassiveJobs.Core.Tests
 
         private class MockJob
         {
+            public void Perform()
+            {
+                Interlocked.Increment(ref _performCount);
+            }
+
             public void Perform(bool increment)
             {
                 if (increment) Interlocked.Increment(ref _performCount);

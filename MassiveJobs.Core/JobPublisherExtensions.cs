@@ -71,14 +71,18 @@ namespace MassiveJobs.Core
         public static void PublishPeriodic<TJob>(this IJobPublisher publisher, string groupKey, int repeatSeconds, 
             DateTime? runAtUtc = null, DateTime? endAtUtc = null, int? jobTimeoutMs = null)
         {
-            var periodicRunInfo = new PeriodicRunInfo
-            {
-                RepeatSeconds = repeatSeconds,
-                NextRunTime = runAtUtc ?? DateTime.UtcNow.AddSeconds(repeatSeconds),
-                EndAtUtc = endAtUtc
-            };
+            PublishPeriodic<TJob, VoidArgs>(publisher, null, groupKey, repeatSeconds, runAtUtc, endAtUtc, jobTimeoutMs);
+        }
 
-            publisher.Publish(new[] { JobInfo.For<TJob, VoidArgs>(null, periodicRunInfo.NextRunTime, groupKey, jobTimeoutMs, periodicRunInfo) });
+        public static void PublishPeriodic<TJob>(this IJobPublisher publisher, string groupKey, string cronExpression, 
+            TimeZoneInfo timeZoneInfo = null, DateTime? runAtUtc = null, DateTime? endAtUtc = null, int? jobTimeoutMs = null)
+        {
+            PublishPeriodic<TJob, VoidArgs>(publisher, null, groupKey, cronExpression, timeZoneInfo, runAtUtc, endAtUtc, jobTimeoutMs);
+        }
+
+        public static void CancelPeriodic<TJob>(this IJobPublisher publisher, string groupKey)
+        {
+            CancelPeriodic<TJob, VoidArgs>(publisher, null, groupKey);
         }
 
         public static void Publish<TJob>(this IJobPublisher publisher, TimeSpan runIn, int? jobTimeoutMs = null)
