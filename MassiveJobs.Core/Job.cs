@@ -83,6 +83,19 @@ namespace MassiveJobs.Core
 
             MassiveJobsMediator.DefaultInstance.PublishPeriodic<TJob, TArgs>(args, groupKey, cronExpression, timeZoneInfo, runAtUtc, endAtUtc, timeoutMs);
         }
+
+        protected static void PerformAsync(TArgs args, string groupKey, int? timeoutMs = null)
+        {
+            var jobInfo = JobInfo.For<TJob, TArgs>(args, groupKey, timeoutMs);
+
+            if (JobBatch.IsActive)
+            {
+                JobBatch.Add(jobInfo);
+                return;
+            }
+
+            MassiveJobsMediator.DefaultInstance.Publish(jobInfo);
+        }
     }
 
     public abstract class Job<TJob>
