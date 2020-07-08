@@ -53,7 +53,7 @@ Use your favorite editor to open Program.cs and enter this code.
 Comments in the code should be enough to give you a basic idea of what is going on.
 ```csharp
 using System;
-
+using System.Threading;
 using MassiveJobs.Core;
 using MassiveJobs.RabbitMqBroker;
 
@@ -61,17 +61,11 @@ namespace MassiveJobs.QuickStart
 {
     /// <summary>
     /// This is a "job" class. 
-    /// It will be instantiated every time a message is received (so make it lightweight).
-    /// The class must have one method called Perform with either one of these signatures:
-    /// 
-    /// void Perform(TJobArg arg)
-    /// Task Perform(TJobArg arg, CancellationToken cancellationToken)
-    /// 
-    /// We are not using aysnc calls so we will use the first option.
+    /// It will be instantiated every time a message is received and Perform will be called.
     /// </summary>
-    public class MessageReceiver
+    public class MessageReceiver: Job<MessageReceiver, string>
     {
-        public void Perform(string message)
+        public override void Perform(string message, CancellationToken cancellationToken)
         {
             Console.WriteLine("Message Received: " + message);
         }
@@ -81,40 +75,32 @@ namespace MassiveJobs.QuickStart
     {
         static void Main(string[] args)
         {
-            var rmqSettings = new RabbitMqSettings
+            if (args.Length > 0 && args[0].ToLower() == "publisher")
             {
-                HostNames = new[] { "localhost" },
-                VirtualHost = "/",
-                Username = "guest",
-                Password = "guest"
-            };
-
-            using (var jobs = RabbitMqJobsBuilder.FromSettings(rmqSettings).Build())
+                RunPublisher();
+            }
+            else
             {
-                if (args.Length > 0 && args[0].ToLower() == "publisher")
-                {
-                    RunPublisher(jobs);
-                }
-                else
-                {
-                    RunWorker(jobs);
-                }
+                RunWorker();
             }
         }
 
-        private static void RunWorker(Jobs jobs)
+        private static void RunWorker()
         {
-            jobs.StartJobWorkers();
+            RabbitMqJobsBroker.Initialize();
 
-            Console.WriteLine("Started job worker.");
+            Console.WriteLine("Initialized job worker.");
             Console.WriteLine("Press Enter to end the application.");
 
             Console.ReadLine();
         }
 
-        private static void RunPublisher(Jobs jobs)
+        private static void RunPublisher()
         {
-            Console.WriteLine("Started publisher.");
+            // passing false indicates that we do not want to start workers in this process
+            RabbitMqJobsBroker.Initialize(false);
+
+            Console.WriteLine("Initialized publisher.");
             Console.WriteLine("Write a message and press Enter to publish it (empty message to end).");
 
             while (true)
@@ -124,10 +110,9 @@ namespace MassiveJobs.QuickStart
 
                 if (string.IsNullOrWhiteSpace(message)) break;
 
-                // On publish we must specify the job type (MessageReceiver) 
-                // and the argument type (string).
-
-                jobs.Publish<MessageReceiver, string>(message);
+                // notice that PerformAsync is a static method on our MessageReceiver class
+                // it is available because MessageReceiver inherits from Job<TJob, TArgs>
+                MessageReceiver.PerformAsync(message);
             }
         }
     }

@@ -5,6 +5,7 @@ using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 using MassiveJobs.Core;
 using MassiveJobs.RabbitMqBroker;
+using System.Threading;
 
 namespace MassiveJobs.ConsoleTest
 {
@@ -27,28 +28,25 @@ namespace MassiveJobs.ConsoleTest
                 NamePrefix = "console."
             };
 
-            using var jobs = RabbitMqJobsBuilder
-                    .FromSettings(mqSettings)
-                    .Configure(s =>
-                    {
-                        s.LoggerFactory = new LoggerFactoryWrapper(loggerFactory); 
-                        s.MaxQueueLength = QueueLength.NoLimit;
-                        s.PublishBatchSize = 400;
-                    })
-                    .Build();
-
-            jobs.StartJobWorkers();
+            RabbitMqJobsBroker.Initialize(true, mqSettings, s =>
+            {
+                s.LoggerFactory = new LoggerFactoryWrapper(loggerFactory);
+                s.MaxQueueLength = QueueLength.NoLimit;
+                s.PublishBatchSize = 400;
+            });
 
             Console.WriteLine("Testing periodic jobs. Press Enter to quit!");
 
-            jobs.PublishPeriodic<PeriodicJob>("test_periodic", "0/2 * * ? * *", null);
+            PeriodicJob.PerformPeriodic("test_periodic", "0/2 * * ? * *", null);
 
             Console.ReadLine();
+
+            MassiveJobsMediator.DefaultInstance.Dispose();
         }
 
-        private class PeriodicJob
+        private class PeriodicJob: Job<PeriodicJob>
         {
-            public void Perform()
+            public override void Perform(CancellationToken cancellationToken)
             {
                 Console.WriteLine(DateTime.Now);
             }

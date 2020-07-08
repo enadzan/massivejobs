@@ -1,6 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
-using System.Collections.Generic;
 using System.Threading;
 
 using MassiveJobs.Core;
@@ -14,8 +13,6 @@ namespace MassiveJobs.RabbitMqBroker.Tests
         private static int _performCount;
         private RabbitMqSettings _settings;
 
-        private Jobs _jobs;
-
         [TestInitialize]
         public void TestInit()
         {
@@ -28,38 +25,33 @@ namespace MassiveJobs.RabbitMqBroker.Tests
                 PrefetchCount = 1000
             };
 
-            _jobs = RabbitMqJobsBuilder
-                .FromSettings(_settings)
-                .Configure(s =>
-                {
-                    s.PublishBatchSize = 400;
-                    s.ImmediateWorkersCount = 3;
-                    s.ScheduledWorkersCount = 2;
-                    s.PeriodicWorkersCount = 2;
-                })
-                .Build();
+            RabbitMqJobsBroker.Initialize(true, _settings, s =>
+            {
+                s.PublishBatchSize = 400;
+                s.ImmediateWorkersCount = 3;
+                s.ScheduledWorkersCount = 2;
+                s.PeriodicWorkersCount = 2;
+            });
         }
 
         [TestCleanup]
         public void TestCleanup()
         {
-            _jobs.SafeDispose();
+            MassiveJobsMediator.DefaultInstance.SafeDispose();
         }
 
         [TestMethod]
         public void Publish_should_not_throw_exception()
         {
-            _jobs.StartJobWorkers();
-
-            var jobArgs = new List<DummyJobArgs>();
-
-            for (var i = 0; i < 100_000; i++)
+            JobBatch.Do(() =>
             {
-                jobArgs.Add(new DummyJobArgs { SomeId = i });
-            }
-
-            _jobs.Publish<DummyJob, DummyJobArgs>(jobArgs, null);
-            _jobs.Publish<DummyJob, DummyJobArgs2>(new DummyJobArgs2());
+                for (var i = 0; i < 100_000; i++)
+                {
+                    DummyJobWithArgs.PerformAsync(new DummyJobArgs { SomeId = i });
+                }
+            });
+            
+            DummyJobWithArgs2.PerformAsync(new DummyJobArgs2());
 
             using (var tokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
             {
@@ -75,15 +67,11 @@ namespace MassiveJobs.RabbitMqBroker.Tests
         [TestMethod]
         public void PublishPeriodic_should_run_jobs_periodically_until_end()
         {
-            _jobs.StartJobWorkers();
-
-            Thread.Sleep(1000);
-
             var endAtUtc = DateTime.UtcNow.AddSeconds(4.5);
 
-            _jobs.PublishPeriodic<DummyJob>("test_periodic", 1, null, endAtUtc);
-            _jobs.PublishPeriodic<DummyJob>("test_periodic", 1, null, endAtUtc);
-            _jobs.PublishPeriodic<DummyJob>("test_periodic", 1, null, endAtUtc);
+            DummyJob.PerformPeriodic("test_periodic", 1, null, endAtUtc);
+            DummyJob.PerformPeriodic("test_periodic", 1, null, endAtUtc);
+            DummyJob.PerformPeriodic("test_periodic", 1, null, endAtUtc);
 
             Thread.Sleep(6000);
 
@@ -93,35 +81,38 @@ namespace MassiveJobs.RabbitMqBroker.Tests
         [TestMethod]
         public void CronJob_should_run_jobs_periodically_until_end()
         {
-            _jobs.StartJobWorkers();
-
             var endAtUtc = DateTime.UtcNow.AddMilliseconds(4250);
 
-            _jobs.PublishPeriodic<DummyJob>("test_periodic", "0/2 * * ? * *", null, null, endAtUtc);
+            DummyJob.PerformPeriodic("test_periodic", "0/2 * * ? * *", null, null, endAtUtc);
 
             // these should be ignored
-            _jobs.PublishPeriodic<DummyJob>("test_periodic", 1, null, endAtUtc);
-            _jobs.PublishPeriodic<DummyJob>("test_periodic", 1, null, endAtUtc);
+            DummyJob.PerformPeriodic("test_periodic", 1, null, endAtUtc);
+            DummyJob.PerformPeriodic("test_periodic", 1, null, endAtUtc);
 
             Thread.Sleep(6000);
 
             Assert.AreEqual(2, _performCount);
         }
 
-        private class DummyJob
+        private class DummyJob: Job<DummyJob>
         {
-            public void Perform()
-            {
-                Interlocked.Increment(ref _performCount);
-                System.Diagnostics.Debug.WriteLine(DateTime.UtcNow);
-            }
-
-            public void Perform(DummyJobArgs _)
+            public override void Perform(CancellationToken cancellationToken)
             {
                 Interlocked.Increment(ref _performCount);
             }
+        }
 
-            public void Perform(DummyJobArgs2 _)
+        private class DummyJobWithArgs : Job<DummyJobWithArgs, DummyJobArgs>
+        {
+            public override void Perform(DummyJobArgs _, CancellationToken cancellationToken)
+            {
+                Interlocked.Increment(ref _performCount);
+            }
+        }
+
+        private class DummyJobWithArgs2 : Job<DummyJobWithArgs2, DummyJobArgs2>
+        {
+            public override void Perform(DummyJobArgs2 _, CancellationToken cancellationToken)
             {
                 Interlocked.Increment(ref _performCount);
                 Interlocked.Increment(ref _performCount);
