@@ -20,7 +20,7 @@ namespace MassiveJobs.Core.Tests
         };
 
         private InMemoryMessages _messages;
-        private Jobs _jobs;
+        private MassiveJobsMediator _jobs;
 
         [TestInitialize]
         public void TestInit()
@@ -40,7 +40,7 @@ namespace MassiveJobs.Core.Tests
                 new WorkerCoordinator(_settings, messageConsumer, scopeFactory, _settings.LoggerFactory)
             );
 
-            _jobs = new Jobs(scopeFactory, _settings.LoggerFactory.SafeCreateLogger<Jobs>());
+            _jobs = new MassiveJobsMediator(scopeFactory, _settings.LoggerFactory.SafeCreateLogger<MassiveJobsMediator>());
         }
 
         [TestCleanup]
