@@ -84,9 +84,9 @@ namespace MassiveJobs.Core
 
         protected virtual string GetRoutingKey(JobInfo jobInfo, DateTime now)
         {
-            if (jobInfo.Retries.HasValue)
+            if (jobInfo.HasErrors)
             {
-                return jobInfo.Retries.Value >= 25 ? Settings.FailedQueueName : Settings.ErrorQueueName;
+                return jobInfo.Retries >= 25 ? Settings.FailedQueueName : Settings.ErrorQueueName;
             }
 
             if (jobInfo.PeriodicRunInfo != null)

@@ -112,6 +112,7 @@ namespace MassiveJobs.Core
         {
             if (jobInfo.PeriodicRunInfo != null) return; // periodic jobs must not be rescheduled
 
+            jobInfo.HasErrors = true;
             jobInfo.RunAtUtc = RetryTimeGenerator.GetNextRetryTime(jobInfo.Retries ?? 0);
             jobInfo.Err = ex.GetSummary();
             jobInfo.Retries = jobInfo.Retries.HasValue ? jobInfo.Retries.Value + 1 : 1;

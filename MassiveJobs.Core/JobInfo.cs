@@ -9,6 +9,7 @@ namespace MassiveJobs.Core
         public object Args { get; set; }
         public DateTime? RunAtUtc { get; set; }
 
+        public bool HasErrors { get; set; }
         public int? Retries { get; set; }
         public string Err { get; set; }
         public int? TimeoutMs { get; set; }
@@ -47,6 +48,7 @@ namespace MassiveJobs.Core
                 Retries = Retries,
                 Err = Err,
                 TimeoutMs = TimeoutMs,
+                HasErrors = false,
                 RunAtUtc = null,
                 GroupKey = null,
                 PeriodicRunInfo = null
