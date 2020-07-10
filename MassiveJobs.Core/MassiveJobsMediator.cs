@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace MassiveJobs.Core
 {
@@ -6,10 +7,28 @@ namespace MassiveJobs.Core
     {
         private static readonly object _initializationLock = new object();
 
-        public static MassiveJobsMediator DefaultInstance { get; private set; }
+        private static MassiveJobsMediator _defaultMediator;
+        public static MassiveJobsMediator DefaultInstance 
+        { 
+            get
+            {
+                return _defaultMediator ?? throw new InvalidOperationException("MassiveJobsMediator is not initialized");
+            }
+        }
 
         private static IJobServiceScope _defaultScope;
         private static IWorkerCoordinator _defaultWorkerCoordinator;
+
+        public static bool IsInitialized
+        {
+            get
+            {
+                lock (_initializationLock)
+                {
+                    return _defaultMediator != null;
+                }
+            }
+        }
 
         public static void Initialize(IJobServiceScopeFactory scopeFactory)
         {
@@ -27,7 +46,7 @@ namespace MassiveJobs.Core
                     _defaultScope.GetService<IJobLogger<WorkerCoordinator>>()
                 );
 
-                DefaultInstance = new MassiveJobsMediator(_defaultScope.GetRequiredService<IJobPublisher>(), _defaultWorkerCoordinator);
+                _defaultMediator = new MassiveJobsMediator(_defaultScope.GetRequiredService<IJobPublisher>(), _defaultWorkerCoordinator);
             }
         }
 
@@ -43,7 +62,7 @@ namespace MassiveJobs.Core
                 _defaultWorkerCoordinator = null;
                 _defaultScope = null;
 
-                DefaultInstance = null;
+                _defaultMediator = null;
             }
         }
         
