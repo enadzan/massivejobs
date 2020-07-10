@@ -4,42 +4,60 @@ namespace MassiveJobs.Core
 {
     public class MassiveJobsMediator : IJobPublisher, IWorkerCoordinator
     {
+        private static readonly object _initializationLock = new object();
+
         public static MassiveJobsMediator DefaultInstance { get; private set; }
 
-        public static void Initialize(MassiveJobsMediator jobs, bool startWorkers = true)
-        {
-            DefaultInstance = jobs;
+        private static IJobServiceScope _defaultScope;
+        private static IWorkerCoordinator _defaultWorkerCoordinator;
 
-            if (startWorkers)
+        public static void Initialize(IJobServiceScopeFactory scopeFactory)
+        {
+            lock (_initializationLock)
             {
-                DefaultInstance.StartJobWorkers();
+                if (DefaultInstance != null) return;
+
+                _defaultScope = scopeFactory.CreateScope();
+
+                _defaultWorkerCoordinator = new WorkerCoordinator(
+                    scopeFactory,
+                    _defaultScope.GetService<MassiveJobsSettings>(),
+                    _defaultScope.GetService<IMessageConsumer>(),
+                    _defaultScope.GetService<IJobLoggerFactory>(),
+                    _defaultScope.GetService<IJobLogger<WorkerCoordinator>>()
+                );
+
+                DefaultInstance = new MassiveJobsMediator(_defaultScope.GetService<IJobPublisher>(), _defaultWorkerCoordinator);
+            }
+        }
+
+        public static void Deinitialize()
+        {
+            lock (_initializationLock)
+            {
+                if (DefaultInstance == null) return;
+                
+                _defaultWorkerCoordinator.SafeDispose();
+                _defaultScope.SafeDispose();
+
+                _defaultWorkerCoordinator = null;
+                _defaultScope = null;
+
+                DefaultInstance = null;
             }
         }
         
-
-        private readonly IServiceScopeFactory _scopeFactory;
-        private readonly IServiceScope _scope;
-
-        protected readonly ILogger<MassiveJobsMediator> Logger;
         protected readonly IJobPublisher Publisher;
         protected readonly IWorkerCoordinator Workers;
 
-        public MassiveJobsMediator(IServiceScopeFactory scopeFactory, ILogger<MassiveJobsMediator> logger)
+        public MassiveJobsMediator(IJobPublisher jobPublisher, IWorkerCoordinator workerCoordinator)
         {
-            _scopeFactory = scopeFactory;
-            _scope = scopeFactory.CreateScope();
-
-            Logger = logger;
-            Publisher = _scope.GetService<IJobPublisher>();
-            Workers = _scope.GetService<IWorkerCoordinator>();
+            Publisher = jobPublisher;
+            Workers = workerCoordinator;
         }
 
         public void Dispose()
         {
-            Workers.StopJobWorkers();
-
-            _scope.SafeDispose(Logger);
-            _scopeFactory.SafeDispose(Logger);
         }
 
         public void Publish(IEnumerable<JobInfo> jobs)

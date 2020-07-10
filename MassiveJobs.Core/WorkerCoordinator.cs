@@ -6,31 +6,32 @@ namespace MassiveJobs.Core
 {
     public class WorkerCoordinator : IWorkerCoordinator
     {
-        protected readonly ILogger Logger;
+        protected readonly IJobLogger Logger;
         protected readonly List<IWorker> Workers;
         protected readonly object WorkersLock = new object();
 
         protected readonly IMessageConsumer MessageConsumer;
-        protected readonly ILoggerFactory LoggerFactory;
-        protected readonly IServiceScopeFactory ServiceScopeFactory;
+        protected readonly IJobLoggerFactory LoggerFactory;
+        protected readonly IJobServiceScopeFactory ServiceScopeFactory;
 
         private readonly Timer _reconnectTimer;
         private readonly MassiveJobsSettings _settings;
 
         public WorkerCoordinator(
+            IJobServiceScopeFactory serviceScopeFactory, 
             MassiveJobsSettings settings, 
             IMessageConsumer messageConsumer, 
-            IServiceScopeFactory serviceScopeFactory, 
-            ILoggerFactory loggerFactory, 
-            ILogger logger = null)
+            IJobLoggerFactory loggerFactory = null, 
+            IJobLogger logger = null)
         {
+            ServiceScopeFactory = serviceScopeFactory;
+
             _settings = settings;
             _reconnectTimer = new Timer(Reconnect);
 
             Workers = new List<IWorker>();
             Logger = logger ?? loggerFactory.SafeCreateLogger<WorkerCoordinator>();
 
-            ServiceScopeFactory = serviceScopeFactory;
             LoggerFactory = loggerFactory;
 
             MessageConsumer = messageConsumer;

@@ -10,11 +10,11 @@ namespace MassiveJobs.Core
         private volatile IMessageReceiver _messageReceiver;
 
         protected readonly string QueueName;
-        protected readonly IServiceScopeFactory ServiceScopeFactory;
+        protected readonly IJobServiceScopeFactory ServiceScopeFactory;
        
-        protected abstract void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope, CancellationToken cancellationToken, out int pauseSec);
+        protected abstract void ProcessMessageBatch(List<RawMessage> messages, IJobServiceScope serviceScope, CancellationToken cancellationToken, out int pauseSec);
 
-        protected Worker(string queueName, int batchSize, IMessageConsumer messageConsumer, IServiceScopeFactory serviceScopeFactory, ILogger logger)
+        protected Worker(string queueName, int batchSize, IMessageConsumer messageConsumer, IJobServiceScopeFactory serviceScopeFactory, IJobLogger logger)
             : base(batchSize, logger)
         {
             _messageConsumer = messageConsumer;
@@ -67,7 +67,7 @@ namespace MassiveJobs.Core
             ClearQueue();
         }
 
-        protected bool TryDeserializeJob(RawMessage rawMessage, IServiceScope serviceScope, out JobInfo job)
+        protected bool TryDeserializeJob(RawMessage rawMessage, IJobServiceScope serviceScope, out JobInfo job)
         {
             job = null;
 
@@ -82,7 +82,7 @@ namespace MassiveJobs.Core
             return job != null;
         }
 
-        protected void RunJobs(IReadOnlyList<JobInfo> batch, IServiceScope serviceScope, CancellationToken cancellationToken)
+        protected void RunJobs(IReadOnlyList<JobInfo> batch, IJobServiceScope serviceScope, CancellationToken cancellationToken)
         {
             if (batch.Count > 0)
             {
@@ -119,7 +119,7 @@ namespace MassiveJobs.Core
         private void OnMessageReceived(IMessageReceiver sender, RawMessage message)
         {
             // constructing string is expensive and this is hot path
-            if (Logger.IsEnabled(LogLevel.Trace))
+            if (Logger.IsEnabled(JobLogLevel.Trace))
             {
                 Logger.LogTrace($"Message received on worker {QueueName}");
             }

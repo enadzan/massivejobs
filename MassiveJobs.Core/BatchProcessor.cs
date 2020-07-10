@@ -19,13 +19,13 @@ namespace MassiveJobs.Core
         private volatile Thread _processorThread;
         private volatile CancellationTokenSource _cancellationTokenSource;
 
-        protected readonly ILogger Logger;
+        protected readonly IJobLogger Logger;
        
         protected abstract void ProcessMessageBatch(List<TMessage> messages, CancellationToken cancellationToken, out int pauseSec);
 
         public event Action<Exception> Error;
 
-        protected BatchProcessor(int batchSize, ILogger logger)
+        protected BatchProcessor(int batchSize, IJobLogger logger)
         {
             _batchSize = batchSize;
             _messages = new ConcurrentQueue<TMessage>();

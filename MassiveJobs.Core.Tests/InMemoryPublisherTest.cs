@@ -20,6 +20,9 @@ namespace MassiveJobs.Core.Tests
         };
 
         private InMemoryMessages _messages;
+
+        private IWorkerCoordinator _workerCoordinator;
+        private IJobPublisher _jobPublisher;
         private MassiveJobsMediator _jobs;
 
         [TestInitialize]
@@ -32,21 +35,23 @@ namespace MassiveJobs.Core.Tests
             var messagePublisher = new InMemoryMessagePublisher(_settings, _messages);
             var messageConsumer = new InMemoryMessageConsumer(_messages);
 
-            var scopeFactory = new DefaultServiceScopeFactory(_settings);
-
-            scopeFactory.ServiceCollection.AddSingleton<IMessagePublisher>(messagePublisher);
-            scopeFactory.ServiceCollection.AddSingleton<IMessageConsumer>(messageConsumer);
-            scopeFactory.ServiceCollection.AddSingleton<IWorkerCoordinator>(
-                new WorkerCoordinator(_settings, messageConsumer, scopeFactory, _settings.LoggerFactory)
+            var scopeFactory = new DefaultServiceScopeFactory(
+                _settings,
+                messagePublisher,
+                messageConsumer
             );
 
-            _jobs = new MassiveJobsMediator(scopeFactory, _settings.LoggerFactory.SafeCreateLogger<MassiveJobsMediator>());
+            _jobPublisher = scopeFactory.CreateScope().GetService<IJobPublisher>();
+            _workerCoordinator = new WorkerCoordinator(scopeFactory, _settings, messageConsumer);
+
+            _jobs = new MassiveJobsMediator(_jobPublisher, _workerCoordinator);
         }
 
         [TestCleanup]
         public void TestCleanup()
         {
-            _jobs.SafeDispose();
+            _jobPublisher.SafeDispose();
+            _workerCoordinator.SafeDispose();
         }
 
         [TestMethod]

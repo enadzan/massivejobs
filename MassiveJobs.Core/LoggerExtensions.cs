@@ -4,49 +4,49 @@ namespace MassiveJobs.Core
 {
     public static class LoggerExtensions
     {
-        public static void LogTrace(this ILogger logger, string message)
+        public static void LogTrace(this IJobLogger logger, string message)
         {
-            logger.Log(LogLevel.Trace, null, message);
+            logger.Log(JobLogLevel.Trace, null, message);
         }
 
-        public static void LogDebug(this ILogger logger, string message)
+        public static void LogDebug(this IJobLogger logger, string message)
         {
-            logger.Log(LogLevel.Debug, null, message);
+            logger.Log(JobLogLevel.Debug, null, message);
         }
 
-        public static void LogInformation(this ILogger logger, string message)
+        public static void LogInformation(this IJobLogger logger, string message)
         {
-            logger.Log(LogLevel.Information, null, message);
+            logger.Log(JobLogLevel.Information, null, message);
         }
 
-        public static void LogWarning(this ILogger logger, string message)
+        public static void LogWarning(this IJobLogger logger, string message)
         {
-            logger.Log(LogLevel.Warning, null, message);
+            logger.Log(JobLogLevel.Warning, null, message);
         }
 
-        public static void LogWarning(this ILogger logger, Exception exception, string message)
+        public static void LogWarning(this IJobLogger logger, Exception exception, string message)
         {
-            logger.Log(LogLevel.Warning, exception, message);
+            logger.Log(JobLogLevel.Warning, exception, message);
         }
 
-        public static void LogError(this ILogger logger, string message)
+        public static void LogError(this IJobLogger logger, string message)
         {
-            logger.Log(LogLevel.Error, null, message);
+            logger.Log(JobLogLevel.Error, null, message);
         }
 
-        public static void LogError(this ILogger logger, Exception exception, string message)
+        public static void LogError(this IJobLogger logger, Exception exception, string message)
         {
-            logger.Log(LogLevel.Error, exception, message);
+            logger.Log(JobLogLevel.Error, exception, message);
         }
 
-        public static void LogCritical(this ILogger logger, string message)
+        public static void LogCritical(this IJobLogger logger, string message)
         {
-            logger.Log(LogLevel.Critical, null, message);
+            logger.Log(JobLogLevel.Critical, null, message);
         }
 
-        public static void LogCritical(this ILogger logger, Exception exception, string message)
+        public static void LogCritical(this IJobLogger logger, Exception exception, string message)
         {
-            logger.Log(LogLevel.Critical, exception, message);
+            logger.Log(JobLogLevel.Critical, exception, message);
         }
     }
 }

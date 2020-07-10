@@ -5,6 +5,6 @@ namespace MassiveJobs.Core
 {
     public interface IJobRunner
     {
-        void RunJobs(IJobPublisher publisher, IReadOnlyList<JobInfo> jobs, IServiceScope serviceScope, CancellationToken cancellationToken);
+        void RunJobs(IJobPublisher publisher, IReadOnlyList<JobInfo> jobs, IJobServiceScope serviceScope, CancellationToken cancellationToken);
     }
 }

@@ -13,7 +13,7 @@ namespace MassiveJobs.Core
         private int _nextImmediateWorkerIndex;
         private int _nextScheduledWorkerIndex;
 
-        protected readonly ILogger Logger;
+        protected readonly IJobLogger Logger;
         protected readonly MassiveJobsSettings Settings;
         protected readonly IMessagePublisher MessagePublisher;
         protected readonly IJobTypeProvider JobTypeProvider;
@@ -23,7 +23,7 @@ namespace MassiveJobs.Core
             IMessagePublisher messagePublisher, 
             IJobTypeProvider jobTypeProvider, 
             IJobSerializer jobSerializer, 
-            ILogger logger) 
+            IJobLogger logger) 
         {
             _batchSize = settings.PublishBatchSize;
 

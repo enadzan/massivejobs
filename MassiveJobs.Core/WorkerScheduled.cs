@@ -24,8 +24,8 @@ namespace MassiveJobs.Core
             string queueName, 
             int batchSize, 
             IMessageConsumer messageConsumer, 
-            IServiceScopeFactory serviceScopeFactory, 
-            ILogger logger)
+            IJobServiceScopeFactory serviceScopeFactory, 
+            IJobLogger logger)
             : base(queueName, batchSize, messageConsumer, serviceScopeFactory, logger)
         {
             _timer = new Timer(CheckScheduledJobs);
@@ -53,7 +53,7 @@ namespace MassiveJobs.Core
             base.OnStopBegin();
         }
 
-        protected override void ProcessMessageBatch(List<RawMessage> messages, IServiceScope serviceScope, CancellationToken cancellationToken, out int pauseSec)
+        protected override void ProcessMessageBatch(List<RawMessage> messages, IJobServiceScope serviceScope, CancellationToken cancellationToken, out int pauseSec)
         {
             pauseSec = 0;
 

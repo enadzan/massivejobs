@@ -1,56 +1,68 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 
 namespace MassiveJobs.Core
 {
-    public class DefaultServiceScopeFactory : IServiceScopeFactory
+    public class DefaultServiceScopeFactory : IJobServiceScopeFactory
     {
-        private readonly DefaultServiceCollection _serviceCollection;
-        private readonly ILoggerFactory _loggerFactory;
+        internal MassiveJobsSettings Settings { get; }
+        internal IMessagePublisher MessagePublisher { get; }
+        internal IMessageConsumer MessageConsumer { get; }
+        internal IJobLoggerFactory JobLoggerFactory { get; }
+        internal IJobSerializer JobSerializer { get; }
+        internal IJobTypeProvider JobTypeProvider { get; }
+        internal IJobRunner JobRunner { get; }
 
-        public IServiceCollection ServiceCollection => _serviceCollection;
-
-        public DefaultServiceScopeFactory(MassiveJobsSettings settings)
+        public DefaultServiceScopeFactory(
+            MassiveJobsSettings settings,
+            IMessagePublisher messagePublisher,
+            IMessageConsumer messageConsumer,
+            IJobLoggerFactory jobLoggerFactory = null,
+            IJobSerializer jobSerializer = null,
+            IJobTypeProvider jobTypeProvider = null,
+            IJobRunner jobRunner = null
+            )
         {
-            _serviceCollection = new DefaultServiceCollection(settings);
-            _loggerFactory = settings.LoggerFactory;
+            Settings = settings;
+            MessagePublisher = messagePublisher;
+            MessageConsumer = messageConsumer;
+            JobLoggerFactory = jobLoggerFactory;
+            JobSerializer = jobSerializer ?? new DefaultSerializer();
+            JobTypeProvider = jobTypeProvider ?? new DefaultTypeProvider();
+            JobRunner = jobRunner ?? new DefaultJobRunner(JobLoggerFactory.SafeCreateLogger<DefaultJobRunner>());
         }
 
-        public IServiceScope CreateScope()
+        public IJobServiceScope CreateScope()
         {
-            return new DefaultServiceScope(_serviceCollection, _loggerFactory);
+            return new DefaultServiceScope(this);
         }
 
         public void Dispose()
         {
-            _serviceCollection.SafeDispose();
         }
     }
 
-    public class DefaultServiceScope : IServiceScope
+    public class DefaultServiceScope : IJobServiceScope
     {
-        private readonly DefaultServiceCollection _serviceCollection;
-        private readonly ILoggerFactory _loggerFactory;
         private readonly ConcurrentBag<IJobPublisher> _publishers;
+        private readonly DefaultServiceScopeFactory _factory;
 
-        public DefaultServiceScope(DefaultServiceCollection serviceCollection, ILoggerFactory loggerFactory)
+        public DefaultServiceScope(DefaultServiceScopeFactory serviceScopeFactory)
         {
-            _serviceCollection = serviceCollection;
-            _loggerFactory = loggerFactory;
+            _factory = serviceScopeFactory;
             _publishers = new ConcurrentBag<IJobPublisher>();
         }
 
-        public object GetService(Type serviceType)
+        public virtual object GetService(Type serviceType)
         {
             if (serviceType == typeof(IJobPublisher))
             {
                 var publisher = new DefaultJobPublisher(
-                    _serviceCollection.GetSingleton<MassiveJobsSettings>(),
-                    _serviceCollection.GetSingleton<IMessagePublisher>(),
-                    _serviceCollection.GetSingleton<IJobTypeProvider>(),
-                    _serviceCollection.GetSingleton<IJobSerializer>(),
-                    _loggerFactory.SafeCreateLogger<DefaultJobPublisher>()
+                    _factory.Settings,
+                    _factory.MessagePublisher,
+                    _factory.JobTypeProvider,
+                    _factory.JobSerializer,
+                    _factory.JobLoggerFactory.SafeCreateLogger<DefaultJobPublisher>()
                 );
 
                 _publishers.Add(publisher);
@@ -58,16 +70,12 @@ namespace MassiveJobs.Core
                 return publisher;
             }
 
-            if (serviceType == typeof(IJobRunner) 
-                || serviceType == typeof(MassiveJobsSettings)
-                || serviceType == typeof(IMessagePublisher)
-                || serviceType == typeof(IMessageConsumer)
-                || serviceType == typeof(IJobSerializer) 
-                || serviceType == typeof(IJobTypeProvider)
-                || serviceType == typeof(IWorkerCoordinator))
-            {
-                return _serviceCollection.GetSingleton(serviceType);
-            }
+            if (serviceType == typeof(IJobRunner)) return _factory.JobRunner;
+            if (serviceType == typeof(MassiveJobsSettings)) return _factory.Settings;
+            if (serviceType == typeof(IMessagePublisher)) return _factory.MessagePublisher;
+            if (serviceType == typeof(IMessageConsumer)) return _factory.MessageConsumer;
+            if (serviceType == typeof(IJobSerializer)) return _factory.JobSerializer;
+            if (serviceType == typeof(IJobTypeProvider)) return _factory.JobTypeProvider;
 
             return null;
         }
@@ -81,74 +89,11 @@ namespace MassiveJobs.Core
         }
     }
 
-    public class DefaultServiceCollection : IServiceCollection
-    {
-        private readonly Dictionary<Type, object> _singletons = new Dictionary<Type, object>();
-
-        public DefaultServiceCollection(MassiveJobsSettings settings)
-        {
-            AddSingleton(typeof(MassiveJobsSettings), settings);
-            AddSingleton(typeof(IJobRunner), new DefaultJobRunner(settings.LoggerFactory.SafeCreateLogger<DefaultJobRunner>()));
-            AddSingleton(typeof(IJobSerializer), new DefaultSerializer());
-            AddSingleton(typeof(IJobTypeProvider), new DefaultTypeProvider());
-        }
-
-        public void AddSingleton(Type serviceType, object instance)
-        {
-            lock (_singletons)
-            {
-                _singletons[serviceType] = instance;
-            }
-        }
-
-        public void Dispose()
-        {
-            var disposables = new List<IDisposable>();
-
-            lock (_singletons)
-            {
-                foreach (var value in _singletons.Values)
-                {
-                    if (value is IDisposable disposable)
-                    {
-                        disposables.Add(disposable);
-                    }
-                }
-                _singletons.Clear();
-            }
-
-            // Dispose out of lock, who knows what this might call
-            foreach (var disposable in disposables)
-            {
-                disposable.SafeDispose();
-            }
-        }
-
-        public object GetSingleton(Type type)
-        {
-            lock (_singletons)
-            {
-                _singletons.TryGetValue(type, out var service);
-                return service;
-            }
-        }
-    }
-
     public static class ServiceScopeExtensions
     {
-        public static TService GetService<TService>(this IServiceScope scope)
+        public static TService GetService<TService>(this IJobServiceScope scope)
         {
             return (TService)scope?.GetService(typeof(TService));
-        }
-
-        public static void AddSingleton<TService>(this IServiceCollection serviceCollection, TService instance)
-        {
-            serviceCollection.AddSingleton(typeof(TService), instance);
-        }
-
-        public static TService GetSingleton<TService>(this DefaultServiceCollection serviceCollection)
-        {
-            return (TService)serviceCollection.GetSingleton(typeof(TService));
         }
     }
 }

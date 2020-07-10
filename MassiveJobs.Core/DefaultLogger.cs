@@ -2,21 +2,21 @@
 
 namespace MassiveJobs.Core
 {
-    class DefaultLogger<TLoggerCategory> : ILogger<TLoggerCategory>
+    class DefaultLogger<TLoggerCategory> : IJobLogger<TLoggerCategory>
     {
-        public bool IsEnabled(LogLevel logLevel)
+        public bool IsEnabled(JobLogLevel logLevel)
         {
             return false;
         }
 
-        public void Log(LogLevel logLevel, Exception exception, string message)
+        public void Log(JobLogLevel logLevel, Exception exception, string message)
         {
         }
     }
 
     public static class LoggerFactoryExtensions
     {
-        public static ILogger<TCategoryName> SafeCreateLogger<TCategoryName>(this ILoggerFactory loggerFactory)
+        public static IJobLogger<TCategoryName> SafeCreateLogger<TCategoryName>(this IJobLoggerFactory loggerFactory)
         {
             return loggerFactory != null ? loggerFactory.CreateLogger<TCategoryName>() : new DefaultLogger<TCategoryName>();
         }

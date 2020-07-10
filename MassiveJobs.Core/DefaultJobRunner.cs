@@ -7,16 +7,16 @@ namespace MassiveJobs.Core
 {
     public class DefaultJobRunner : IJobRunner
     {
-        private readonly ILogger _logger;
+        private readonly IJobLogger _logger;
         private readonly int _defaultJobTimeout;
 
-        public DefaultJobRunner(ILogger logger, int defaultJobTimeoutMs = 5 * 1000)
+        public DefaultJobRunner(IJobLogger logger, int defaultJobTimeoutMs = 5 * 1000)
         {
             _logger = logger ?? new DefaultLogger<DefaultJobRunner>();
             _defaultJobTimeout = defaultJobTimeoutMs;
         }
 
-        public void RunJobs(IJobPublisher publisher, IReadOnlyList<JobInfo> jobs, IServiceScope serviceScope, CancellationToken cancellationToken)
+        public void RunJobs(IJobPublisher publisher, IReadOnlyList<JobInfo> jobs, IJobServiceScope serviceScope, CancellationToken cancellationToken)
         {
             var tasks = new Task[jobs.Count];
 
@@ -29,7 +29,7 @@ namespace MassiveJobs.Core
             Task.WaitAll(tasks, cancellationToken);
         }
 
-        private async Task RunAsync(IJobPublisher publisher, JobInfo jobInfo, IServiceScope serviceScope, CancellationToken cancellationToken)
+        private async Task RunAsync(IJobPublisher publisher, JobInfo jobInfo, IJobServiceScope serviceScope, CancellationToken cancellationToken)
         {
             try
             {
@@ -58,7 +58,7 @@ namespace MassiveJobs.Core
             }
         }
 
-        protected Task InvokePerformAsync(IJobPublisher publisher, JobInfo jobInfo, IServiceScope serviceScope, CancellationToken cancellationToken)
+        protected Task InvokePerformAsync(IJobPublisher publisher, JobInfo jobInfo, IJobServiceScope serviceScope, CancellationToken cancellationToken)
         {
             var reflectionInfo = ReflectionUtilities.ReflectionCache.GetJobReflectionInfo(jobInfo.JobType, jobInfo.ArgsType);
 
