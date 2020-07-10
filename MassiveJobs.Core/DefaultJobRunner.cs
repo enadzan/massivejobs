@@ -73,7 +73,16 @@ namespace MassiveJobs.Core
                     job = reflectionInfo.Ctor.Invoke(new[] { publisher });
                     break;
                 default:
-                    job = serviceScope.GetService(jobInfo.JobType);
+                    var parametersInfo = reflectionInfo.Ctor.GetParameters();
+                    var parameters = new object[parametersInfo.Length];
+
+                    for (var i = 0; i < parametersInfo.Length; i++)
+                    {
+                        if (parametersInfo[i].IsOut) throw new Exception("Out parameters are not supported.");
+                        parameters[i] = serviceScope.GetRequiredService(parametersInfo[i].ParameterType);
+                    }
+
+                    job = reflectionInfo.Ctor.Invoke(parameters);
                     break;
             }
                 

@@ -69,6 +69,17 @@ namespace MassiveJobs.Core.ReflectionUtilities
                     }
                 }
 
+                if (c == null)
+                {
+                    var publicCtors = jobType.GetConstructors(BindingFlags.Public);
+                    if (publicCtors.Length > 0)
+                    {
+                        c = publicCtors[0];
+                    }
+                }
+
+                if (c == null) throw new Exception($"Invalid type '{jobType}' for a job. Public constructor not found");
+
                 MethodInfo m;
                 PerformMethodType mType;
 
