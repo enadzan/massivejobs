@@ -74,8 +74,8 @@ namespace MassiveJobs.Core
             var argsTag = rawMessage.TypeTag;
             if (argsTag == null || argsTag == string.Empty) return false;
 
-            var serializer = serviceScope.GetService<IJobSerializer>();
-            var typeProvider = serviceScope.GetService<IJobTypeProvider>();
+            var serializer = serviceScope.GetRequiredService<IJobSerializer>();
+            var typeProvider = serviceScope.GetRequiredService<IJobTypeProvider>();
 
             job = serializer.Deserialize(rawMessage.Body, argsTag, typeProvider);
 
@@ -86,8 +86,8 @@ namespace MassiveJobs.Core
         {
             if (batch.Count > 0)
             {
-                var jobRunner = serviceScope.GetService<IJobRunner>();
-                var jobPublisher = serviceScope.GetService<IJobPublisher>();
+                var jobRunner = serviceScope.GetRequiredService<IJobRunner>();
+                var jobPublisher = serviceScope.GetRequiredService<IJobPublisher>();
 
                 jobRunner.RunJobs(jobPublisher, batch, serviceScope, cancellationToken);
             }

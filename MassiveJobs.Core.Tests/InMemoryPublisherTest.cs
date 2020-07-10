@@ -41,7 +41,7 @@ namespace MassiveJobs.Core.Tests
                 messageConsumer
             );
 
-            _jobPublisher = scopeFactory.CreateScope().GetService<IJobPublisher>();
+            _jobPublisher = scopeFactory.CreateScope().GetRequiredService<IJobPublisher>();
             _workerCoordinator = new WorkerCoordinator(scopeFactory, _settings, messageConsumer);
 
             _jobs = new MassiveJobsMediator(_jobPublisher, _workerCoordinator);

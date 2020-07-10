@@ -53,6 +53,12 @@ namespace MassiveJobs.Core
             _publishers = new ConcurrentBag<IJobPublisher>();
         }
 
+        public object GetRequiredService(Type serviceType)
+        {
+            var svc = GetService(serviceType);
+            return svc ?? throw new ArgumentException($"Service of type {serviceType?.AssemblyQualifiedName} is not registered.");
+        }
+
         public virtual object GetService(Type serviceType)
         {
             if (serviceType == typeof(IJobPublisher))
@@ -94,6 +100,11 @@ namespace MassiveJobs.Core
         public static TService GetService<TService>(this IJobServiceScope scope)
         {
             return (TService)scope?.GetService(typeof(TService));
+        }
+
+        public static TService GetRequiredService<TService>(this IJobServiceScope scope)
+        {
+            return (TService)scope?.GetRequiredService(typeof(TService));
         }
     }
 }

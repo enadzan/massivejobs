@@ -21,13 +21,13 @@ namespace MassiveJobs.Core
 
                 _defaultWorkerCoordinator = new WorkerCoordinator(
                     scopeFactory,
-                    _defaultScope.GetService<MassiveJobsSettings>(),
-                    _defaultScope.GetService<IMessageConsumer>(),
+                    _defaultScope.GetRequiredService<MassiveJobsSettings>(),
+                    _defaultScope.GetRequiredService<IMessageConsumer>(),
                     _defaultScope.GetService<IJobLoggerFactory>(),
                     _defaultScope.GetService<IJobLogger<WorkerCoordinator>>()
                 );
 
-                DefaultInstance = new MassiveJobsMediator(_defaultScope.GetService<IJobPublisher>(), _defaultWorkerCoordinator);
+                DefaultInstance = new MassiveJobsMediator(_defaultScope.GetRequiredService<IJobPublisher>(), _defaultWorkerCoordinator);
             }
         }
 
