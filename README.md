@@ -1,6 +1,8 @@
 # MassiveJobs.RabbitMqBroker
 Open source library for publishing scheduled and "out-of-band" jobs using RabbitMQ message broker. Published jobs can be performed by multiple workers distributed across multiple machines.
 
+__RabbitMQ 3.8+ is required___
+
 ## Quick Start
 ### 1. Start RabbitMQ
 
@@ -65,7 +67,7 @@ namespace MassiveJobs.QuickStart
     /// </summary>
     public class MessageReceiver: Job<MessageReceiver, string>
     {
-        public override void Perform(string message, CancellationToken cancellationToken)
+        public override void Perform(string message)
         {
             Console.WriteLine("Message Received: " + message);
         }
@@ -87,7 +89,7 @@ namespace MassiveJobs.QuickStart
 
         private static void RunWorker()
         {
-            RabbitMqJobsBroker.Initialize();
+            RabbitMqJobs.Initialize();
 
             Console.WriteLine("Initialized job worker.");
             Console.WriteLine("Press Enter to end the application.");
@@ -98,7 +100,7 @@ namespace MassiveJobs.QuickStart
         private static void RunPublisher()
         {
             // passing false indicates that we do not want to start workers in this process
-            RabbitMqJobsBroker.Initialize(false);
+            RabbitMqJobs.Initialize(false);
 
             Console.WriteLine("Initialized publisher.");
             Console.WriteLine("Write a message and press Enter to publish it (empty message to end).");
@@ -110,9 +112,9 @@ namespace MassiveJobs.QuickStart
 
                 if (string.IsNullOrWhiteSpace(message)) break;
 
-                // notice that PerformAsync is a static method on our MessageReceiver class
+                // notice that Publish is a static method on our MessageReceiver class
                 // it is available because MessageReceiver inherits from Job<TJob, TArgs>
-                MessageReceiver.PerformAsync(message);
+                MessageReceiver.Publish(message);
             }
         }
     }

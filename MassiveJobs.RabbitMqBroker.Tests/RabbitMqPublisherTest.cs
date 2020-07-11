@@ -25,12 +25,12 @@ namespace MassiveJobs.RabbitMqBroker.Tests
                 PrefetchCount = 1000
             };
 
-            RabbitMqJobsBroker.Initialize(true, _settings, s =>
+            RabbitMqJobs.Initialize(true, _settings, s =>
             {
-                s.PublishBatchSize = 400;
-                s.ImmediateWorkersCount = 3;
-                s.ScheduledWorkersCount = 2;
-                s.PeriodicWorkersCount = 2;
+                s.MassiveJobs.PublishBatchSize = 400;
+                s.MassiveJobs.ImmediateWorkersCount = 3;
+                s.MassiveJobs.ScheduledWorkersCount = 2;
+                s.MassiveJobs.PeriodicWorkersCount = 2;
             });
         }
 

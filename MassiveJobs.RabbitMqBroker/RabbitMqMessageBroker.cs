@@ -185,20 +185,20 @@ namespace MassiveJobs.RabbitMqBroker
                 DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength, false, true);
             }
 
-            DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.ErrorQueueName, _massiveJobsSettings.MaxQueueLength);
-            DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.FailedQueueName, _massiveJobsSettings.MaxQueueLength);
+            DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.ErrorQueueName, QueueLength.NoLimit, isLazy: true);
+            DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.FailedQueueName, QueueLength.NoLimit, isLazy: true);
             DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.StatsQueueName, 1000, true, true);
         }
 
         protected static void DeclareAndBindQueue(IModel model, string exchangeName, string queueName, int maxLength, bool dropHeadOnOverflow = false,
-            bool singleActiveConsumer = false, bool persistent = true, string routingKey = null)
+            bool singleActiveConsumer = false, bool persistent = true, string routingKey = null, bool isLazy = false)
         {
-            DeclareQueue(model, queueName, maxLength, dropHeadOnOverflow, singleActiveConsumer, persistent);
+            DeclareQueue(model, queueName, maxLength, dropHeadOnOverflow, singleActiveConsumer, persistent, isLazy);
             BindQueue(model, queueName, exchangeName, routingKey ?? queueName);
         }
 
         protected static void DeclareQueue(IModel model, string queueName, int maxLength, bool dropHeadOnOverflow = false,
-            bool singleActiveConsumer = false, bool persistent = true)
+            bool singleActiveConsumer = false, bool persistent = true, bool isLazy = false)
         {
             var queueArguments = new Dictionary<string, object>();
 
@@ -211,6 +211,11 @@ namespace MassiveJobs.RabbitMqBroker
             if (singleActiveConsumer)
             {
                 queueArguments.Add("x-single-active-consumer", true);
+            }
+
+            if (isLazy)
+            {
+                queueArguments.Add("x-queue-mode", "lazy");
             }
 
             model.QueueDeclare(queueName, persistent, false, !persistent, queueArguments);

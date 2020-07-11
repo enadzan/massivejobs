@@ -28,7 +28,7 @@ namespace MassiveJobs.ConsoleTest
                 NamePrefix = "console."
             };
 
-            RabbitMqJobsBroker.Initialize(
+            RabbitMqJobs.Initialize(
                 true,
                 mqSettings,
                 s =>
