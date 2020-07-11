@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.RabbitMqBroker.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.ConsoleTest", "MassiveJobs.ConsoleTest\MassiveJobs.ConsoleTest.csproj", "{2A7E56BD-02D2-4DD6-B509-D4C944A1EBFF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MassiveJobs.RabbitMqBroker.Hosting", "MassiveJobs.RabbitMqBroker.Hosting\MassiveJobs.RabbitMqBroker.Hosting.csproj", "{90C9BBC9-30E9-4572-AA75-3C08D7593BEA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{2A7E56BD-02D2-4DD6-B509-D4C944A1EBFF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2A7E56BD-02D2-4DD6-B509-D4C944A1EBFF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2A7E56BD-02D2-4DD6-B509-D4C944A1EBFF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{90C9BBC9-30E9-4572-AA75-3C08D7593BEA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{90C9BBC9-30E9-4572-AA75-3C08D7593BEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{90C9BBC9-30E9-4572-AA75-3C08D7593BEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{90C9BBC9-30E9-4572-AA75-3C08D7593BEA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
