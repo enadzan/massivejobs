@@ -3,7 +3,7 @@ using System;
 
 namespace MassiveJobs.Core.Hosting
 {
-    class LoggerFactoryWrapper : IJobLoggerFactory
+    public class LoggerFactoryWrapper : IJobLoggerFactory
     {
         private readonly ILoggerFactory _msLoggerFactory;
 
@@ -18,7 +18,7 @@ namespace MassiveJobs.Core.Hosting
         }
     }
 
-    class LoggerWrapper<TCategory> : IJobLogger<TCategory>
+    public class LoggerWrapper<TCategory> : IJobLogger<TCategory>
     {
         private readonly ILogger _msLogger;
 
