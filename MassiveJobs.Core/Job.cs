@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace MassiveJobs.Core
 {
-    public abstract class Job<TJob, TArgs>
+    public abstract class JobAsync<TJob, TArgs>
     {
-        public abstract void Perform(TArgs args, CancellationToken cancellationToken);
+        public abstract Task Perform(TArgs args, CancellationToken cancellationToken);
 
-        public static void PerformAsync(TArgs args, int? timeoutMs = null)
+        public static void Publish(TArgs args, int? timeoutMs = null)
         {
             if (JobBatch.IsActive)
             {
@@ -18,7 +19,7 @@ namespace MassiveJobs.Core
             MassiveJobsMediator.DefaultInstance.Publish<TJob, TArgs>(args, null, timeoutMs);
         }
 
-        public static void PerformAsync(TArgs args, TimeSpan runIn, int? timeoutMs)
+        public static void Publish(TArgs args, TimeSpan runIn, int? timeoutMs = null)
         {
             if (JobBatch.IsActive)
             {
@@ -29,7 +30,7 @@ namespace MassiveJobs.Core
             MassiveJobsMediator.DefaultInstance.Publish<TJob, TArgs>(args, runIn, timeoutMs);
         }
 
-        public static void PerformAsync(TArgs args, DateTime runAtUtc, int? timeoutMs)
+        public static void Publish(TArgs args, DateTime runAtUtc, int? timeoutMs = null)
         {
             if (JobBatch.IsActive)
             {
@@ -40,7 +41,7 @@ namespace MassiveJobs.Core
             MassiveJobsMediator.DefaultInstance.Publish<TJob, TArgs>(args, runAtUtc, timeoutMs);
         }
 
-        public static void PerformPeriodic(TArgs args, string groupKey, int repeatSec, 
+        public static void PublishPeriodic(TArgs args, string groupKey, int repeatSec, 
             DateTime? runAtUtc = null, DateTime? endAtUtc = null, int? timeoutMs = null)
         {
             if (JobBatch.IsActive)
@@ -59,7 +60,7 @@ namespace MassiveJobs.Core
             MassiveJobsMediator.DefaultInstance.PublishPeriodic<TJob, TArgs>(args, groupKey, repeatSec, runAtUtc, endAtUtc, timeoutMs);
         }
 
-        public static void PerformPeriodic(TArgs args, string groupKey, string cronExpression,
+        public static void PublishPeriodic(TArgs args, string groupKey, string cronExpression,
             TimeZoneInfo timeZoneInfo = null, DateTime? runAtUtc = null, DateTime? endAtUtc = null, int? timeoutMs = null)
         {
             if (JobBatch.IsActive)
@@ -84,7 +85,7 @@ namespace MassiveJobs.Core
             MassiveJobsMediator.DefaultInstance.PublishPeriodic<TJob, TArgs>(args, groupKey, cronExpression, timeZoneInfo, runAtUtc, endAtUtc, timeoutMs);
         }
 
-        protected static void PerformAsync(TArgs args, string groupKey, int? timeoutMs = null)
+        protected static void Publish(TArgs args, string groupKey, int? timeoutMs = null)
         {
             var jobInfo = JobInfo.For<TJob, TArgs>(args, groupKey, timeoutMs);
 
@@ -98,35 +99,57 @@ namespace MassiveJobs.Core
         }
     }
 
-    public abstract class Job<TJob>
+    public abstract class JobAsync<TJob>
     {
-        public abstract void Perform(CancellationToken cancellationToken);
+        public abstract Task Perform(CancellationToken cancellationToken);
 
-        public static void PerformAsync(int? timeoutMs = null)
+        public static void Publish(int? timeoutMs = null)
         {
-            Job<TJob, VoidArgs>.PerformAsync(null, timeoutMs);
+            JobAsync<TJob, VoidArgs>.Publish(null, timeoutMs);
         }
 
-        public static void PerformAsync(TimeSpan runIn, int? timeoutMs)
+        public static void Publish(TimeSpan runIn, int? timeoutMs)
         {
-            Job<TJob, VoidArgs>.PerformAsync(null, runIn, timeoutMs);
+            JobAsync<TJob, VoidArgs>.Publish(null, runIn, timeoutMs);
         }
 
-        public static void PerformAsync(DateTime runAtUtc, int? timeoutMs)
+        public static void Publish(DateTime runAtUtc, int? timeoutMs)
         {
-            Job<TJob, VoidArgs>.PerformAsync(null, runAtUtc, timeoutMs);
+            JobAsync<TJob, VoidArgs>.Publish(null, runAtUtc, timeoutMs);
         }
 
         public static void PerformPeriodic(string groupKey, int repeatSec, 
             DateTime? runAtUtc = null, DateTime? endAtUtc = null, int? timeoutMs = null)
         {
-            Job<TJob, VoidArgs>.PerformPeriodic(null, groupKey, repeatSec, runAtUtc, endAtUtc, timeoutMs);
+            JobAsync<TJob, VoidArgs>.PublishPeriodic(null, groupKey, repeatSec, runAtUtc, endAtUtc, timeoutMs);
         }
 
-        public static void PerformPeriodic(string groupKey, string cronExpression, 
+        public static void PublichPeriodic(string groupKey, string cronExpression, 
             TimeZoneInfo timeZoneInfo = null, DateTime? runAtUtc = null, DateTime? endAtUtc = null, int? timeoutMs = null)
         {
-            Job<TJob, VoidArgs>.PerformPeriodic(null, groupKey, cronExpression, timeZoneInfo, runAtUtc, endAtUtc, timeoutMs);
+            JobAsync<TJob, VoidArgs>.PublishPeriodic(null, groupKey, cronExpression, timeZoneInfo, runAtUtc, endAtUtc, timeoutMs);
+        }
+    }
+
+    public abstract class Job<TJob, TArgs>: JobAsync<TJob, TArgs>
+    {
+        public abstract void Perform(TArgs args);
+
+        public override Task Perform(TArgs args, CancellationToken cancellationToken)
+        {
+            Perform(args);
+            return Task.CompletedTask;
+        }
+    }
+
+    public abstract class Job<TJob>: JobAsync<TJob>
+    {
+        public abstract void Perform();
+
+        public override Task Perform(CancellationToken cancellationToken)
+        {
+            Perform();
+            return Task.CompletedTask;
         }
     }
 
