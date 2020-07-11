@@ -1,11 +1,9 @@
 ﻿using System;
 
 using Microsoft.Extensions.Logging;
-using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 using MassiveJobs.Core;
 using MassiveJobs.RabbitMqBroker;
-using System.Threading;
 
 namespace MassiveJobs.ConsoleTest
 {
@@ -28,16 +26,12 @@ namespace MassiveJobs.ConsoleTest
                 NamePrefix = "console."
             };
 
-            RabbitMqJobs.Initialize(
-                true,
-                mqSettings,
-                s =>
-                {
-                    s.MaxQueueLength = QueueLength.NoLimit;
-                    s.PublishBatchSize = 400;
-                },
-                new LoggerFactoryWrapper(loggerFactory)
-            );
+            RabbitMqJobs.Initialize(true, mqSettings, s =>
+            {
+                s.MassiveJobs.MaxQueueLength = QueueLength.NoLimit;
+                s.MassiveJobs.PublishBatchSize = 400;
+                s.JobLoggerFactory = new LoggerFactoryWrapper(loggerFactory);
+            });
 
             Console.WriteLine("Testing periodic jobs. Press Enter to quit!");
 
