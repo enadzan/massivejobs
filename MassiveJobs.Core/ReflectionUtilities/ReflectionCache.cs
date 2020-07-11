@@ -71,7 +71,7 @@ namespace MassiveJobs.Core.ReflectionUtilities
 
                 if (c == null)
                 {
-                    var publicCtors = jobType.GetConstructors(BindingFlags.Public);
+                    var publicCtors = jobType.GetConstructors();
                     if (publicCtors.Length > 0)
                     {
                         c = publicCtors[0];
