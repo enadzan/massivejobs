@@ -1,7 +1,10 @@
 # MassiveJobs.RabbitMqBroker
 Open source library for publishing scheduled and "out-of-band" jobs using RabbitMQ message broker. Published jobs can be performed by multiple workers distributed across multiple machines.
 
-__RabbitMQ 3.8+ is required___
+## Requirements
+
+- RabbitMQ 3.8+
+- .NET Core 2.0+ or .NET Framework 4.6.1+
 
 ## Quick Start
 ### 1. Start RabbitMQ
