@@ -34,7 +34,7 @@ namespace MassiveJobs.Core
         {
             lock (_initializationLock)
             {
-                if (DefaultInstance != null) return;
+                if (_defaultMediator != null) return;
 
                 _defaultScope = scopeFactory.CreateScope();
 
@@ -54,7 +54,7 @@ namespace MassiveJobs.Core
         {
             lock (_initializationLock)
             {
-                if (DefaultInstance == null) return;
+                if (_defaultMediator == null) return;
                 
                 _defaultWorkerCoordinator.SafeDispose();
                 _defaultScope.SafeDispose();
