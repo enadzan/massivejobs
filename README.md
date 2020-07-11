@@ -55,7 +55,6 @@ Use your favorite editor to open Program.cs and enter this code.
 Comments in the code should be enough to give you a basic idea of what is going on.
 ```csharp
 using System;
-using System.Threading;
 using MassiveJobs.Core;
 using MassiveJobs.RabbitMqBroker;
 
