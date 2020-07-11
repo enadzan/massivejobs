@@ -118,13 +118,13 @@ namespace MassiveJobs.Core
             JobAsync<TJob, VoidArgs>.Publish(null, runAtUtc, timeoutMs);
         }
 
-        public static void PerformPeriodic(string groupKey, int repeatSec, 
+        public static void PublishPeriodic(string groupKey, int repeatSec, 
             DateTime? runAtUtc = null, DateTime? endAtUtc = null, int? timeoutMs = null)
         {
             JobAsync<TJob, VoidArgs>.PublishPeriodic(null, groupKey, repeatSec, runAtUtc, endAtUtc, timeoutMs);
         }
 
-        public static void PublichPeriodic(string groupKey, string cronExpression, 
+        public static void PublishPeriodic(string groupKey, string cronExpression, 
             TimeZoneInfo timeZoneInfo = null, DateTime? runAtUtc = null, DateTime? endAtUtc = null, int? timeoutMs = null)
         {
             JobAsync<TJob, VoidArgs>.PublishPeriodic(null, groupKey, cronExpression, timeZoneInfo, runAtUtc, endAtUtc, timeoutMs);
