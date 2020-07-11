@@ -11,8 +11,8 @@ namespace MassiveJobs.RabbitMqBroker
     {
         private readonly RabbitMqSettings _rmqSettings;
 
-        public RabbitMqMessagePublisher(RabbitMqSettings rmqSettings, MassiveJobsSettings jobsSettings, ILogger logger = null)
-            : base(rmqSettings, jobsSettings, true, logger ?? jobsSettings.LoggerFactory.SafeCreateLogger<RabbitMqMessagePublisher>())
+        public RabbitMqMessagePublisher(RabbitMqSettings rmqSettings, MassiveJobsSettings jobsSettings, IJobLogger logger)
+            : base(rmqSettings, jobsSettings, true, logger)
         {
             _rmqSettings = rmqSettings;
         }

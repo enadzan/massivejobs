@@ -1,9 +1,11 @@
 ﻿using System;
 using Microsoft.Extensions.Logging;
 
+using MassiveJobs.Core;
+
 namespace MassiveJobs.ConsoleTest
 {
-    class LoggerWrapper<TCategory> : Core.ILogger<TCategory>
+    class LoggerWrapper<TCategory> : IJobLogger<TCategory>
     {
         private readonly ILogger _msLogger;
 
@@ -12,31 +14,31 @@ namespace MassiveJobs.ConsoleTest
             _msLogger = msLogger;
         }
 
-        public bool IsEnabled(Core.LogLevel logLevel)
+        public bool IsEnabled(JobLogLevel logLevel)
         {
             return _msLogger.IsEnabled(ConvertLogLevel(logLevel));
         }
 
-        public void Log(Core.LogLevel logLevel, Exception exception, string message)
+        public void Log(JobLogLevel logLevel, Exception exception, string message)
         {
             _msLogger.Log(ConvertLogLevel(logLevel), exception, message);
         }
 
-        private LogLevel ConvertLogLevel(Core.LogLevel logLevel)
+        private LogLevel ConvertLogLevel(JobLogLevel logLevel)
         {
             switch (logLevel)
             {
-                case Core.LogLevel.Trace:
+                case JobLogLevel.Trace:
                     return LogLevel.Trace;
-                case Core.LogLevel.Debug:
+                case JobLogLevel.Debug:
                     return LogLevel.Debug;
-                case Core.LogLevel.Information:
+                case JobLogLevel.Information:
                     return LogLevel.Information;
-                case Core.LogLevel.Warning:
+                case JobLogLevel.Warning:
                     return LogLevel.Warning;
-                case Core.LogLevel.Error:
+                case JobLogLevel.Error:
                     return LogLevel.Error;
-                case Core.LogLevel.Critical:
+                case JobLogLevel.Critical:
                     return LogLevel.Critical;
                 default:
                     return LogLevel.None;

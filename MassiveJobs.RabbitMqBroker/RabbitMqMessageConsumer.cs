@@ -11,8 +11,8 @@ namespace MassiveJobs.RabbitMqBroker
 
         public event MessageConsumerDisconnected Disconnected;
 
-        public RabbitMqMessageConsumer(RabbitMqSettings rmqSettings, MassiveJobsSettings jobsSettings, ILogger logger = null)
-            : base(rmqSettings, jobsSettings, false, logger ?? jobsSettings.LoggerFactory.SafeCreateLogger<RabbitMqMessageConsumer>())
+        public RabbitMqMessageConsumer(RabbitMqSettings rmqSettings, MassiveJobsSettings jobsSettings, IJobLogger logger)
+            : base(rmqSettings, jobsSettings, false, logger)
         {
             _prefetchCount = rmqSettings.PrefetchCount;
         }

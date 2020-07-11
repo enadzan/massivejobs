@@ -8,11 +8,31 @@ namespace MassiveJobs.RabbitMqBroker
         public static void Initialize(
             bool startWorkers = true,
             RabbitMqSettings rabbitMqSettings = null, 
-            Action<MassiveJobsSettings> configureAction = null)
+            Action<MassiveJobsSettings> configureAction = null,
+            IJobLoggerFactory loggerFactory = null)
         {
             if (rabbitMqSettings == null) rabbitMqSettings = new RabbitMqSettings();
 
-            var massiveJobsSettings = new MassiveJobsSettings
+            var massiveJobsSettings = CreateMassiveJobsSettings(rabbitMqSettings);
+
+            configureAction?.Invoke(massiveJobsSettings);
+
+            var publisher = new RabbitMqMessagePublisher(rabbitMqSettings, massiveJobsSettings, loggerFactory.SafeCreateLogger<RabbitMqMessagePublisher>());
+            var consumer = new RabbitMqMessageConsumer(rabbitMqSettings, massiveJobsSettings, loggerFactory.SafeCreateLogger<RabbitMqMessageConsumer>());
+
+            var serviceScopeFactory = new DefaultServiceScopeFactory(massiveJobsSettings, publisher, consumer, loggerFactory);
+
+            MassiveJobsMediator.Initialize(serviceScopeFactory);
+
+            if (startWorkers)
+            {
+                MassiveJobsMediator.DefaultInstance.StartJobWorkers();
+            }
+        }
+
+        private static MassiveJobsSettings CreateMassiveJobsSettings(RabbitMqSettings rabbitMqSettings)
+        {
+            return new MassiveJobsSettings
             {
                 ImmediateQueueNameTemplate = $"{rabbitMqSettings.NamePrefix}{Constants.ImmediateQueueNameTemplate}",
                 ScheduledQueueNameTemplate = $"{rabbitMqSettings.NamePrefix}{Constants.ScheduledQueueNameTemplate}",
@@ -21,23 +41,6 @@ namespace MassiveJobs.RabbitMqBroker
                 StatsQueueName = $"{rabbitMqSettings.NamePrefix}{Constants.StatsQueueName}",
                 PeriodicQueueNameTemplate = $"{rabbitMqSettings.NamePrefix}{Constants.PeriodicQueueNameTemplate}"
             };
-
-            configureAction?.Invoke(massiveJobsSettings);
-
-            var publisher = new RabbitMqMessagePublisher(rabbitMqSettings, massiveJobsSettings);
-            var consumer = new RabbitMqMessageConsumer(rabbitMqSettings, massiveJobsSettings);
-
-            var scopeFactory = massiveJobsSettings.ServiceScopeFactory ?? new DefaultServiceScopeFactory(massiveJobsSettings);
-
-            scopeFactory.ServiceCollection.AddSingleton<IWorkerCoordinator>(
-                new WorkerCoordinator(massiveJobsSettings, consumer, scopeFactory, massiveJobsSettings.LoggerFactory)
-            );
-            scopeFactory.ServiceCollection.AddSingleton<IMessagePublisher>(publisher);
-            scopeFactory.ServiceCollection.AddSingleton<IMessageConsumer>(consumer);
-
-            var mediator = new MassiveJobsMediator(scopeFactory, massiveJobsSettings.LoggerFactory.SafeCreateLogger<MassiveJobsMediator>());
-
-            MassiveJobsMediator.Initialize(mediator, startWorkers);
         }
     }
 }

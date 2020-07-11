@@ -1,8 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
 
+using MassiveJobs.Core;
+
 namespace MassiveJobs.ConsoleTest
 {
-    class LoggerFactoryWrapper : Core.ILoggerFactory
+    class LoggerFactoryWrapper : IJobLoggerFactory
     {
         private readonly ILoggerFactory _msLoggerFactory;
 
@@ -11,7 +13,7 @@ namespace MassiveJobs.ConsoleTest
             _msLoggerFactory = msLoggerFactory;
         }
 
-        public Core.ILogger<TCategory> CreateLogger<TCategory>()
+        public IJobLogger<TCategory> CreateLogger<TCategory>()
         {
             return new LoggerWrapper<TCategory>(_msLoggerFactory.CreateLogger<TCategory>());
         }

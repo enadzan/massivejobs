@@ -8,12 +8,12 @@ namespace MassiveJobs.RabbitMqBroker
 {
     public class ModelPool: IDisposable
     {
-        private readonly ILogger _logger;
+        private readonly IJobLogger _logger;
         private readonly IConnection _connection;
         private readonly int _maxRetained;
         private readonly Queue<ModelPoolEntry> _models;
 
-        public ModelPool(IConnection connection, int maxRetained, ILogger logger)
+        public ModelPool(IConnection connection, int maxRetained, IJobLogger logger)
         {
             _connection = connection;
             _maxRetained = maxRetained;

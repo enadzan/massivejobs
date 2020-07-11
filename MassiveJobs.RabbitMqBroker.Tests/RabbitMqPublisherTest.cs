@@ -47,11 +47,11 @@ namespace MassiveJobs.RabbitMqBroker.Tests
             {
                 for (var i = 0; i < 100_000; i++)
                 {
-                    DummyJobWithArgs.PerformAsync(new DummyJobArgs { SomeId = i });
+                    DummyJobWithArgs.Publish(new DummyJobArgs { SomeId = i });
                 }
             });
             
-            DummyJobWithArgs2.PerformAsync(new DummyJobArgs2());
+            DummyJobWithArgs2.Publish(new DummyJobArgs2());
 
             using (var tokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
             {
@@ -69,9 +69,9 @@ namespace MassiveJobs.RabbitMqBroker.Tests
         {
             var endAtUtc = DateTime.UtcNow.AddSeconds(4.5);
 
-            DummyJob.PerformPeriodic("test_periodic", 1, null, endAtUtc);
-            DummyJob.PerformPeriodic("test_periodic", 1, null, endAtUtc);
-            DummyJob.PerformPeriodic("test_periodic", 1, null, endAtUtc);
+            DummyJob.PublishPeriodic("test_periodic", 1, null, endAtUtc);
+            DummyJob.PublishPeriodic("test_periodic", 1, null, endAtUtc);
+            DummyJob.PublishPeriodic("test_periodic", 1, null, endAtUtc);
 
             Thread.Sleep(6000);
 
@@ -83,11 +83,11 @@ namespace MassiveJobs.RabbitMqBroker.Tests
         {
             var endAtUtc = DateTime.UtcNow.AddMilliseconds(4250);
 
-            DummyJob.PerformPeriodic("test_periodic", "0/2 * * ? * *", null, null, endAtUtc);
+            DummyJob.PublishPeriodic("test_periodic", "0/2 * * ? * *", null, null, endAtUtc);
 
             // these should be ignored
-            DummyJob.PerformPeriodic("test_periodic", 1, null, endAtUtc);
-            DummyJob.PerformPeriodic("test_periodic", 1, null, endAtUtc);
+            DummyJob.PublishPeriodic("test_periodic", 1, null, endAtUtc);
+            DummyJob.PublishPeriodic("test_periodic", 1, null, endAtUtc);
 
             Thread.Sleep(6000);
 
@@ -96,7 +96,7 @@ namespace MassiveJobs.RabbitMqBroker.Tests
 
         private class DummyJob: Job<DummyJob>
         {
-            public override void Perform(CancellationToken cancellationToken)
+            public override void Perform()
             {
                 Interlocked.Increment(ref _performCount);
             }
@@ -104,7 +104,7 @@ namespace MassiveJobs.RabbitMqBroker.Tests
 
         private class DummyJobWithArgs : Job<DummyJobWithArgs, DummyJobArgs>
         {
-            public override void Perform(DummyJobArgs _, CancellationToken cancellationToken)
+            public override void Perform(DummyJobArgs _)
             {
                 Interlocked.Increment(ref _performCount);
             }
@@ -112,7 +112,7 @@ namespace MassiveJobs.RabbitMqBroker.Tests
 
         private class DummyJobWithArgs2 : Job<DummyJobWithArgs2, DummyJobArgs2>
         {
-            public override void Perform(DummyJobArgs2 _, CancellationToken cancellationToken)
+            public override void Perform(DummyJobArgs2 _)
             {
                 Interlocked.Increment(ref _performCount);
                 Interlocked.Increment(ref _performCount);

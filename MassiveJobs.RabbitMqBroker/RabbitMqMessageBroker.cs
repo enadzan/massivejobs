@@ -14,14 +14,14 @@ namespace MassiveJobs.RabbitMqBroker
         protected volatile IConnection Connection;
         protected volatile ModelPool ModelPool;
 
-        protected readonly ILogger Logger;
+        protected readonly IJobLogger Logger;
 
         private readonly object _connectionLock = new object();
         private readonly ConnectionFactory _connectionFactory;
         private readonly RabbitMqSettings _rabbitMqSettings;
         private readonly MassiveJobsSettings _massiveJobsSettings;
 
-        public RabbitMqMessageBroker(RabbitMqSettings rabbitMqSettings, MassiveJobsSettings massiveJobsSettings, bool automaticRecoveryEnabled, ILogger logger)
+        public RabbitMqMessageBroker(RabbitMqSettings rabbitMqSettings, MassiveJobsSettings massiveJobsSettings, bool automaticRecoveryEnabled, IJobLogger logger)
         {
             Logger = logger;
 
@@ -90,7 +90,7 @@ namespace MassiveJobs.RabbitMqBroker
                     Connection.ConnectionUnblocked += ConnectionOnConnectionUnblocked;
                     Connection.ConnectionShutdown += ConnectionOnConnectionShutdown;
 
-                    ModelPool = new ModelPool(Connection, 2, _massiveJobsSettings.LoggerFactory.SafeCreateLogger<ModelPool>());
+                    ModelPool = new ModelPool(Connection, 2, Logger);
 
                     var model = ModelPool.Get();
                     try

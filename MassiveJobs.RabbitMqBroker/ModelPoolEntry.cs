@@ -23,7 +23,7 @@ namespace MassiveJobs.RabbitMqBroker
             }
         }
 
-        public void Close(ILogger logger)
+        public void Close(IJobLogger logger)
         {
             Model.SafeClose(logger);
         }

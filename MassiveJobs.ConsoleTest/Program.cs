@@ -28,16 +28,20 @@ namespace MassiveJobs.ConsoleTest
                 NamePrefix = "console."
             };
 
-            RabbitMqJobsBroker.Initialize(true, mqSettings, s =>
-            {
-                s.LoggerFactory = new LoggerFactoryWrapper(loggerFactory);
-                s.MaxQueueLength = QueueLength.NoLimit;
-                s.PublishBatchSize = 400;
-            });
+            RabbitMqJobsBroker.Initialize(
+                true,
+                mqSettings,
+                s =>
+                {
+                    s.MaxQueueLength = QueueLength.NoLimit;
+                    s.PublishBatchSize = 400;
+                },
+                new LoggerFactoryWrapper(loggerFactory)
+            );
 
             Console.WriteLine("Testing periodic jobs. Press Enter to quit!");
 
-            PeriodicJob.PerformPeriodic("test_periodic", "0/2 * * ? * *", null);
+            PeriodicJob.PublishPeriodic("test_periodic", "0/2 * * ? * *", null);
 
             Console.ReadLine();
 
@@ -46,7 +50,7 @@ namespace MassiveJobs.ConsoleTest
 
         private class PeriodicJob: Job<PeriodicJob>
         {
-            public override void Perform(CancellationToken cancellationToken)
+            public override void Perform()
             {
                 Console.WriteLine(DateTime.Now);
             }
