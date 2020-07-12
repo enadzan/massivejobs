@@ -142,5 +142,38 @@ Note that you can start multiple publishers too.
   
 Workers and publishers can be on different machines, as long as they can access the RabbitMQ server.
 
-## Official Documentation
-TODO :/
+## Distributing Workers Across Multiple Machines
+  
+To distribute the workers across several machines you will have to configure the information about the RabbitMQ server. At minimum, that means username, password, host name (or ip address), and the port number (if your RabbitMQ server is configured to listen for connections on a non-standard port). In the example above we did not configure any of it because the defaults were sufficient - username: `guest`, password: `guest`, hostname: `localhost`, port: `-1` (= use the default port). 
+  
+For example, if your RabbitMQ server is running on a machine with the hostname `rabbit.example.local`, listening on the standard port number, and you have created a user `massive` in the RabbitMQ with the password: `d0ntUseTh!s` then you would initialize `RabbitMqJobs` like this.
+
+```csharp
+var settings = new RabbitMqSettings
+{
+    HostNames = new[] { "rabbit.example.com" },
+    Username = "massive",
+    Password = "d0ntUseTh!s"
+};
+
+RabbitMqJobs.Initialize(rabbitMqSettings: settings);
+```
+  
+Or, if you don't want to start the worker threads (ie. to use the process only for publishing jobs), just change the last line to:
+
+```csharp
+RabbitMqJobs.Initialize(rabbitMqSettings: settings, startWorkers: false);
+```
+
+Now you can deploy workers (and publishers) on multiple machines and run them. If the network connectivity is working (firewalls open etc.) everything should work. Jobs would be routed to workers in a round-robin fashion. Keep in mind that, by default, every MassiveJobs application is starting two worker threads. That means, if you have 3 machines, each running one MassiveJobs application, then the distribution of jobs would look something like this:
+
+* job1 -> machine 1, worker thread 1
+* job2 -> machine 1, worker thread 2
+* job3 -> machine 2, worker thread 1
+* job4 -> machine 2, worker thread 2
+* etc.
+
+You might have noticed, in the quick-start example, when we had running two MassiveJobs applications in two posershell windows, two of the messages would go to one window, the next two to the other window and so on. Now you know the reason. 
+
+
+
