@@ -79,20 +79,22 @@ namespace MassiveJobs.QuickStart
     {
         static void Main(string[] args)
         {
-            if (args.Length > 0 && args[0].ToLower() == "publisher")
+            var startWorkers = args.Length == 0 || args[0].ToLower() != "publisher";
+            
+            RabbitMqJobs.Initialize(startWorkers);
+            
+            if (startWorkers)
             {
-                RunPublisher();
+                RunWorker();
             }
             else
             {
-                RunWorker();
+                RunPublisher();
             }
         }
 
         private static void RunWorker()
         {
-            RabbitMqJobs.Initialize();
-
             Console.WriteLine("Initialized job worker.");
             Console.WriteLine("Press Enter to end the application.");
 
@@ -101,9 +103,6 @@ namespace MassiveJobs.QuickStart
 
         private static void RunPublisher()
         {
-            // passing false indicates that we do not want to start workers in this process
-            RabbitMqJobs.Initialize(false);
-
             Console.WriteLine("Initialized publisher.");
             Console.WriteLine("Write a message and press Enter to publish it (empty message to end).");
 
@@ -162,7 +161,7 @@ RabbitMqJobs.Initialize(rabbitMqSettings: settings);
 Or, if you don't want to start the worker threads (ie. to use the process only for publishing jobs), just change the last line to:
 
 ```csharp
-RabbitMqJobs.Initialize(rabbitMqSettings: settings, startWorkers: false);
+RabbitMqJobs.Initialize(startWorkers: false, rabbitMqSettings: settings);
 ```
 
 Now you can deploy workers (and publishers) on multiple machines and run them. If the network connectivity is working (firewalls open etc.) everything should work. Jobs would be routed to workers in a round-robin fashion. Keep in mind that, by default, every MassiveJobs application is starting two worker threads. That means, if you have 3 machines, each running one MassiveJobs application, then the distribution of jobs would look something like this:
@@ -175,5 +174,75 @@ Now you can deploy workers (and publishers) on multiple machines and run them. I
 
 You might have noticed, in the quick-start example, when we had running two MassiveJobs applications in two posershell windows, two of the messages would go to one window, the next two to the other window and so on. Now you know the reason. 
 
+## Configure Logging
+  
+__Skip this section if your application is running in a .NET Core hosted environment (ASP.NET Core Web Application or Worker Service).__
+
+It is very important to configure logging in your application running MassiveJobs because that is the only way to see MassiveJobs run-time errors in your application. It is as simple as installing a suitable package and setting the `JobLoggerFactory` on initialization, if your are using one of the following logger libraries:
+
+* log4net (use package `MassiveJobs.Logging.Log4Net`)
+* NLog (use package `MassiveJobs.Logging.NLog`)
+* Serilog (use package `MassiveJobs.Logging.Serilog`)
+
+For example, if you want to add log4net logging to the quick-start example, first install the `MassiveJobs.Logging.Log4Net` package in your project. After that, initialize log4net library, and finally MassiveJobs.
+
+```csharp
+static void Main(string[] args)
+{
+    InitializeLogging();
+
+    var startWorkers = args.Length == 0 || args[0].ToLower() != "publisher";
+
+    RabbitMqJobs.Initialize(startWorkers, configureAction: options => 
+    {
+        options.JobLoggerFactory = new MassiveJobs.Logging.Log4Net.LoggerWrapperFactory();
+        // for NLog: options.JobLoggerFactory = new MassiveJobs.Logging.NLog.LoggerWrapperFactory(); 
+        // for Serilog: options.JobLoggerFactory = new MassiveJobs.Logging.Serilog.LoggerWrapperFactory();
+    });
+
+    if (startWorkers)
+    {
+        RunWorker();
+    }
+    else
+    {
+        RunPublisher();
+    }
+}
+```
+You have to implement "InitializeLogging" yourself, as you normally do initialization for your logging library. For example, for log4net this would only configure console appender.
+
+```csharp
+private static void InitializeLogging()
+{
+    var patternLayout = new PatternLayout();
+    patternLayout.ConversionPattern = "%date [%thread] %-5level %logger - %message%newline";
+    patternLayout.ActivateOptions();
+
+    var hierarchy = (Hierarchy)LogManager.GetRepository(Assembly.GetExecutingAssembly());
+    hierarchy.Root.AddAppender(new ConsoleAppender { Layout = patternLayout });
+
+    hierarchy.Root.Level = Level.Debug;
+    hierarchy.Configured = true;
+}
+```
+Now when you start the worker application you should see logging messages in the console:
+```powershell
+PS> .\MassiveJobs.QuickStart.exe
+2020-07-12 18:29:45,618 [1] DEBUG MassiveJobs.RabbitMqBroker.RabbitMqMessageConsumer - Connecting...
+2020-07-12 18:29:45,748 [1] WARN  MassiveJobs.RabbitMqBroker.RabbitMqMessageConsumer - Connected
+Initialized job worker.
+Press Enter to end the application.
+```
+You will notice, that if you start the publisher application, it does not try to connect to RabbitMQ until you try to send the first messages. This is is because every MassiveJobs application maintains two connections to the RabbitMQ, one for publishing and the other for consuming messages. In the publisher, we are not starting workers, so consuming connection is not initialized.
+
+```powershell
+PS> .\MassiveJobs.QuickStart.exe publisher
+Initialized publisher.
+Write a message and press Enter to publish it (empty message to end).
+> Hello
+2020-07-12 18:30:27,196 [4] DEBUG MassiveJobs.RabbitMqBroker.RabbitMqMessagePublisher - Connecting...
+2020-07-12 18:30:27,325 [4] WARN  MassiveJobs.RabbitMqBroker.RabbitMqMessagePublisher - Connected
+```
 
 
