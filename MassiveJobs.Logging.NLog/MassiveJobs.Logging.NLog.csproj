@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net461</TargetFrameworks>
+    <Authors>MassiveJobs.NET</Authors>
+    <Description>NLog integration with MassiveJobs library</Description>
+    <PackageLicenseExpression>LGPL-3.0-only</PackageLicenseExpression>
+    <PackageProjectUrl>https://massivejobs.net/</PackageProjectUrl>
+    <PackageIcon>icon.png</PackageIcon>
+    <RepositoryUrl>https://github.com/enadzan/massivejobs</RepositoryUrl>
+    <Version>0.30.1</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MassiveJobs.Core" Version="0.30.1" />
+    <PackageReference Include="NLog" Version="4.7.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="icon.png">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>

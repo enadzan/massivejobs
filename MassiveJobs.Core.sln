@@ -9,7 +9,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.Core.Tests", "M
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.Core.Hosting", "MassiveJobs.Core.Hosting\MassiveJobs.Core.Hosting.csproj", "{4532824E-F60B-439C-8693-48162152E32E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MassiveJobs.Logging.Log4Net", "MassiveJobs.Logging.Log4Net\MassiveJobs.Logging.Log4Net.csproj", "{BE14FBE0-DCD1-4030-8669-08C621210164}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.Logging.Log4Net", "MassiveJobs.Logging.Log4Net\MassiveJobs.Logging.Log4Net.csproj", "{BE14FBE0-DCD1-4030-8669-08C621210164}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MassiveJobs.Logging.NLog", "MassiveJobs.Logging.NLog\MassiveJobs.Logging.NLog.csproj", "{A100ACC3-0294-456F-A4C5-CDB6C9E2B6BF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +35,10 @@ Global
 		{BE14FBE0-DCD1-4030-8669-08C621210164}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BE14FBE0-DCD1-4030-8669-08C621210164}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BE14FBE0-DCD1-4030-8669-08C621210164}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A100ACC3-0294-456F-A4C5-CDB6C9E2B6BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A100ACC3-0294-456F-A4C5-CDB6C9E2B6BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A100ACC3-0294-456F-A4C5-CDB6C9E2B6BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A100ACC3-0294-456F-A4C5-CDB6C9E2B6BF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
