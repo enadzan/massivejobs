@@ -1,8 +1,9 @@
 ﻿using System;
 using Serilog;
+using Serilog.Events;
 using MassiveJobs.Core;
 
-namespace MassiveJobs.Logging.NLog
+namespace MassiveJobs.Logging.Serilog
 {
     public class LoggerWrapper<TCategory> : IJobLogger<TCategory>
     {
@@ -17,12 +18,12 @@ namespace MassiveJobs.Logging.NLog
         {
             switch (logLevel)
             {
-                case JobLogLevel.Trace: return _logger.IsEnabled(Serilog.Events.LogEventLevel.Verbose);
-                case JobLogLevel.Debug: return _logger.IsEnabled(Serilog.Events.LogEventLevel.Debug);
-                case JobLogLevel.Information: return _logger.IsEnabled(Serilog.Events.LogEventLevel.Information);
-                case JobLogLevel.Warning: return _logger.IsEnabled(Serilog.Events.LogEventLevel.Warning);
-                case JobLogLevel.Error: return _logger.IsEnabled(Serilog.Events.LogEventLevel.Error);
-                case JobLogLevel.Critical: return _logger.IsEnabled(Serilog.Events.LogEventLevel.Fatal);
+                case JobLogLevel.Trace: return _logger.IsEnabled(LogEventLevel.Verbose);
+                case JobLogLevel.Debug: return _logger.IsEnabled(LogEventLevel.Debug);
+                case JobLogLevel.Information: return _logger.IsEnabled(LogEventLevel.Information);
+                case JobLogLevel.Warning: return _logger.IsEnabled(LogEventLevel.Warning);
+                case JobLogLevel.Error: return _logger.IsEnabled(LogEventLevel.Error);
+                case JobLogLevel.Critical: return _logger.IsEnabled(LogEventLevel.Fatal);
                 default: return false;
             }
         }
