@@ -43,16 +43,9 @@ namespace MassiveJobs.Logging.NLog
 
     public class LoggerWrapperFactory : IJobLoggerFactory
     {
-        private readonly LoggerConfiguration _loggerConfiguration;
-
-        public LoggerWrapperFactory(LoggerConfiguration loggerConfiguration)
-        {
-            _loggerConfiguration = loggerConfiguration;
-        }
-
         public IJobLogger<TCategory> CreateLogger<TCategory>()
         {
-            return new LoggerWrapper<TCategory>(_loggerConfiguration.CreateLogger().ForContext(typeof(TCategory)));
+            return new LoggerWrapper<TCategory>(Log.ForContext<TCategory>());
         }
     }
 }
