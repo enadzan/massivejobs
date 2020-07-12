@@ -13,6 +13,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.Logging.Log4Net
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MassiveJobs.Logging.NLog", "MassiveJobs.Logging.NLog\MassiveJobs.Logging.NLog.csproj", "{A100ACC3-0294-456F-A4C5-CDB6C9E2B6BF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MassiveJobs.Logging.Serilog", "MassiveJobs.Logging.Serilog\MassiveJobs.Logging.Serilog.csproj", "{4107EB0E-1BF5-46E7-839C-D9F6F98B1ACD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{A100ACC3-0294-456F-A4C5-CDB6C9E2B6BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A100ACC3-0294-456F-A4C5-CDB6C9E2B6BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A100ACC3-0294-456F-A4C5-CDB6C9E2B6BF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4107EB0E-1BF5-46E7-839C-D9F6F98B1ACD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4107EB0E-1BF5-46E7-839C-D9F6F98B1ACD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4107EB0E-1BF5-46E7-839C-D9F6F98B1ACD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4107EB0E-1BF5-46E7-839C-D9F6F98B1ACD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
