@@ -245,7 +245,6 @@ Write a message and press Enter to publish it (empty message to end).
 2020-07-12 18:30:27,325 [4] WARN  MassiveJobs.RabbitMqBroker.RabbitMqMessagePublisher - Connected
 ```
 
-
 ## Using RabbitMqBroker for MassiveJobs in ASP.NET Core or Worker Service
 
 To use `MassiveJobs.RabbitMqBroker` in a .NET Core hosted environment (ASP.NET Core, Worker Services) install the following package in your application:
@@ -330,10 +329,14 @@ public class SendWelcomeEmailJob : Job<SendWelcomeEmailJob, int>
             using (var ts = new TransactionScope())
             {
                 var customer = _db.Customers.Find(customerId);
-                if (customer.IsEmailSent) return; // make the job idempotent
+                if (customer.IsEmailSent) return; // do nothing if email is already sent
 
                 customer.IsEmailSent = true;
 
+                // Try to save changes to the db before sending the email.
+                // Customer entity has concurrency checks enabled with Timestamp property
+                // and this will throw exception if the entity was changed by another
+                // thread or process in the database since we loaded it with 'Find'.
                 _db.SaveChanges();
 
                 SendEmail(customer);
@@ -365,9 +368,8 @@ public class SendWelcomeEmailJob : Job<SendWelcomeEmailJob, int>
 There are a several things to note here:
 * In the hosting environment, job classes can have their required services injected in the constructor (like DbContext here)
 * Since mail servers don't participate in transactions, sending email is again used as the last committing resource.
-* __It is essential for the job classes to be idempotent__. That is why we:
-** customer.IsEmailSent is checked before doing anything. If it is set to true we don't do anything (no exception is thrown, because exception would make the MassiveJobs library schedule the job for retries) 
-** `SaveChanges()` on the db context is called __before__ actually sending the email so that it can __throw concurrency exceptions__ which will reschedule the job for later (but __you must configure concurrency properties on your entites__ for it to work). 
+* __It is essential for the job classes to be idempotent__. That is why `customer.IsEmailSent` is checked before doing anything. If it is set to true we don't do anything (no exception is thrown, because exception would make the MassiveJobs library schedule the job for retries) 
+* We are calling `SaveChanges()` on the db context __before__ actually sending the email so that it can __throw concurrency exceptions__ which will reschedule the job for later (but __you must configure concurrency properties on your entites__ for it to work). 
   
 However, in this particular case, our job class is not fully idempotent. It still may happen that the email is sent twice because 
 email server does not participate in the transaction. If `client.Send` throws __timeout__ exception, it is uncertain if the email 
