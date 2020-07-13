@@ -246,3 +246,134 @@ Write a message and press Enter to publish it (empty message to end).
 ```
 
 
+## Using RabbitMqBroker for MassiveJobs in ASP.NET Core or Worker Service
+
+To use `MassiveJobs.RabbitMqBroker` in a .NET Core hosted environment (ASP.NET Core, Worker Services) install the following package in your application:
+
+```powershell
+dotnet add package MassiveJobs.RabbitMqBroker.Hosting
+```
+
+Then, in your startup class, when configuring services, call `services.AddMassiveJobs()` and that's it. MassiveJobs workers will be started as a background service and you can call `Publish` on your job classes:
+
+```csharp
+//...
+using MassiveJobs.RabbitMqBroker.Hosting;
+
+namespace MassiveJobs.Examples.Api
+{
+    public class Startup
+    {
+        public Startup(IConfiguration configuration)
+        {
+            Configuration = configuration;
+        }
+
+        public IConfiguration Configuration { get; }
+
+        public void ConfigureServices(IServiceCollection services)
+        {
+            //...
+            services.AddMassiveJobs();
+        }
+
+        //...
+    }
+}
+```
+
+For example, if you have a `Customer` entity and want to send a welcome email to a newly created customer, you might have something like this:
+
+```csharp
+// POST: api/Customers
+[HttpPost]
+public ActionResult<Customer> PostCustomer(Customer customer)
+{
+    using (var ts = new TransactionScope())
+    {
+        _context.Customers.Add(customer);
+        _context.SaveChanges();
+
+        // send a welcome email after 5 seconds using MassiveJobs
+        SendWelcomeEmailJob.Publish(customer.Id, TimeSpan.FromSeconds(5));
+
+        ts.Complete();
+    }
+
+    return CreatedAtAction("GetCustomer", new { id = customer.Id }, customer);
+}
+```
+
+It is very important to keep in mind that `SendWelcomeEmailJob.Publish` __does NOT participate in the ambient transaction___. 
+RabbitMqBroker for MassiveJobs does not support transactions. But, the `Publish` method will throw exception if publishing fails
+(only publishing - not actually sending the mail, which is done asyncronously). If the publishing fails, exception will be thrown, 
+and ts.Complete() will never be called which will rollback the database transaction.
+  
+Esentially, publishing a job is here used as a _last committing resource_. If, for your application, sending the welcome email isn't 
+mission critical, you could put the `Publish` call outside of the transaction scope, __in a try..catch block__ and just log any errors 
+that happen on publish.
+
+The `SendWelcomeEmailJob` could look something like this:
+
+```csharp
+public class SendWelcomeEmailJob : Job<SendWelcomeEmailJob, int>
+    {
+        private readonly ExamplesDbContext _db;
+
+        public SendWelcomeEmailJob(ExamplesDbContext db)
+        {
+            _db = db;
+        }
+
+        public override void Perform(int customerId)
+        {
+            using (var ts = new TransactionScope())
+            {
+                var customer = _db.Customers.Find(customerId);
+                if (customer.IsEmailSent) return; // make the job idempotent
+
+                customer.IsEmailSent = true;
+
+                _db.SaveChanges();
+
+                SendEmail(customer);
+            }
+        }
+
+        private static void SendEmail(Customer customer)
+        {
+            var mailMessage = new MailMessage
+            {
+                From = new MailAddress("do-not-reply@examples.com"),
+                Body = $"Welcome customer {customer.FirstName} {customer.LastName}",
+                Subject = "Welcome to examples.com"
+            };
+
+            mailMessage.To.Add(customer.Email);
+
+            var client = new SmtpClient("smtp.examples.com")
+            {
+                UseDefaultCredentials = false,
+                Credentials = new NetworkCredential("username", "password")
+            };
+
+            client.Send(mailMessage);
+        }
+    }
+```
+
+There are a several things to note here:
+* In the hosting environment, job classes can have their required services injected in the constructor (like DbContext here)
+* Since mail servers don't participate in transactions, sending email is again used as the last committing resource.
+* __It is essential for the job classes to be idempotent__. That is why we:
+** customer.IsEmailSent is checked before doing anything. If it is set to true we don't do anything (no exception is thrown, because exception would make the MassiveJobs library schedule the job for retries) 
+** `SaveChanges()` on the db context is called __before__ actually sending the email so that it can __throw concurrency exceptions__ which will reschedule the job for later (but __you must configure concurrency properties on your entites__ for it to work). 
+  
+However, in this particular case, our job class is not fully idempotent. It still may happen that the email is sent twice because 
+email server does not participate in the transaction. If `client.Send` throws __timeout__ exception, it is uncertain if the email 
+was actually sent or not. Mail server might have received the request, queued the message for delivery, but we never got the response 
+because of a temporary network issue. Basically, _at least once_ delivery is guaranteed in this case, not _exactly once_.
+  
+If __only database changes__ were involved in the job, then would could have _exactly once_ guarantees. But even then, the job's 
+`Perform` method can be called twice so you __must make sure that the job is idempotent__ in the `Perform` method (similar to what we did 
+with `IsEmailSent`).
