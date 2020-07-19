@@ -41,7 +41,10 @@ namespace MassiveJobs.Core
                     {
                         try
                         {
-                            await InvokePerformAsync(publisher, jobInfo, serviceScope, combinedTokenSource.Token);
+                            await Task.Run(async () =>
+                            {
+                                await InvokePerformAsync(publisher, jobInfo, serviceScope, combinedTokenSource.Token);
+                            });
                         }
                         catch (OperationCanceledException)
                         {
