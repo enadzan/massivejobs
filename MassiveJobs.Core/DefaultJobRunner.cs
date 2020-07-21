@@ -18,18 +18,14 @@ namespace MassiveJobs.Core
 
         public void RunJobs(IJobPublisher publisher, IReadOnlyList<JobInfo> jobs, IJobServiceScope serviceScope, CancellationToken cancellationToken)
         {
-            var tasks = new Task[jobs.Count];
-
             for (var i = 0; i < jobs.Count; i++)
             {
                 if (cancellationToken.IsCancellationRequested) break;
-                tasks[i] = RunAsync(publisher, jobs[i], serviceScope, cancellationToken);
+                Run(publisher, jobs[i], serviceScope, cancellationToken);
             }
-
-            Task.WaitAll(tasks, cancellationToken);
         }
 
-        private async Task RunAsync(IJobPublisher publisher, JobInfo jobInfo, IJobServiceScope serviceScope, CancellationToken cancellationToken)
+        private void Run(IJobPublisher publisher, JobInfo jobInfo, IJobServiceScope serviceScope, CancellationToken cancellationToken)
         {
             try
             {
@@ -41,10 +37,7 @@ namespace MassiveJobs.Core
                     {
                         try
                         {
-                            await Task.Run(async () =>
-                            {
-                                await InvokePerformAsync(publisher, jobInfo, serviceScope, combinedTokenSource.Token);
-                            });
+                            InvokePerform(publisher, jobInfo, serviceScope, combinedTokenSource.Token);
                         }
                         catch (OperationCanceledException)
                         {
@@ -61,7 +54,7 @@ namespace MassiveJobs.Core
             }
         }
 
-        protected Task InvokePerformAsync(IJobPublisher publisher, JobInfo jobInfo, IJobServiceScope serviceScope, CancellationToken cancellationToken)
+        protected void InvokePerform(IJobPublisher publisher, JobInfo jobInfo, IJobServiceScope serviceScope, CancellationToken cancellationToken)
         {
             var reflectionInfo = ReflectionUtilities.ReflectionCache.GetJobReflectionInfo(jobInfo.JobType, jobInfo.ArgsType);
 
@@ -116,10 +109,11 @@ namespace MassiveJobs.Core
 
             if (result != null && result is Task taskResult)
             {
-                return taskResult;
+                // All jobs in a batch are running in one service scope, which is why
+                // we are not running them in parallel (usually, scope level services
+                // like db connections cannot be shared between threads)
+                taskResult.Wait(cancellationToken);
             }
-
-            return Task.CompletedTask;
         }
     }
 }
