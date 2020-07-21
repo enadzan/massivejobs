@@ -27,8 +27,9 @@ namespace MassiveJobs.RabbitMqBroker.Tests
 
             RabbitMqJobs.Initialize(true, _settings, s =>
             {
-                s.MassiveJobs.PublishBatchSize = 400;
-                s.MassiveJobs.ImmediateWorkersCount = 3;
+                s.MassiveJobs.PublishBatchSize = 200;
+                s.MassiveJobs.ImmediateWorkersCount = 10;
+                s.MassiveJobs.ImmediateWorkersBatchSize = 1000;
                 s.MassiveJobs.ScheduledWorkersCount = 2;
                 s.MassiveJobs.PeriodicWorkersCount = 2;
             });
@@ -81,7 +82,12 @@ namespace MassiveJobs.RabbitMqBroker.Tests
         [TestMethod]
         public void CronJob_should_run_jobs_periodically_until_end()
         {
-            var endAtUtc = DateTime.UtcNow.AddMilliseconds(4250);
+            while (DateTime.UtcNow.Second % 2 != 0)
+            {
+                Thread.Sleep(100);
+            }
+
+            var endAtUtc = DateTime.UtcNow.AddSeconds(4.1);
 
             DummyJob.PublishPeriodic("test_periodic", "0/2 * * ? * *", null, null, endAtUtc);
 
