@@ -5,7 +5,7 @@ namespace MassiveJobs.Core
 {
     public class MassiveJobsMediator : IJobPublisher, IWorkerCoordinator
     {
-        private static readonly object _initializationLock = new object();
+        protected static readonly object InitializationLock = new object();
 
         private static MassiveJobsMediator _defaultMediator;
         public static MassiveJobsMediator DefaultInstance 
@@ -23,7 +23,7 @@ namespace MassiveJobs.Core
         {
             get
             {
-                lock (_initializationLock)
+                lock (InitializationLock)
                 {
                     return _defaultMediator != null;
                 }
@@ -32,29 +32,43 @@ namespace MassiveJobs.Core
 
         public static void Initialize(IJobServiceScopeFactory scopeFactory)
         {
-            lock (_initializationLock)
+            lock (InitializationLock)
             {
-                if (_defaultMediator != null) return;
+                if (IsInitializedInternal()) return;
 
-                _defaultScope = scopeFactory.CreateScope();
+                var scope = scopeFactory.CreateScope();
 
-                _defaultWorkerCoordinator = new WorkerCoordinator(
+                var workerCoordinator = new WorkerCoordinator(
                     scopeFactory,
-                    _defaultScope.GetRequiredService<MassiveJobsSettings>(),
-                    _defaultScope.GetRequiredService<IMessageConsumer>(),
-                    _defaultScope.GetService<IJobLoggerFactory>(),
-                    _defaultScope.GetService<IJobLogger<WorkerCoordinator>>()
+                    scope.GetRequiredService<MassiveJobsSettings>(),
+                    scope.GetRequiredService<IMessageConsumer>(),
+                    scope.GetService<IJobLoggerFactory>(),
+                    scope.GetService<IJobLogger<WorkerCoordinator>>()
                 );
 
-                _defaultMediator = new MassiveJobsMediator(_defaultScope.GetRequiredService<IJobPublisher>(), _defaultWorkerCoordinator);
+                var mediator = new MassiveJobsMediator(scope.GetRequiredService<IJobPublisher>(), workerCoordinator);
+
+                InitializeInternal(scope, workerCoordinator, mediator);
             }
+        }
+
+        protected static bool IsInitializedInternal()
+        {
+            return _defaultMediator != null;
+        }
+
+        protected static void InitializeInternal(IJobServiceScope scope, IWorkerCoordinator workerCoordinator, MassiveJobsMediator mediator)
+        {
+            _defaultScope = scope;
+            _defaultWorkerCoordinator = workerCoordinator;
+            _defaultMediator = mediator;
         }
 
         public static void Deinitialize()
         {
-            lock (_initializationLock)
+            lock (InitializationLock)
             {
-                if (_defaultMediator == null) return;
+                if (!IsInitializedInternal()) return;
                 
                 _defaultWorkerCoordinator.SafeDispose();
                 _defaultScope.SafeDispose();
