@@ -74,6 +74,8 @@ namespace MassiveJobs.Core
         {
             lock (WorkersLock)
             {
+                _reconnectTimer.Change(Timeout.Infinite, Timeout.Infinite);
+
                 try
                 {
                     foreach (var worker in Workers)

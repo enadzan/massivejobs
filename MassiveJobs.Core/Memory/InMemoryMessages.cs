@@ -48,6 +48,11 @@ namespace MassiveJobs.Core.Memory
                 if (!_publishedMessages.TryGetValue(queueName, out var messages)) throw new Exception($"Unknown queue ({queueName})");
 
                 waitSignal = messages.Item2;
+
+                if (messages.Item1.Count > 0)
+                {
+                    waitSignal.Set();
+                }
             }
 
             if (!waitSignal.WaitOne(1000))

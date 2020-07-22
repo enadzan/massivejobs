@@ -143,7 +143,16 @@ namespace MassiveJobs.Core
 
                         if (batch.Count > 0)
                         {
-                            ProcessMessageBatch(batch, _cancellationTokenSource.Token, out var pauseSec);
+                            int pauseSec;
+                            try
+                            {
+                                ProcessMessageBatch(batch, _cancellationTokenSource.Token, out pauseSec);
+                            }
+                            catch (BatchRolledBackException ex)
+                            {
+                                Logger.LogError(ex.InnerException ?? ex, "Batch rolled back");
+                                pauseSec = 5;
+                            }
 
                             if (pauseSec > 0)
                             {
@@ -157,7 +166,7 @@ namespace MassiveJobs.Core
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, "Unhandled exception in batch processor function");
+                Logger.LogCritical(ex, "Unhandled exception in batch processor function");
                 exceptionRaised = ex;
             }
 
