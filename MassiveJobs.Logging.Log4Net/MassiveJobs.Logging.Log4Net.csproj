@@ -8,12 +8,12 @@
     <PackageProjectUrl>https://massivejobs.net/</PackageProjectUrl>
     <PackageIcon>icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/enadzan/massivejobs</RepositoryUrl>
-    <Version>0.31.1</Version>
+    <Version>0.31.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="log4net" Version="2.0.8" />
-    <PackageReference Include="MassiveJobs.Core" Version="0.31.1" />
+    <PackageReference Include="MassiveJobs.Core" Version="0.31.2" />
   </ItemGroup>
 
   <ItemGroup>
