@@ -39,7 +39,7 @@ namespace MassiveJobs.Core
             // also create one instance of publisher per batch to inject into
             // jobs if jobs require it in their constructors.
 
-            var tickCount = Environment.TickCount;
+            var tickCount = Math.Abs(Environment.TickCount);
 
             if (settings.ImmediateWorkersCount > 0) _nextImmediateWorkerIndex = tickCount % settings.ImmediateWorkersCount;
             if (settings.ScheduledWorkersCount > 0) _nextScheduledWorkerIndex = tickCount % settings.ScheduledWorkersCount;
