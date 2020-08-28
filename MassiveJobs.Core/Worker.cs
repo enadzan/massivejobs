@@ -7,16 +7,20 @@ namespace MassiveJobs.Core
     public abstract class Worker : BatchProcessor<RawMessage>, IWorker
     {
         private readonly IMessageConsumer _messageConsumer;
+        private readonly int _maxDegreeOfParallelism;
 
         private volatile IMessageReceiver _messageReceiver;
 
         protected readonly string QueueName;
         protected readonly ScopePool ScopePool;
 
-        protected Worker(string queueName, int batchSize, IMessageConsumer messageConsumer, IJobServiceScopeFactory serviceScopeFactory, IJobLogger logger)
+        protected Worker(string queueName, int batchSize, int masMaxDegreeOfParallelism, 
+            IMessageConsumer messageConsumer, IJobServiceScopeFactory serviceScopeFactory, IJobLogger logger)
             : base(batchSize, logger)
         {
+            _maxDegreeOfParallelism = masMaxDegreeOfParallelism;
             _messageConsumer = messageConsumer;
+
             ScopePool = new ScopePool(serviceScopeFactory);
 
             QueueName = queueName;
@@ -102,10 +106,14 @@ namespace MassiveJobs.Core
         {
             if (batch.Count == 0) return;
 
-            Parallel.ForEach(batch, job =>
+            var parallelOptions = new ParallelOptions
             {
-                if (cancellationToken.IsCancellationRequested) return;
+                CancellationToken = cancellationToken,
+                MaxDegreeOfParallelism = _maxDegreeOfParallelism
+            };
 
+            Parallel.ForEach(batch, parallelOptions, job =>
+            {
                 var poolItem = ScopePool.Get();
                 try
                 {

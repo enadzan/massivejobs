@@ -26,7 +26,7 @@ namespace MassiveJobs.Core
             IMessageConsumer messageConsumer, 
             IJobServiceScopeFactory serviceScopeFactory, 
             IJobLogger logger)
-            : base(queueName, batchSize, messageConsumer, serviceScopeFactory, logger)
+            : base(queueName, batchSize, 1, messageConsumer, serviceScopeFactory, logger)
         {
             _timer = new Timer(CheckScheduledJobs);
             _scheduledJobs = new ConcurrentDictionary<ulong, JobInfo>();
@@ -141,14 +141,14 @@ namespace MassiveJobs.Core
                     _scheduledJobs.TryRemove(deliveryTag, out _);
                 }
 
-                RunBatch(batchToRun);
+                PublishAsImmediateJobs(batchToRun);
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex, $"Error in scheduled worker: {QueueName}");
                 
                 // we must call this before OnError to avoid deadlock
-                // when the error occured while the worker is stopping
+                // when the error occurred while the worker is stopping
 
                 _stoppingSignal.Set();
 
@@ -184,7 +184,7 @@ namespace MassiveJobs.Core
             }
         }
 
-        private void RunBatch(Dictionary<ulong, JobInfo> batch)
+        private void PublishAsImmediateJobs(Dictionary<ulong, JobInfo> batch)
         {
             if (batch.Count == 0) return;
 

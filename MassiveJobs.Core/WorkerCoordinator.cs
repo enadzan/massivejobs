@@ -153,6 +153,7 @@ namespace MassiveJobs.Core
                 var worker = new WorkerImmediate(
                     queueName,
                     _settings.ImmediateWorkersBatchSize,
+                    _settings.MaxDegreeOfParallelismPerWorker,
                     MessageConsumer,
                     ServiceScopeFactory,
                     LoggerFactory.SafeCreateLogger<WorkerImmediate>()

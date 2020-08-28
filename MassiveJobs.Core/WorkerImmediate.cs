@@ -9,10 +9,11 @@ namespace MassiveJobs.Core
         public WorkerImmediate(
             string queueName, 
             int batchSize, 
+            int maxDegreeOfParallelism,
             IMessageConsumer messageConsumer, 
             IJobServiceScopeFactory serviceScopeFactory, 
             IJobLogger logger)
-            : base(queueName, batchSize, messageConsumer, serviceScopeFactory, logger)
+            : base(queueName, batchSize, maxDegreeOfParallelism, messageConsumer, serviceScopeFactory, logger)
         {
         }
 
