@@ -12,11 +12,11 @@ namespace MassiveJobs.Core
         {
             lock (_lockObj)
             {
-                if (!_typeCache.TryGetValue(tag, out var type))
-                {
-                    type = Type.GetType(tag, false);
-                    _typeCache.Add(tag, type);
-                }
+                if (_typeCache.TryGetValue(tag, out var type)) return type;
+
+                type = Type.GetType(tag, false) ?? throw new Exception("Unknown type: " + tag);
+
+                _typeCache.Add(tag, type);
 
                 return type;
             }
