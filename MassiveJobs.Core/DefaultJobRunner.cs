@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Threading;
@@ -18,16 +17,7 @@ namespace MassiveJobs.Core
             _defaultJobTimeout = defaultJobTimeoutMs;
         }
 
-        public void RunJobs(IJobPublisher publisher, IReadOnlyList<JobInfo> jobs, IJobServiceScope serviceScope, CancellationToken cancellationToken)
-        {
-            for (var i = 0; i < jobs.Count; i++)
-            {
-                if (cancellationToken.IsCancellationRequested) break;
-                Run(publisher, jobs[i], serviceScope, cancellationToken);
-            }
-        }
-
-        private void Run(IJobPublisher publisher, JobInfo jobInfo, IJobServiceScope serviceScope, CancellationToken cancellationToken)
+        public void RunJob(IJobPublisher publisher, JobInfo jobInfo, IJobServiceScope serviceScope, CancellationToken cancellationToken)
         {
             try
             {

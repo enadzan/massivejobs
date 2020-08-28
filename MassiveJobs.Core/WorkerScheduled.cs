@@ -16,7 +16,7 @@ namespace MassiveJobs.Core
         private readonly ConcurrentDictionary<string, ConcurrentBag<ulong>> _periodicSkipJobs;
         private readonly ConcurrentDictionary<string, ulong> _periodicJobs;
 
-        private Timer _timer;
+        private readonly Timer _timer;
 
         private CancellationTokenSource _cancellationTokenSource;
 
@@ -53,13 +53,13 @@ namespace MassiveJobs.Core
             base.OnStopBegin();
         }
 
-        protected override void ProcessMessageBatch(List<RawMessage> messages, IJobServiceScope serviceScope, CancellationToken cancellationToken, out int pauseSec)
+        protected override void ProcessMessageBatch(List<RawMessage> messages, CancellationToken cancellationToken, out int pauseSec)
         {
             pauseSec = 0;
 
             foreach (var rawMessage in messages)
             {
-                if (!TryDeserializeJob(rawMessage, serviceScope, out var job))
+                if (!TryDeserializeJob(rawMessage, out var job))
                 {
                     throw new Exception($"Unknown job type: {rawMessage.TypeTag}.");
                 }
@@ -186,29 +186,38 @@ namespace MassiveJobs.Core
 
         private void RunBatch(Dictionary<ulong, JobInfo> batch)
         {
-            if (batch.Count > 0)
+            if (batch.Count == 0) return;
+
+            var poolItem = ScopePool.Get();
+            try
             {
-                using (var serviceScope = ServiceScopeFactory.CreateScope())
+                var jobPublisher = poolItem.Scope.GetRequiredService<IJobPublisher>();
+                if (jobPublisher == null) return; // this can happen only this worker is being stopped;
+
+                jobPublisher.Publish(batch.Select(j => j.Value.ToImmediateJob()));
+
+                var periodicJobs = batch
+                    .Where(j => j.Value.PeriodicRunInfo != null)
+                    .Select(j => j.Value)
+                    .ToList();
+
+                periodicJobs.ForEach(j => j.PeriodicRunInfo.LastRunTimeUtc = DateTime.UtcNow);
+
+                jobPublisher.Publish(periodicJobs);
+
+                foreach (var kvp in batch)
                 {
-                    var jobPublisher = serviceScope.GetRequiredService<IJobPublisher>();
-                    if (jobPublisher == null) return; // this can happen only this worker is being stopped;
-
-                    jobPublisher.Publish(batch.Select(j => j.Value.ToImmediateJob()));
-
-                    var periodicJobs = batch
-                        .Where(j => j.Value.PeriodicRunInfo != null)
-                        .Select(j => j.Value)
-                        .ToList();
-
-                    periodicJobs.ForEach(j => j.PeriodicRunInfo.LastRunTimeUtc = DateTime.UtcNow);
-
-                    jobPublisher.Publish(periodicJobs);
-
-                    foreach (var kvp in batch)
-                    {
-                        OnMessageProcessed(kvp.Key);
-                    }
+                    OnMessageProcessed(kvp.Key);
                 }
+            }
+            catch
+            {
+                poolItem.SafeDispose(Logger);
+                throw;
+            } 
+            finally
+            {
+                ScopePool.Return(ref poolItem);
             }
         }
     }

@@ -16,7 +16,7 @@ namespace MassiveJobs.Core
         {
         }
 
-        protected override void ProcessMessageBatch(List<RawMessage> messages, IJobServiceScope serviceScope, CancellationToken cancellationToken, out int pauseSec)
+        protected override void ProcessMessageBatch(List<RawMessage> messages, CancellationToken cancellationToken, out int pauseSec)
         {
             pauseSec = 0;
             ulong? lastDeliveryTag = null;
@@ -25,7 +25,7 @@ namespace MassiveJobs.Core
 
             foreach (var rawMessage in messages)
             {
-                if (!TryDeserializeJob(rawMessage, serviceScope, out var job))
+                if (!TryDeserializeJob(rawMessage, out var job))
                 {
                     throw new Exception($"Unknown job type: {rawMessage.TypeTag}.");
                 }
@@ -34,7 +34,7 @@ namespace MassiveJobs.Core
                 lastDeliveryTag = rawMessage.DeliveryTag;
             }
 
-            RunJobs(batch, serviceScope, cancellationToken);
+            RunJobs(batch, cancellationToken);
 
             if (cancellationToken.IsCancellationRequested) return;
 

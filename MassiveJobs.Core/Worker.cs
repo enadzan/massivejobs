@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace MassiveJobs.Core
 {
@@ -10,17 +11,21 @@ namespace MassiveJobs.Core
         private volatile IMessageReceiver _messageReceiver;
 
         protected readonly string QueueName;
-        protected readonly IJobServiceScopeFactory ServiceScopeFactory;
-       
-        protected abstract void ProcessMessageBatch(List<RawMessage> messages, IJobServiceScope serviceScope, CancellationToken cancellationToken, out int pauseSec);
+        protected readonly ScopePool ScopePool;
 
         protected Worker(string queueName, int batchSize, IMessageConsumer messageConsumer, IJobServiceScopeFactory serviceScopeFactory, IJobLogger logger)
             : base(batchSize, logger)
         {
             _messageConsumer = messageConsumer;
+            ScopePool = new ScopePool(serviceScopeFactory);
 
             QueueName = queueName;
-            ServiceScopeFactory = serviceScopeFactory;
+        }
+
+        public override void Dispose()
+        {
+            ScopePool.SafeDispose(Logger);
+            base.Dispose();
         }
 
         protected override void OnStart()
@@ -67,43 +72,56 @@ namespace MassiveJobs.Core
             ClearQueue();
         }
 
-        protected bool TryDeserializeJob(RawMessage rawMessage, IJobServiceScope serviceScope, out JobInfo job)
+        protected bool TryDeserializeJob(RawMessage rawMessage, out JobInfo job)
         {
             job = null;
 
             var argsTag = rawMessage.TypeTag;
-            if (argsTag == null || argsTag == string.Empty) return false;
+            if (string.IsNullOrEmpty(argsTag)) return false;
 
-            var serializer = serviceScope.GetRequiredService<IJobSerializer>();
-            var typeProvider = serviceScope.GetRequiredService<IJobTypeProvider>();
+            var poolItem = ScopePool.Get();
+            try
+            {
+                var serializer = poolItem.Scope.GetRequiredService<IJobSerializer>();
+                var typeProvider = poolItem.Scope.GetRequiredService<IJobTypeProvider>();
 
-            job = serializer.Deserialize(rawMessage.Body, argsTag, typeProvider);
+                job = serializer.Deserialize(rawMessage.Body, argsTag, typeProvider);
+
+                ScopePool.Return(ref poolItem);
+            }
+            catch
+            {
+                poolItem.SafeDispose(Logger);
+                throw;
+            }
 
             return job != null;
         }
 
-        protected void RunJobs(IReadOnlyList<JobInfo> batch, IJobServiceScope serviceScope, CancellationToken cancellationToken)
+        protected void RunJobs(IReadOnlyList<JobInfo> batch, CancellationToken cancellationToken)
         {
-            if (batch.Count > 0)
-            {
-                var jobRunner = serviceScope.GetRequiredService<IJobRunner>();
-                var jobPublisher = serviceScope.GetRequiredService<IJobPublisher>();
+            if (batch.Count == 0) return;
 
-                jobRunner.RunJobs(jobPublisher, batch, serviceScope, cancellationToken);
-            }
-        }
+            Parallel.ForEach(batch, job =>
+            {
+                if (cancellationToken.IsCancellationRequested) return;
 
-        protected override void ProcessMessageBatch(List<RawMessage> messages, CancellationToken cancellationToken, out int pauseSec)
-        {
-            var serviceScope = ServiceScopeFactory.CreateScope();
-            try
-            {
-                ProcessMessageBatch(messages, serviceScope, cancellationToken, out pauseSec);
-            }
-            finally
-            {
-                serviceScope.SafeDispose();
-            }
+                var poolItem = ScopePool.Get();
+                try
+                {
+                    var jobRunner = poolItem.Scope.GetRequiredService<IJobRunner>();
+                    var jobPublisher = poolItem.Scope.GetRequiredService<IJobPublisher>();
+
+                    jobRunner.RunJob(jobPublisher, job, poolItem.Scope, cancellationToken);
+
+                    ScopePool.Return(ref poolItem);
+                }
+                catch
+                {
+                    poolItem.SafeDispose(Logger);
+                    throw;
+                }
+            });
         }
 
         protected void OnBatchProcessed(ulong lastDeliveryTag)

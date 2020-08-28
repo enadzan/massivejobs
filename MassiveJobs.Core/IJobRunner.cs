@@ -1,10 +1,9 @@
-﻿using System.Collections.Generic;
-using System.Threading;
+﻿using System.Threading;
 
 namespace MassiveJobs.Core
 {
     public interface IJobRunner
     {
-        void RunJobs(IJobPublisher publisher, IReadOnlyList<JobInfo> jobs, IJobServiceScope serviceScope, CancellationToken cancellationToken);
+        void RunJob(IJobPublisher publisher, JobInfo job, IJobServiceScope scope, CancellationToken cancellationToken);
     }
 }

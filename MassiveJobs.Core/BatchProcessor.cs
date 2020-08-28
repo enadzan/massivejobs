@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace MassiveJobs.Core
 {
-    public abstract class BatchProcessor<TMessage>
+    public abstract class BatchProcessor<TMessage>: IDisposable
     {
         private readonly int _batchSize;
 
@@ -97,7 +97,9 @@ namespace MassiveJobs.Core
 
         protected void ClearQueue()
         {
-            while (_messages.TryDequeue(out _)) ;
+            while (_messages.TryDequeue(out _))
+            {
+            }
         }
 
         protected virtual void OnStart()
