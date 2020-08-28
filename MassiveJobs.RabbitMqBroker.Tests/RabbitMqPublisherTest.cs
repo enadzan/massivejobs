@@ -27,9 +27,7 @@ namespace MassiveJobs.RabbitMqBroker.Tests
 
             RabbitMqJobs.Initialize(true, _settings, s =>
             {
-                s.MassiveJobs.PublishBatchSize = 200;
                 s.MassiveJobs.ImmediateWorkersCount = 10;
-                s.MassiveJobs.ImmediateWorkersBatchSize = 1000;
                 s.MassiveJobs.ScheduledWorkersCount = 2;
                 s.MassiveJobs.PeriodicWorkersCount = 2;
             });
