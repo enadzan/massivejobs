@@ -41,6 +41,23 @@ namespace MassiveJobs.Core
             MassiveJobsMediator.DefaultInstance.Publish<TJob, TArgs>(args, runAtUtc, timeoutMs);
         }
 
+        public static void CancelPeriodic(string groupKey)
+        {
+            if (JobBatch.IsActive)
+            {
+                var periodicRunInfo = new PeriodicRunInfo
+                {
+                    NextRunTime = DateTime.MinValue,
+                    LastRunTimeUtc = DateTime.MinValue, //important to replace existing job
+                };
+
+                JobBatch.Add(JobInfo.For<TJob, VoidArgs>(null, periodicRunInfo.NextRunTime, groupKey, null, periodicRunInfo));
+                return;
+            }
+
+            MassiveJobsMediator.DefaultInstance.CancelPeriodic<TJob>(groupKey);
+        }
+
         public static void PublishPeriodic(TArgs args, string groupKey, int repeatSec, 
             DateTime? runAtUtc = null, DateTime? endAtUtc = null, int? timeoutMs = null)
         {
@@ -116,6 +133,11 @@ namespace MassiveJobs.Core
         public static void Publish(DateTime runAtUtc, int? timeoutMs)
         {
             JobAsync<TJob, VoidArgs>.Publish(null, runAtUtc, timeoutMs);
+        }
+
+        public static void CancelPeriodic(string groupKey)
+        {
+            JobAsync<TJob, VoidArgs>.CancelPeriodic(groupKey);
         }
 
         public static void PublishPeriodic(string groupKey, int repeatSec, 
