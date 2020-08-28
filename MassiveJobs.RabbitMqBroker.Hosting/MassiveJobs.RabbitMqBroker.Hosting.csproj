@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>0.32.2</Version>
+    <Version>0.32.3</Version>
     <Authors>MassiveJobs.NET</Authors>
     <Description>Helper extensions for running MassiveJobs.RabbitMqBroker in a hosted environment</Description>
     <PackageLicenseExpression>LGPL-3.0-only</PackageLicenseExpression>
@@ -12,8 +12,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MassiveJobs.Core.Hosting" Version="0.32.2" />
-    <PackageReference Include="MassiveJobs.RabbitMqBroker" Version="0.32.2" />
+    <PackageReference Include="MassiveJobs.Core.Hosting" Version="0.32.3" />
+    <PackageReference Include="MassiveJobs.RabbitMqBroker" Version="0.32.3" />
   </ItemGroup>
 
   <ItemGroup>
