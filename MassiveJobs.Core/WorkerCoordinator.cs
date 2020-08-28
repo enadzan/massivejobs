@@ -17,6 +17,9 @@ namespace MassiveJobs.Core
         private readonly Timer _reconnectTimer;
         private readonly MassiveJobsSettings _settings;
 
+        private readonly int[] _reconnectTimes = {1, 2, 5, 10, 30, 60, 120};
+        private int _reconnectTimeIndex = 0;
+
         public WorkerCoordinator(
             IJobServiceScopeFactory serviceScopeFactory, 
             MassiveJobsSettings settings, 
@@ -59,18 +62,24 @@ namespace MassiveJobs.Core
                     {
                         worker.Start();
                     }
+
+                    // reset reconnect time index upon first successful connect
+                    _reconnectTimeIndex = 0;
                 }
                 catch (Exception ex)
                 {
                     Logger.LogError(ex, "Failed starting workers");
-                    StopJobWorkers();
-
-                    _reconnectTimer.Change(5 * 1000, Timeout.Infinite);
+                    StopJobWorkers(true);
                 }
             }
         }
 
         public void StopJobWorkers()
+        {
+            StopJobWorkers(false);
+        }
+
+        public void StopJobWorkers(bool reconnect)
         {
             lock (WorkersLock)
             {
@@ -109,23 +118,32 @@ namespace MassiveJobs.Core
                 }
 
                 Workers.Clear();
+
+                if (reconnect)
+                {
+                    if (_reconnectTimeIndex < _reconnectTimes.Length - 1)
+                    {
+                        _reconnectTimeIndex++;
+                    }
+
+                    _reconnectTimer.Change(_reconnectTimes[_reconnectTimeIndex] * 1000, Timeout.Infinite);
+                    Logger.LogDebug("Reconnect timer started");
+                }
             }
         }
 
         protected void OnWorkerError(Exception _)
         {
-            try
-            {
-                StopJobWorkers();
-            }
-            finally
-            {
-                _reconnectTimer.Change(5 * 1000, Timeout.Infinite);
-            }
+            StopJobWorkers(true);
         }
 
+        /// <summary>
+        /// This method should never be called by a sub-class.
+        /// This method is protected only to allow inheritors to create additional workers by overriding this method.
+        /// </summary>
         protected virtual void CreateWorkers()
         {
+            // ReSharper disable InconsistentlySynchronizedField
             MessageConsumer.Connect();
 
             for (var i = 0; i < _settings.ImmediateWorkersCount; i++)
@@ -138,7 +156,7 @@ namespace MassiveJobs.Core
                     MessageConsumer,
                     ServiceScopeFactory,
                     LoggerFactory.SafeCreateLogger<WorkerImmediate>()
-                    );
+                );
 
                 worker.Error += OnWorkerError;
                 Workers.Add(worker);
@@ -154,7 +172,7 @@ namespace MassiveJobs.Core
                     MessageConsumer,
                     ServiceScopeFactory,
                     LoggerFactory.SafeCreateLogger<WorkerScheduled>()
-                    );
+                );
 
                 worker.Error += OnWorkerError;
                 Workers.Add(worker);
@@ -170,7 +188,7 @@ namespace MassiveJobs.Core
                     MessageConsumer,
                     ServiceScopeFactory,
                     LoggerFactory.SafeCreateLogger<WorkerScheduled>()
-                    );
+                );
 
                 periodicWorker.Error += OnWorkerError;
                 Workers.Add(periodicWorker);
@@ -182,10 +200,11 @@ namespace MassiveJobs.Core
                 MessageConsumer,
                 ServiceScopeFactory,
                 LoggerFactory.SafeCreateLogger<WorkerScheduled>()
-                );
+            );
 
             errorWorker.Error += OnWorkerError;
             Workers.Add(errorWorker);
+            // ReSharper restore InconsistentlySynchronizedField
         }
 
         private void Reconnect(object state)
@@ -202,18 +221,7 @@ namespace MassiveJobs.Core
         {
             Logger.LogWarning("Message broker disconnected... stopping workers");
 
-            lock (WorkersLock)
-            {
-                try
-                {
-                    StopJobWorkers();
-                }
-                finally
-                {
-                    Logger.LogDebug("Reconnect timer started");
-                    _reconnectTimer.Change(5 * 1000, Timeout.Infinite);
-                }
-            }
+            StopJobWorkers(true);
 
             Logger.LogWarning("Message broker disconnected... stopped workers");
         }

@@ -269,7 +269,7 @@ namespace MassiveJobs.Core.Tests
             // Workers will executed jobs in batches. First batch will fail (on second job), the second batch will succeed.
             Assert.AreEqual(3, _performCount);
 
-            Thread.Sleep(6000);
+            Thread.Sleep(5000);
 
             // The failed batch will be retried (both jobs in a batch)
             Assert.AreEqual(5, _performCount);
