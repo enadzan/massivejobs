@@ -33,11 +33,11 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="MassiveJobs.Core, Version=0.32.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\MassiveJobs.Core.0.32.1\lib\net461\MassiveJobs.Core.dll</HintPath>
+    <Reference Include="MassiveJobs.Core, Version=0.32.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MassiveJobs.Core.0.32.2\lib\net461\MassiveJobs.Core.dll</HintPath>
     </Reference>
-    <Reference Include="MassiveJobs.Logging.Serilog, Version=0.32.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\MassiveJobs.Logging.Serilog.0.32.1\lib\net461\MassiveJobs.Logging.Serilog.dll</HintPath>
+    <Reference Include="MassiveJobs.Logging.Serilog, Version=0.32.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MassiveJobs.Logging.Serilog.0.32.2\lib\net461\MassiveJobs.Logging.Serilog.dll</HintPath>
     </Reference>
     <Reference Include="MassiveJobs.RabbitMqBroker, Version=0.32.1.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\MassiveJobs.RabbitMqBroker.0.32.1\lib\net461\MassiveJobs.RabbitMqBroker.dll</HintPath>
