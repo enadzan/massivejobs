@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 
 using MassiveJobs.Core;
 
-namespace MassiveJobs.ConsoleTest
+namespace MassiveJobs.DotNetCore.ConsoleTest
 {
     class LoggerWrapper<TCategory> : IJobLogger<TCategory>
     {

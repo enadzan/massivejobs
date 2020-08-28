@@ -2,7 +2,7 @@
 
 using MassiveJobs.Core;
 
-namespace MassiveJobs.ConsoleTest
+namespace MassiveJobs.DotNetCore.ConsoleTest
 {
     class LoggerFactoryWrapper : IJobLoggerFactory
     {

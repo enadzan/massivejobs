@@ -6,11 +6,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MassiveJobs.RabbitMqBroker" Version="0.32.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="3.1.7" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MassiveJobs.RabbitMqBroker\MassiveJobs.RabbitMqBroker.csproj" />
+    <ProjectReference Include="..\MassiveJobs.Examples.Jobs\MassiveJobs.Examples.Jobs.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Properties\" />
   </ItemGroup>
 
 </Project>

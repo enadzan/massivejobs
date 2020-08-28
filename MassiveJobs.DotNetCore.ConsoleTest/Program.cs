@@ -5,11 +5,13 @@ using Microsoft.Extensions.Logging;
 using MassiveJobs.Core;
 using MassiveJobs.RabbitMqBroker;
 
-namespace MassiveJobs.ConsoleTest
+using MassiveJobs.Examples.Jobs;
+
+namespace MassiveJobs.DotNetCore.ConsoleTest
 {
-    class Program
+    internal class Program
     {
-        static void Main(string[] args)
+        private static void Main()
         {
             var loggerFactory = LoggerFactory.Create(builder =>
             {
@@ -23,7 +25,7 @@ namespace MassiveJobs.ConsoleTest
             var mqSettings = new RabbitMqSettings
             {
                 VirtualHost = "massivejobs",
-                NamePrefix = "console."
+                NamePrefix = "examples."
             };
 
             RabbitMqJobs.Initialize(true, mqSettings, s =>
@@ -35,19 +37,11 @@ namespace MassiveJobs.ConsoleTest
 
             Console.WriteLine("Testing periodic jobs. Press Enter to quit!");
 
-            PeriodicJob.PublishPeriodic("test_periodic", "0/2 * * ? * *", null);
+            PeriodicJob.PublishPeriodic("test_periodic", "0/2 * * ? * *");
 
             Console.ReadLine();
 
             MassiveJobsMediator.DefaultInstance.Dispose();
-        }
-
-        private class PeriodicJob: Job<PeriodicJob>
-        {
-            public override void Perform()
-            {
-                Console.WriteLine(DateTime.Now);
-            }
         }
     }
 }
