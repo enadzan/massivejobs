@@ -27,6 +27,7 @@ namespace MassiveJobs.RabbitMqBroker.Tests
 
             RabbitMqJobs.Initialize(true, _settings, s =>
             {
+                s.MassiveJobs.MaxDegreeOfParallelismPerWorker = 4;
                 s.MassiveJobs.ImmediateWorkersCount = 4;
                 s.MassiveJobs.ScheduledWorkersCount = 2;
                 s.MassiveJobs.PeriodicWorkersCount = 2;

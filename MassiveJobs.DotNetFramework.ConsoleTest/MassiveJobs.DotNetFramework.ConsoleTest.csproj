@@ -33,8 +33,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="MassiveJobs.Core, Version=0.32.2.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\MassiveJobs.Core.0.32.2\lib\net461\MassiveJobs.Core.dll</HintPath>
+    <Reference Include="MassiveJobs.Core, Version=0.32.3.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MassiveJobs.Core.0.32.3\lib\net461\MassiveJobs.Core.dll</HintPath>
     </Reference>
     <Reference Include="MassiveJobs.Logging.Serilog, Version=0.32.2.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\MassiveJobs.Logging.Serilog.0.32.2\lib\net461\MassiveJobs.Logging.Serilog.dll</HintPath>
