@@ -557,5 +557,29 @@ namespace MassiveJobs.Core.Tests.Cron
             nextTime = TimeZoneInfo.ConvertTimeFromUtc(cronGen.NextUtc(nowUtc), SarajevoTimeZone);
             Assert.AreEqual(new DateTime(2021, 12, 1, 2, 0, 0, 0), nextTime);
         }
+
+        [TestMethod]
+        public void TestAustralianTime()
+        {
+            var brisbaneTimeZoneInfo = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? TimeZoneInfo.FindSystemTimeZoneById("E. Australia Standard Time")
+                : TimeZoneInfo.FindSystemTimeZoneById("Australia/Brisbane");
+
+            // Australia has no daylight saving time shifts
+            var cronGen = new CronSequenceGenerator("0 0 21 * * ?", brisbaneTimeZoneInfo);
+
+            var lastTimeUtc = TimeZoneInfo.ConvertTimeToUtc(new DateTime(2020, 1, 1, 0, 0, 0, 0), brisbaneTimeZoneInfo);
+            var expectedTime = new DateTime(2020, 1, 1, 21, 0, 0, 0);
+
+            for (var i = 0; i < 365; i++)
+            {
+                lastTimeUtc = cronGen.NextUtc(lastTimeUtc);
+                var actualTime = TimeZoneInfo.ConvertTimeFromUtc(lastTimeUtc, brisbaneTimeZoneInfo);
+
+                Assert.AreEqual(expectedTime, actualTime);
+
+                expectedTime = expectedTime.AddDays(1);
+            }
+        }
     }
 }
