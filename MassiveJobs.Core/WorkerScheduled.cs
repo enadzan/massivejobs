@@ -57,61 +57,65 @@ namespace MassiveJobs.Core
         {
             pauseSec = 0;
 
-            foreach (var rawMessage in messages)
+            using (var scope = ServiceScopeFactory.CreateScope())
             {
-                if (!TryDeserializeJob(rawMessage, out var job))
+                foreach (var rawMessage in messages)
                 {
-                    throw new Exception($"Unknown job type: {rawMessage.TypeTag}.");
-                }
-
-                if (job.PeriodicRunInfo != null)
-                {
-                    if (!_periodicSkipJobs.TryGetValue(job.GroupKey, out var duplicateTags))
+                    if (!TryDeserializeJob(rawMessage, scope, out var job))
                     {
-                        duplicateTags = new ConcurrentBag<ulong>();
-                        _periodicSkipJobs.TryAdd(job.GroupKey, duplicateTags);
+                        throw new Exception($"Unknown job type: {rawMessage.TypeTag}.");
                     }
 
-                    // Periodic jobs should not be added twice. 
-                    // If the new job has "LastRunTime", it will replace the old job, otherwise it is discarded.
-                    // This is because we don't want restarts of applications (that will schedule a periodic job without "LastRunTime")
-                    // to interfere with the execution of jobs.
-
-                    if (_periodicJobs.TryGetValue(job.GroupKey, out var runningTag))
+                    if (job.PeriodicRunInfo != null)
                     {
-                        if (!job.PeriodicRunInfo.LastRunTimeUtc.HasValue)
+                        if (!_periodicSkipJobs.TryGetValue(job.GroupKey, out var duplicateTags))
                         {
+                            duplicateTags = new ConcurrentBag<ulong>();
+                            _periodicSkipJobs.TryAdd(job.GroupKey, duplicateTags);
+                        }
+
+                        // Periodic jobs should not be added twice. 
+                        // If the new job has "LastRunTime", it will replace the old job, otherwise it is discarded.
+                        // This is because we don't want restarts of applications (that will schedule a periodic job without "LastRunTime")
+                        // to interfere with the execution of jobs.
+
+                        if (_periodicJobs.TryGetValue(job.GroupKey, out var runningTag))
+                        {
+                            if (!job.PeriodicRunInfo.LastRunTimeUtc.HasValue)
+                            {
+                                duplicateTags.Add(rawMessage.DeliveryTag);
+                                continue;
+                            }
+
+                            _periodicJobs.TryRemove(job.GroupKey, out _);
+                            _scheduledJobs.TryRemove(runningTag, out _);
+
+                            duplicateTags.Add(runningTag);
+                        }
+
+                        try
+                        {
+                            if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc, DateTime.UtcNow))
+                            {
+                                duplicateTags.Add(rawMessage.DeliveryTag);
+                                continue;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // Setting the next time could throw in cron expressions.
+                            // It shouldn't happen, but if it does, log error and skip.
+                            Logger.LogError(ex,
+                                $"Failed setting next run time in job with group key '{job.GroupKey}' (last run utc: {job.PeriodicRunInfo.LastRunTimeUtc})");
                             duplicateTags.Add(rawMessage.DeliveryTag);
                             continue;
                         }
 
-                        _periodicJobs.TryRemove(job.GroupKey, out _);
-                        _scheduledJobs.TryRemove(runningTag, out _);
-
-                        duplicateTags.Add(runningTag);
+                        _periodicJobs.TryAdd(job.GroupKey, rawMessage.DeliveryTag);
                     }
 
-                    try
-                    {
-                        if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc, DateTime.UtcNow))
-                        {
-                            duplicateTags.Add(rawMessage.DeliveryTag);
-                            continue;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        // Setting the next time could throw in cron expressions.
-                        // It shouldn't happen, but if it does, log error and skip.
-                        Logger.LogError(ex, $"Failed setting next run time in job with group key '{job.GroupKey}' (last run utc: {job.PeriodicRunInfo.LastRunTimeUtc})");
-                        duplicateTags.Add(rawMessage.DeliveryTag);
-                        continue;
-                    }
-
-                    _periodicJobs.TryAdd(job.GroupKey, rawMessage.DeliveryTag);
+                    _scheduledJobs.TryAdd(rawMessage.DeliveryTag, job);
                 }
-
-                _scheduledJobs.TryAdd(rawMessage.DeliveryTag, job);
             }
         }
 
@@ -188,10 +192,9 @@ namespace MassiveJobs.Core
         {
             if (batch.Count == 0) return;
 
-            var poolItem = ScopePool.Get();
-            try
+            using (var scope = ServiceScopeFactory.CreateScope())
             {
-                var jobPublisher = poolItem.Scope.GetRequiredService<IJobPublisher>();
+                var jobPublisher = scope.GetRequiredService<IJobPublisher>();
                 if (jobPublisher == null) return; // this can happen only this worker is being stopped;
 
                 jobPublisher.Publish(batch.Select(j => j.Value.ToImmediateJob()));
@@ -209,15 +212,6 @@ namespace MassiveJobs.Core
                 {
                     OnMessageProcessed(kvp.Key);
                 }
-            }
-            catch
-            {
-                poolItem.SafeDispose(Logger);
-                throw;
-            } 
-            finally
-            {
-                ScopePool.Return(ref poolItem);
             }
         }
     }

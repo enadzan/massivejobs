@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,7 +13,7 @@ namespace MassiveJobs.Core
         private volatile IMessageReceiver _messageReceiver;
 
         protected readonly string QueueName;
-        protected readonly ScopePool ScopePool;
+        protected readonly IJobServiceScopeFactory ServiceScopeFactory;
 
         protected Worker(string queueName, int batchSize, int masMaxDegreeOfParallelism, 
             IMessageConsumer messageConsumer, IJobServiceScopeFactory serviceScopeFactory, IJobLogger logger)
@@ -20,16 +21,9 @@ namespace MassiveJobs.Core
         {
             _maxDegreeOfParallelism = masMaxDegreeOfParallelism;
             _messageConsumer = messageConsumer;
-
-            ScopePool = new ScopePool(serviceScopeFactory);
+            ServiceScopeFactory = serviceScopeFactory;
 
             QueueName = queueName;
-        }
-
-        public override void Dispose()
-        {
-            ScopePool.SafeDispose(Logger);
-            base.Dispose();
         }
 
         protected override void OnStart()
@@ -76,58 +70,42 @@ namespace MassiveJobs.Core
             ClearQueue();
         }
 
-        protected bool TryDeserializeJob(RawMessage rawMessage, out JobInfo job)
+        protected bool TryDeserializeJob(RawMessage rawMessage, IJobServiceScope scope, out JobInfo job)
         {
             job = null;
 
             var argsTag = rawMessage.TypeTag;
             if (string.IsNullOrEmpty(argsTag)) return false;
 
-            var poolItem = ScopePool.Get();
-            try
-            {
-                var serializer = poolItem.Scope.GetRequiredService<IJobSerializer>();
-                var typeProvider = poolItem.Scope.GetRequiredService<IJobTypeProvider>();
+            var serializer = scope.GetRequiredService<IJobSerializer>();
+            var typeProvider = scope.GetRequiredService<IJobTypeProvider>();
 
-                job = serializer.Deserialize(rawMessage.Body, argsTag, typeProvider);
-
-                ScopePool.Return(ref poolItem);
-            }
-            catch
-            {
-                poolItem.SafeDispose(Logger);
-                throw;
-            }
+            job = serializer.Deserialize(rawMessage.Body, argsTag, typeProvider);
 
             return job != null;
         }
 
-        protected void RunJobs(IReadOnlyList<JobInfo> batch, CancellationToken cancellationToken)
+        protected void RunJobs(IReadOnlyList<RawMessage> batch, CancellationToken cancellationToken)
         {
-            if (batch.Count == 0) return;
-
             var parallelOptions = new ParallelOptions
             {
                 CancellationToken = cancellationToken,
                 MaxDegreeOfParallelism = _maxDegreeOfParallelism
             };
 
-            Parallel.ForEach(batch, parallelOptions, job =>
+            Parallel.ForEach(batch, parallelOptions, msg =>
             {
-                var poolItem = ScopePool.Get();
-                try
+                using (var scope = ServiceScopeFactory.CreateScope())
                 {
-                    var jobRunner = poolItem.Scope.GetRequiredService<IJobRunner>();
-                    var jobPublisher = poolItem.Scope.GetRequiredService<IJobPublisher>();
+                    if (!TryDeserializeJob(msg, scope, out var job))
+                    {
+                        throw new Exception($"Unknown job type: {msg.TypeTag}.");
+                    }
 
-                    jobRunner.RunJob(jobPublisher, job, poolItem.Scope, cancellationToken);
+                    var jobRunner = scope.GetRequiredService<IJobRunner>();
+                    var jobPublisher = scope.GetRequiredService<IJobPublisher>();
 
-                    ScopePool.Return(ref poolItem);
-                }
-                catch
-                {
-                    poolItem.SafeDispose(Logger);
-                    throw;
+                    jobRunner.RunJob(jobPublisher, job, scope, cancellationToken);
                 }
             });
         }

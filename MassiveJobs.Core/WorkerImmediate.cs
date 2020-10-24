@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading;
 
 namespace MassiveJobs.Core
@@ -20,29 +19,15 @@ namespace MassiveJobs.Core
         protected override void ProcessMessageBatch(List<RawMessage> messages, CancellationToken cancellationToken, out int pauseSec)
         {
             pauseSec = 0;
-            ulong? lastDeliveryTag = null;
+            if (messages.Count == 0) return;
 
-            var batch = new List<JobInfo>();
+            RunJobs(messages, cancellationToken);
 
-            foreach (var rawMessage in messages)
-            {
-                if (!TryDeserializeJob(rawMessage, out var job))
-                {
-                    throw new Exception($"Unknown job type: {rawMessage.TypeTag}.");
-                }
-
-                batch.Add(job);
-                lastDeliveryTag = rawMessage.DeliveryTag;
-            }
-
-            RunJobs(batch, cancellationToken);
-
+            // If we we are interrupted, we don't know if the batch is completely processed,
+            // so we can't send confirmations.
             if (cancellationToken.IsCancellationRequested) return;
 
-            if (lastDeliveryTag.HasValue)
-            {
-                OnBatchProcessed(lastDeliveryTag.Value);
-            }
+            OnBatchProcessed(messages[messages.Count - 1].DeliveryTag);
         }
     }
 }
