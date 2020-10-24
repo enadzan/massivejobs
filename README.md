@@ -395,6 +395,6 @@ email server does not participate in the transaction. If `client.Send` throws __
 was actually sent or not. Mail server might have received the request, queued the message for delivery, but we never got the response 
 because of a temporary network issue. In another words, _at least once_ delivery is guaranteed in this case, not _exactly once_.
   
-If __only database changes__ were involved in the job, then would could have _exactly once_ guarantees. But even then, the job's 
+If __only database changes__ were involved in the job, then we could have _exactly once_ guarantees. But even then, the job's 
 `Perform` method can be called twice so you __must make sure that the job is idempotent__ in the `Perform` method (similar to what we did 
 with `IsEmailSent`).
