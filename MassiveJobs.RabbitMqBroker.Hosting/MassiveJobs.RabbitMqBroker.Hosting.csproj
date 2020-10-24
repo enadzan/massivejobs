@@ -12,8 +12,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MassiveJobs.Core.Hosting" Version="0.32.4" />
-    <PackageReference Include="MassiveJobs.RabbitMqBroker" Version="0.32.4" />
+    <PackageReference Include="MassiveJobs.Core.Hosting" Version="0.32.5" />
+    <PackageReference Include="MassiveJobs.RabbitMqBroker" Version="0.32.5" />
   </ItemGroup>
 
   <ItemGroup>

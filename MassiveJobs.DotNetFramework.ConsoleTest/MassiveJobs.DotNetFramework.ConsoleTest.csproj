@@ -33,23 +33,23 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="MassiveJobs.Core, Version=0.32.4.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\MassiveJobs.Core.0.32.4\lib\net461\MassiveJobs.Core.dll</HintPath>
+    <Reference Include="MassiveJobs.Core, Version=0.32.5.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MassiveJobs.Core.0.32.5\lib\net461\MassiveJobs.Core.dll</HintPath>
     </Reference>
-    <Reference Include="MassiveJobs.Logging.Serilog, Version=0.32.4.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\MassiveJobs.Logging.Serilog.0.32.4\lib\net461\MassiveJobs.Logging.Serilog.dll</HintPath>
+    <Reference Include="MassiveJobs.Logging.Serilog, Version=0.32.5.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MassiveJobs.Logging.Serilog.0.32.5\lib\net461\MassiveJobs.Logging.Serilog.dll</HintPath>
     </Reference>
-    <Reference Include="MassiveJobs.RabbitMqBroker, Version=0.32.4.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\MassiveJobs.RabbitMqBroker.0.32.4\lib\net461\MassiveJobs.RabbitMqBroker.dll</HintPath>
+    <Reference Include="MassiveJobs.RabbitMqBroker, Version=0.32.5.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MassiveJobs.RabbitMqBroker.0.32.5\lib\net461\MassiveJobs.RabbitMqBroker.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=1.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.Bcl.AsyncInterfaces.1.1.0\lib\net461\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+      <HintPath>..\packages\Microsoft.Bcl.AsyncInterfaces.1.1.1\lib\net461\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
     </Reference>
     <Reference Include="RabbitMQ.Client, Version=6.0.0.0, Culture=neutral, PublicKeyToken=89e7d7c5feba84ce, processorArchitecture=MSIL">
       <HintPath>..\packages\RabbitMQ.Client.6.2.1\lib\net461\RabbitMQ.Client.dll</HintPath>
     </Reference>
     <Reference Include="Serilog, Version=2.0.0.0, Culture=neutral, PublicKeyToken=24c2f752a8e58a10, processorArchitecture=MSIL">
-      <HintPath>..\packages\Serilog.2.9.0\lib\net46\Serilog.dll</HintPath>
+      <HintPath>..\packages\Serilog.2.10.0\lib\net46\Serilog.dll</HintPath>
     </Reference>
     <Reference Include="Serilog.Sinks.Console, Version=3.1.1.0, Culture=neutral, PublicKeyToken=24c2f752a8e58a10, processorArchitecture=MSIL">
       <HintPath>..\packages\Serilog.Sinks.Console.3.1.1\lib\net45\Serilog.Sinks.Console.dll</HintPath>
