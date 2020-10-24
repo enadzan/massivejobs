@@ -66,36 +66,42 @@ namespace MassiveJobs.QuickStart
     /// <summary>
     /// This is a "job" class. 
     /// It will be instantiated every time a message is received and Perform will be called.
+    /// It inherits from Job<TJobType, TArgType> where TArgType is the type of the argument declared in the Perform method. 
     /// </summary>
     public class MessageReceiver: Job<MessageReceiver, string>
     {
         public override void Perform(string message)
         {
-            Console.WriteLine("Message Received: " + message);
+            Console.WriteLine("Job performed: " + message);
         }
     }
 
     class Program
     {
-        static void Main(string[] args)
+        private static void Main()
         {
-            var startWorkers = args.Length == 0 || args[0].ToLower() != "publisher";
+            Console.WriteLine("1: Worker");
+            Console.WriteLine("2: Publisher");
+            Console.Write("Choose 1 or 2 -> ");
             
-            RabbitMqJobs.Initialize(startWorkers);
-            
-            if (startWorkers)
+            if (Console.ReadKey().KeyChar == '2')
             {
-                RunWorker();
+                RunPublisher();
             }
             else
             {
-                RunPublisher();
+                RunWorker();
             }
         }
 
         private static void RunWorker()
         {
-            Console.WriteLine("Initialized job worker.");
+            Console.WriteLine("");
+            Console.WriteLine("Initializing job worker");
+
+            RabbitMqJobs.Initialize();
+
+            Console.WriteLine("Initialized.");
             Console.WriteLine("Press Enter to end the application.");
 
             Console.ReadLine();
@@ -103,8 +109,13 @@ namespace MassiveJobs.QuickStart
 
         private static void RunPublisher()
         {
-            Console.WriteLine("Initialized publisher.");
-            Console.WriteLine("Write a message and press Enter to publish it (empty message to end).");
+            Console.WriteLine("");
+            Console.WriteLine("Initializing job publisher");
+
+            RabbitMqJobs.Initialize(startWorkers: false);
+
+            Console.WriteLine("Initialized.");
+            Console.WriteLine("Write the job name and press Enter to publish it (empty job name to end).");
 
             while (true)
             {
