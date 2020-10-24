@@ -66,7 +66,7 @@ namespace MassiveJobs.QuickStart
     /// <summary>
     /// This is a "job" class. 
     /// It will be instantiated every time a message is received and Perform will be called.
-    /// It inherits from Job<TJobType, TArgType> where TArgType is the type of the argument declared in the Perform method. 
+    /// It inherits from 
     /// </summary>
     public class MessageReceiver: Job<MessageReceiver, string>
     {
@@ -83,25 +83,28 @@ namespace MassiveJobs.QuickStart
             Console.WriteLine("1: Worker");
             Console.WriteLine("2: Publisher");
             Console.Write("Choose 1 or 2 -> ");
-            
-            if (Console.ReadKey().KeyChar == '2')
+
+            var startWorkers = Console.ReadLine() != "2";
+
+            // We are not starting job workers if '2' is selected.
+            // This is not mandatory, an application can run job workers
+            // and publish jobs using the same MassiveJobs instance.
+
+            RabbitMqJobs.Initialize(startWorkers);
+
+            if (startWorkers)
             {
-                RunPublisher();
+                RunWorker();
             }
             else
             {
-                RunWorker();
+                RunPublisher();
             }
         }
 
         private static void RunWorker()
         {
-            Console.WriteLine("");
-            Console.WriteLine("Initializing job worker");
-
-            RabbitMqJobs.Initialize();
-
-            Console.WriteLine("Initialized.");
+            Console.WriteLine("Initialized job worker.");
             Console.WriteLine("Press Enter to end the application.");
 
             Console.ReadLine();
@@ -109,12 +112,7 @@ namespace MassiveJobs.QuickStart
 
         private static void RunPublisher()
         {
-            Console.WriteLine("");
-            Console.WriteLine("Initializing job publisher");
-
-            RabbitMqJobs.Initialize(startWorkers: false);
-
-            Console.WriteLine("Initialized.");
+            Console.WriteLine("Initialized job publisher");
             Console.WriteLine("Write the job name and press Enter to publish it (empty job name to end).");
 
             while (true)
@@ -198,13 +196,21 @@ It is very important to configure logging in your application running MassiveJob
 For example, if you want to add log4net logging to the quick-start example, first install the `MassiveJobs.Logging.Log4Net` package in your project. After that, initialize log4net library, and finally MassiveJobs.
 
 ```csharp
-static void Main(string[] args)
+private static void Main()
 {
     InitializeLogging();
+    
+    Console.WriteLine("1: Worker");
+    Console.WriteLine("2: Publisher");
+    Console.Write("Choose 1 or 2 -> ");
 
-    var startWorkers = args.Length == 0 || args[0].ToLower() != "publisher";
+    var startWorkers = Console.ReadLine() != "2";
 
-    RabbitMqJobs.Initialize(startWorkers, configureAction: options => 
+    // We are not starting job workers if '2' is selected.
+    // This is not mandatory, an application can run job workers
+    // and publish jobs using the same MassiveJobs instance.
+
+    RabbitMqJobs.Initialize(startWorkers, configureAction: options =>
     {
         options.JobLoggerFactory = new MassiveJobs.Logging.Log4Net.LoggerWrapperFactory();
         // for NLog: options.JobLoggerFactory = new MassiveJobs.Logging.NLog.LoggerWrapperFactory(); 
@@ -299,93 +305,95 @@ For example, if you have a `Customer` entity and want to send a welcome email to
 [HttpPost]
 public ActionResult<Customer> PostCustomer(Customer customer)
 {
-    using (var ts = new TransactionScope())
+    using var trans = _context.Database.BeginTransaction();
+
+    _context.Customers.Add(customer);
+
+    _context.SaveChanges();
+
+    if (!string.IsNullOrWhiteSpace(customer.Email))
     {
-        _context.Customers.Add(customer);
-        _context.SaveChanges();
-
-        // send a welcome email after 5 seconds using MassiveJobs
+        // send a welcome email after 5 seconds
         SendWelcomeEmailJob.Publish(customer.Id, TimeSpan.FromSeconds(5));
-
-        ts.Complete();
     }
 
-    return CreatedAtAction("GetCustomer", new { id = customer.Id }, customer);
+    // do this last. If Job publishing to RabbitMq fails, we will rollback
+    trans.Commit();
+
+    return CreatedAtAction("GetCustomer", new {id = customer.Id}, customer);
 }
 ```
 
-It is very important to keep in mind that `SendWelcomeEmailJob.Publish` __does NOT participate in the ambient transaction___. 
+It is very important to keep in mind that `SendWelcomeEmailJob.Publish` __does NOT participate in the transaction___. 
 RabbitMqBroker for MassiveJobs does not support transactions. But, the `Publish` method will throw exception if publishing fails
 (only publishing - not actually sending the mail, which is done asyncronously). If the publishing fails, exception will be thrown, 
-and ts.Complete() will never be called which will rollback the database transaction.
+and `trans.Commit()` will never be called, and the transaction will be rolled-back on dispose.
   
-Esentially, publishing a job is here used as a _last committing resource_. If, for your application, sending the welcome email isn't 
-mission critical, you could put the `Publish` call outside of the transaction scope, __in a try..catch block__ and just log any errors 
-that happen on publish.
+Esentially, publishing a job is here used as a _last committing resource_. 
 
 The `SendWelcomeEmailJob` could look something like this:
 
 ```csharp
 public class SendWelcomeEmailJob : Job<SendWelcomeEmailJob, int>
+{
+    private readonly ExamplesDbContext _context;
+
+    public SendWelcomeEmailJob(ExamplesDbContext context)
     {
-        private readonly ExamplesDbContext _db;
+        _context = context;
+    }
 
-        public SendWelcomeEmailJob(ExamplesDbContext db)
+    public override void Perform(int customerId)
+    {
+        using var trans = _context.Database.BeginTransaction();
+
+        var customer = _context.Customers.Find(customerId);
+        if (customer.IsEmailSent) return; // make the job idempotent
+
+        customer.IsEmailSent = true;
+
+        // Do this before sending email, to lessen the chance of an exception on commit.
+        // Also, if optimistic concurrency is enabled, we will fail here, before sending the email.
+        // This way we avoid sending the email to the customer twice.
+        _context.SaveChanges();
+
+        SendEmail(customer);
+
+        // Do this last. In case the SendEmail method fails, the transaction will be rolled back.
+        trans.Commit();
+    }
+
+    private static void SendEmail(Customer customer)
+    {
+        var mailMessage = new MailMessage
         {
-            _db = db;
-        }
+            From = new MailAddress("do-not-reply@examples.com"),
+            Body = $"Welcome customer {customer.FirstName} {customer.LastName}",
+            Subject = "Welcome to examples.com"
+        };
 
-        public override void Perform(int customerId)
+        mailMessage.To.Add(customer.Email);
+
+        using (var client = new SmtpClient("smtp.examples.com"))
         {
-            using (var ts = new TransactionScope())
-            {
-                var customer = _db.Customers.Find(customerId);
-                if (customer.IsEmailSent) return; // do nothing if email is already sent
-
-                customer.IsEmailSent = true;
-
-                // Try to save changes to the db before sending the email.
-                // Customer entity has concurrency checks enabled with Timestamp property
-                // and this will throw exception if the entity was changed by another
-                // thread or process in the database since we loaded it with 'Find'.
-                _db.SaveChanges();
-
-                SendEmail(customer);
-            }
-        }
-
-        private static void SendEmail(Customer customer)
-        {
-            var mailMessage = new MailMessage
-            {
-                From = new MailAddress("do-not-reply@examples.com"),
-                Body = $"Welcome customer {customer.FirstName} {customer.LastName}",
-                Subject = "Welcome to examples.com"
-            };
-
-            mailMessage.To.Add(customer.Email);
-
-            var client = new SmtpClient("smtp.examples.com")
-            {
-                UseDefaultCredentials = false,
-                Credentials = new NetworkCredential("username", "password")
-            };
-
+            client.UseDefaultCredentials = false;
+            client.Credentials = new NetworkCredential("username", "password");
             client.Send(mailMessage);
         }
     }
+}
 ```
 
 There are a several things to note here:
 * In the hosting environment, job classes can have their required services injected in the constructor (like DbContext here)
-* Since mail servers don't participate in transactions, sending email is again used as the last committing resource.
+* Since mail servers don't participate in transactions, sending email is again used as the _last committing resource_.
 * __It is essential for the job classes to be idempotent__. That is why `customer.IsEmailSent` is checked before doing anything. If it is set to true we don't do anything (no exception is thrown, because exception would make the MassiveJobs library schedule the job for retries) 
 * We are calling `SaveChanges()` on the db context __before__ actually sending the email so that it can __throw concurrency exceptions__ which will reschedule the job for later (but __you must configure concurrency properties on your entites__ for it to work). 
   
 However, in this particular case, our job class is not fully idempotent. It still may happen that the email is sent twice because 
 email server does not participate in the transaction. If `client.Send` throws __timeout__ exception, it is uncertain if the email 
 was actually sent or not. Mail server might have received the request, queued the message for delivery, but we never got the response 
-because of a temporary network issue. Basically, _at least once_ delivery is guaranteed in this case, not _exactly once_.
+because of a temporary network issue. In another words, _at least once_ delivery is guaranteed in this case, not _exactly once_.
   
 If __only database changes__ were involved in the job, then would could have _exactly once_ guarantees. But even then, the job's 
 `Perform` method can be called twice so you __must make sure that the job is idempotent__ in the `Perform` method (similar to what we did 
