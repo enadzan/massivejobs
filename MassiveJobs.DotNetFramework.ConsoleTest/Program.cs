@@ -13,13 +13,6 @@ namespace MassiveJobs.DotNetFramework.ConsoleTest
     {
         private static void Main()
         {
-            var mqSettings = new RabbitMqSettings
-            {
-                VirtualHost = "massivejobs",
-                NamePrefix = "examples."
-            };
-
-
             // initialize Serilog
 
             Log.Logger = new LoggerConfiguration()
@@ -29,10 +22,13 @@ namespace MassiveJobs.DotNetFramework.ConsoleTest
 
             // initialize RabbitMqJobs
 
-            RabbitMqJobs.Initialize(true, mqSettings, s =>
+            RabbitMqJobs.Initialize(true, s =>
             {
-                s.MassiveJobs.MaxQueueLength = QueueLength.NoLimit;
-                s.MassiveJobs.PublishBatchSize = 400;
+                s.RabbitMqSettings.VirtualHost = "massivejobs";
+                s.RabbitMqSettings.NamePrefix = "examples.";
+
+                s.MaxQueueLength = QueueLength.NoLimit;
+                s.PublishBatchSize = 400;
                 s.JobLoggerFactory = new MassiveJobs.Logging.Serilog.LoggerWrapperFactory();
             });
 

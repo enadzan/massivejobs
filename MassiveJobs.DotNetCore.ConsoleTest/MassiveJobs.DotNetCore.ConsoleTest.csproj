@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MassiveJobs.RabbitMqBroker" Version="0.32.5" />
+    <PackageReference Include="MassiveJobs.RabbitMqBroker" Version="0.32.6" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="3.1.9" />
   </ItemGroup>
 

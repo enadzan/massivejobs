@@ -14,16 +14,16 @@ namespace MassiveJobs.RabbitMqBroker.Hosting
             Action<RabbitMqJobsOptions> configureAction = null
             )
         {
-            var rabbitMqSettings = new RabbitMqSettings();
-
             var options = new RabbitMqJobsOptions
             {
-                MassiveJobs = RabbitMqJobs.CreateJobsSettings(rabbitMqSettings)
+                RabbitMqSettings = new RabbitMqSettings()
             };
 
             configureAction?.Invoke(options);
 
-            serviceCollection.AddSingleton(options.MassiveJobs);
+            var massiveJobsSettings = RabbitMqJobs.CreateJobsSettings(options);
+
+            serviceCollection.AddSingleton(massiveJobsSettings);
 
             if (options.JobLoggerFactory != null)
             {
@@ -56,10 +56,10 @@ namespace MassiveJobs.RabbitMqBroker.Hosting
                 new DefaultJobRunner(p.GetRequiredService<IJobLoggerFactory>().CreateLogger<DefaultJobRunner>()));
 
             serviceCollection.AddSingleton<IMessagePublisher>(p =>
-                new RabbitMqMessagePublisher(rabbitMqSettings, options.MassiveJobs, p.GetRequiredService<IJobLoggerFactory>().CreateLogger<RabbitMqMessagePublisher>()));
+                new RabbitMqMessagePublisher(options.RabbitMqSettings, massiveJobsSettings, p.GetRequiredService<IJobLoggerFactory>().CreateLogger<RabbitMqMessagePublisher>()));
 
             serviceCollection.AddSingleton<IMessageConsumer>(p => 
-                new RabbitMqMessageConsumer(rabbitMqSettings, options.MassiveJobs, p.GetRequiredService<IJobLoggerFactory>().CreateLogger<RabbitMqMessageConsumer>()));
+                new RabbitMqMessageConsumer(options.RabbitMqSettings, massiveJobsSettings, p.GetRequiredService<IJobLoggerFactory>().CreateLogger<RabbitMqMessageConsumer>()));
 
             serviceCollection.AddScoped<IJobPublisher>(svcProvider =>
             {

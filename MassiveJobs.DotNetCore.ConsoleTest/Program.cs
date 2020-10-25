@@ -22,16 +22,12 @@ namespace MassiveJobs.DotNetCore.ConsoleTest
                     .AddConsole();
             });
 
-            var mqSettings = new RabbitMqSettings
+            RabbitMqJobs.Initialize(true, s =>
             {
-                VirtualHost = "massivejobs",
-                NamePrefix = "examples."
-            };
-
-            RabbitMqJobs.Initialize(true, mqSettings, s =>
-            {
-                s.MassiveJobs.MaxQueueLength = QueueLength.NoLimit;
-                s.MassiveJobs.PublishBatchSize = 400;
+                s.RabbitMqSettings.VirtualHost = "massivejobs";
+                s.RabbitMqSettings.NamePrefix = "examples.";
+                s.MaxQueueLength = QueueLength.NoLimit;
+                s.PublishBatchSize = 400;
                 s.JobLoggerFactory = new LoggerFactoryWrapper(loggerFactory);
             });
 
