@@ -11,26 +11,22 @@ namespace MassiveJobs.RabbitMqBroker.Tests
     public class RabbitMqPublisherTest
     {
         private static int _performCount;
-        private RabbitMqSettings _settings;
 
         [TestInitialize]
         public void TestInit()
         {
             _performCount = 0;
 
-            _settings = new RabbitMqSettings
+            RabbitMqJobs.Initialize(true, s =>
             {
-                VirtualHost = "massivejobs.tests",
-                NamePrefix = "tests.",
-                PrefetchCount = 1000
-            };
+                s.RabbitMqSettings.VirtualHost = "massivejobs.tests";
+                s.RabbitMqSettings.NamePrefix = "tests.";
+                s.RabbitMqSettings.PrefetchCount = 1000;
 
-            RabbitMqJobs.Initialize(true, _settings, s =>
-            {
-                s.MassiveJobs.MaxDegreeOfParallelismPerWorker = 4;
-                s.MassiveJobs.ImmediateWorkersCount = 4;
-                s.MassiveJobs.ScheduledWorkersCount = 2;
-                s.MassiveJobs.PeriodicWorkersCount = 2;
+                s.MaxDegreeOfParallelismPerWorker = 4;
+                s.ImmediateWorkersCount = 4;
+                s.ScheduledWorkersCount = 2;
+                s.PeriodicWorkersCount = 2;
             });
         }
 

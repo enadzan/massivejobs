@@ -5,22 +5,22 @@ namespace MassiveJobs.RabbitMqBroker
 {
     public class RabbitMqJobs
     {
-        public static void Initialize(bool startWorkers = true, RabbitMqSettings rabbitMqSettings = null, Action<RabbitMqJobsOptions> configureAction = null)
+        public static void Initialize(bool startWorkers = true, Action<RabbitMqJobsOptions> configureAction = null)
         {
-            rabbitMqSettings = rabbitMqSettings ?? new RabbitMqSettings();
-
             var options = new RabbitMqJobsOptions
             {
-                MassiveJobs = CreateJobsSettings(rabbitMqSettings)
+                RabbitMqSettings = new RabbitMqSettings()
             };
 
             configureAction?.Invoke(options);
 
-            var publisher = new RabbitMqMessagePublisher(rabbitMqSettings, options.MassiveJobs, options.JobLoggerFactory.SafeCreateLogger<RabbitMqMessagePublisher>());
-            var consumer = new RabbitMqMessageConsumer(rabbitMqSettings, options.MassiveJobs, options.JobLoggerFactory.SafeCreateLogger<RabbitMqMessageConsumer>());
+            var massiveJobsSettings = CreateJobsSettings(options);
+
+            var publisher = new RabbitMqMessagePublisher(options.RabbitMqSettings, massiveJobsSettings, options.JobLoggerFactory.SafeCreateLogger<RabbitMqMessagePublisher>());
+            var consumer = new RabbitMqMessageConsumer(options.RabbitMqSettings, massiveJobsSettings, options.JobLoggerFactory.SafeCreateLogger<RabbitMqMessageConsumer>());
 
             var serviceScopeFactory = new DefaultServiceScopeFactory(
-                options.MassiveJobs,
+                massiveJobsSettings,
                 publisher,
                 consumer,
                 options.JobLoggerFactory,
@@ -36,10 +36,24 @@ namespace MassiveJobs.RabbitMqBroker
             }
         }
 
-        public static MassiveJobsSettings CreateJobsSettings(RabbitMqSettings rabbitMqSettings)
+        public static MassiveJobsSettings CreateJobsSettings(RabbitMqJobsOptions options)
         {
+            var rabbitMqSettings = options.RabbitMqSettings;
+
             return new MassiveJobsSettings
             {
+                MaxDegreeOfParallelismPerWorker = options.MaxDegreeOfParallelismPerWorker,
+                ImmediateWorkersCount = options.ImmediateWorkersCount,
+                ScheduledWorkersCount = options.ScheduledWorkersCount,
+                PeriodicWorkersCount = options.PeriodicWorkersCount,
+                PublishBatchSize = options.PublishBatchSize,
+
+                ImmediateWorkersBatchSize = options.ImmediateWorkersBatchSize,
+                ScheduledWorkersBatchSize = options.ScheduledWorkersBatchSize,
+                PeriodicWorkersBatchSize = options.PeriodicWorkersBatchSize,
+
+                MaxQueueLength = options.MaxQueueLength,
+
                 ImmediateQueueNameTemplate = $"{rabbitMqSettings.NamePrefix}{Constants.ImmediateQueueNameTemplate}",
                 ScheduledQueueNameTemplate = $"{rabbitMqSettings.NamePrefix}{Constants.ScheduledQueueNameTemplate}",
                 ErrorQueueName = $"{rabbitMqSettings.NamePrefix}{Constants.ErrorQueueName}",
