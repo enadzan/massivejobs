@@ -66,7 +66,8 @@ namespace MassiveJobs.QuickStart
     /// <summary>
     /// This is a "job" class. 
     /// It will be instantiated every time a message is received and Perform will be called.
-    /// It inherits from 
+    /// It inherits from the Job generic class. The firt type parameter (MessageReceiver) specifies the type of job,
+    /// and the second type parameter (string) specifies the type of parameter expected by the Perform method.
     /// </summary>
     public class MessageReceiver: Job<MessageReceiver, string>
     {
