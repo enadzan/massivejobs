@@ -136,16 +136,13 @@ namespace MassiveJobs.QuickStart
 
 Start three different command prompts (or power shells). Two will be used as workers, and one will be used as publisher.
   
-To start a worker go to the project folder and run:
+To start the application go to the project folder and run:
 ```powershell
 dotnet run
 ```
-To start a publisher, go to the project folder and run:
-```powershell
-dotnet run publisher
-```
-As you enter messages in the publisher console, you will notice them being processed in one or the other worker, 
-but not both. This is because jobs are distributed between the workers.
+Type `1` and hit enter to start a worker, type `2` and hit enter to start the publisher.
+As you enter messages in the publisher console, you will notice them being processed in one or the other worker, but not both. This is because 
+jobs are distributed between the workers.
   
 Note that you can start multiple publishers too.
   
