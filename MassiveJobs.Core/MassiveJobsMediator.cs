@@ -44,9 +44,9 @@ namespace MassiveJobs.Core
             }
         }
         
-        protected readonly IJobServiceScope DefaultScope;
-        protected readonly IJobServiceScopeFactory ScopeFactory;
-        protected readonly IWorkerCoordinator Workers;
+        protected IJobServiceScope DefaultScope;
+        protected IJobServiceScopeFactory ScopeFactory;
+        protected IWorkerCoordinator Workers;
 
         protected MassiveJobsMediator()
         {
