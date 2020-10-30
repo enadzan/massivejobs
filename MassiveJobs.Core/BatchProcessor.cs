@@ -145,16 +145,7 @@ namespace MassiveJobs.Core
 
                         if (batch.Count > 0)
                         {
-                            int pauseSec;
-                            try
-                            {
-                                ProcessMessageBatch(batch, _cancellationTokenSource.Token, out pauseSec);
-                            }
-                            catch (BatchRolledBackException ex)
-                            {
-                                Logger.LogError(ex.InnerException ?? ex, "Batch rolled back");
-                                pauseSec = 5;
-                            }
+                            ProcessMessageBatch(batch, _cancellationTokenSource.Token, out var pauseSec);
 
                             if (pauseSec > 0)
                             {

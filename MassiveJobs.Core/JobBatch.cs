@@ -6,33 +6,33 @@ namespace MassiveJobs.Core
 {
     public static class JobBatch
     {
-        private static readonly ThreadLocal<List<JobInfo>> _activeBatch = new ThreadLocal<List<JobInfo>>();
+        private static readonly ThreadLocal<List<JobInfo>> ActiveBatch = new ThreadLocal<List<JobInfo>>();
 
-        internal static bool IsActive => _activeBatch.Value != null;
+        internal static bool IsActive => ActiveBatch.Value != null;
 
         internal static void Add(JobInfo jobInfo)
         {
-            if (_activeBatch.Value == null) throw new InvalidOperationException("Batch is not active");
+            if (ActiveBatch.Value == null) throw new InvalidOperationException("Batch is not active");
 
-            _activeBatch.Value.Add(jobInfo);
+            ActiveBatch.Value.Add(jobInfo);
         }
 
         public static void Do(Action action)
         {
             try
             {
-                _activeBatch.Value = new List<JobInfo>();
+                ActiveBatch.Value = new List<JobInfo>();
 
                 action();
 
-                if (_activeBatch.Value.Count > 0)
+                if (ActiveBatch.Value.Count > 0)
                 {
-                    MassiveJobsMediator.DefaultInstance.Publish(_activeBatch.Value);
+                    MassiveJobsMediator.DefaultInstance.Publish(ActiveBatch.Value);
                 }
             }
             finally
             {
-                _activeBatch.Value = null;
+                ActiveBatch.Value = null;
             }
         }
     }

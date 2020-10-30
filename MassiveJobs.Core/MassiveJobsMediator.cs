@@ -8,16 +8,9 @@ namespace MassiveJobs.Core
         protected static readonly object InitializationLock = new object();
 
         private static MassiveJobsMediator _defaultMediator;
-        public static MassiveJobsMediator DefaultInstance 
-        { 
-            get
-            {
-                return _defaultMediator ?? throw new InvalidOperationException("MassiveJobsMediator is not initialized");
-            }
-        }
 
-        private static IJobServiceScope _defaultScope;
-        private static IWorkerCoordinator _defaultWorkerCoordinator;
+        public static MassiveJobsMediator DefaultInstance => _defaultMediator 
+                                                             ?? throw new InvalidOperationException("MassiveJobsMediator is not initialized");
 
         public static bool IsInitialized
         {
@@ -34,68 +27,54 @@ namespace MassiveJobs.Core
         {
             lock (InitializationLock)
             {
-                if (IsInitializedInternal()) return;
+                if (_defaultMediator != null) return;
 
-                var scope = scopeFactory.CreateScope();
-
-                var workerCoordinator = new WorkerCoordinator(
-                    scopeFactory,
-                    scope.GetRequiredService<MassiveJobsSettings>(),
-                    scope.GetRequiredService<IMessageConsumer>(),
-                    scope.GetService<IJobLoggerFactory>(),
-                    scope.GetService<IJobLogger<WorkerCoordinator>>()
-                );
-
-                var mediator = new MassiveJobsMediator(scope.GetRequiredService<IJobPublisher>(), workerCoordinator);
-
-                InitializeInternal(scope, workerCoordinator, mediator);
+                _defaultMediator = new MassiveJobsMediator(scopeFactory);
             }
-        }
-
-        protected static bool IsInitializedInternal()
-        {
-            return _defaultMediator != null;
-        }
-
-        protected static void InitializeInternal(IJobServiceScope scope, IWorkerCoordinator workerCoordinator, MassiveJobsMediator mediator)
-        {
-            _defaultScope = scope;
-            _defaultWorkerCoordinator = workerCoordinator;
-            _defaultMediator = mediator;
         }
 
         public static void Deinitialize()
         {
             lock (InitializationLock)
             {
-                if (!IsInitializedInternal()) return;
+                if (_defaultMediator == null) return;
                 
-                _defaultWorkerCoordinator.SafeDispose();
-                _defaultScope.SafeDispose();
-
-                _defaultWorkerCoordinator = null;
-                _defaultScope = null;
-
+                _defaultMediator.SafeDispose();
                 _defaultMediator = null;
             }
         }
         
-        protected readonly IJobPublisher Publisher;
+        protected readonly IJobServiceScope DefaultScope;
+        protected readonly IJobServiceScopeFactory ScopeFactory;
         protected readonly IWorkerCoordinator Workers;
 
-        public MassiveJobsMediator(IJobPublisher jobPublisher, IWorkerCoordinator workerCoordinator)
+        public MassiveJobsMediator(IJobServiceScopeFactory scopeFactory)
         {
-            Publisher = jobPublisher;
-            Workers = workerCoordinator;
+            ScopeFactory = scopeFactory;
+
+            DefaultScope = scopeFactory.CreateScope();
+
+            Workers = new WorkerCoordinator(
+                scopeFactory,
+                DefaultScope.GetRequiredService<MassiveJobsSettings>(),
+                DefaultScope.GetRequiredService<IMessageConsumer>(),
+                DefaultScope.GetService<IJobLoggerFactory>(),
+                DefaultScope.GetService<IJobLogger<WorkerCoordinator>>()
+            );
         }
 
         public void Dispose()
         {
+            Workers.SafeDispose();
+            DefaultScope.SafeDispose(); 
         }
 
         public void Publish(IEnumerable<JobInfo> jobs)
         {
-            Publisher.Publish(jobs);
+            using (var scope = ScopeFactory.CreateScope())
+            {
+                scope.GetRequiredService<IJobPublisher>().Publish(jobs);
+            }
         }
 
         public void StartJobWorkers()

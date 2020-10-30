@@ -39,11 +39,6 @@ namespace MassiveJobs.Core
                     }
                 }
             }
-            catch (BatchRolledBackException)
-            {
-                // this exception type should be propagated to the worker to abort the whole batch
-                throw; 
-            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Failed running job: {jobInfo.JobType} / {jobInfo.ArgsType} / {jobInfo.GroupKey}");

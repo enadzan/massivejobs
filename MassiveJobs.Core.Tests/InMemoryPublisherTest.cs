@@ -21,8 +21,6 @@ namespace MassiveJobs.Core.Tests
 
         private InMemoryMessages _messages;
 
-        private IWorkerCoordinator _workerCoordinator;
-        private IJobPublisher _jobPublisher;
         private MassiveJobsMediator _jobs;
 
         [TestInitialize]
@@ -41,17 +39,13 @@ namespace MassiveJobs.Core.Tests
                 messageConsumer
             );
 
-            _jobPublisher = scopeFactory.CreateScope().GetRequiredService<IJobPublisher>();
-            _workerCoordinator = new WorkerCoordinator(scopeFactory, _settings, messageConsumer);
-
-            _jobs = new MassiveJobsMediator(_jobPublisher, _workerCoordinator);
+            _jobs = new MassiveJobsMediator(scopeFactory);
         }
 
         [TestCleanup]
         public void TestCleanup()
         {
-            _jobPublisher.SafeDispose();
-            _workerCoordinator.SafeDispose();
+            _jobs.SafeDispose();
         }
 
         [TestMethod]
@@ -251,30 +245,6 @@ namespace MassiveJobs.Core.Tests
             Assert.AreEqual(3, _performCount);
         }
 
-        [TestMethod]
-        public void TestBatchRollback()
-        {
-            BatchFailingJob.Failed = false;
-
-            _jobs.Publish<BatchFailingJob, bool>(false); // worker #1, job #1
-            _jobs.Publish<BatchFailingJob, bool>(false); // worker #2, job #1
-            _jobs.Publish<BatchFailingJob, bool>(true); // worker #1, job #2, fail this, once 
-            _jobs.Publish<BatchFailingJob, bool>(false); // worker #2, job #2
-
-            _jobs.StartJobWorkers();
-
-            Thread.Sleep(100);
-
-            // Since there are two workers, two jobs will go to each worker.
-            // Workers will executed jobs in batches. First batch will fail (on second job), the second batch will succeed.
-            Assert.AreEqual(3, _performCount);
-
-            Thread.Sleep(6000);
-
-            // The failed batch will be retried (both jobs in a batch)
-            Assert.AreEqual(5, _performCount);
-        }
-
         private class MockJob
         {
             public void Perform()
@@ -327,22 +297,6 @@ namespace MassiveJobs.Core.Tests
             public async Task Perform(int delayMs, CancellationToken cancellationToken)
             {
                 await Task.Delay(delayMs, cancellationToken);
-                Interlocked.Increment(ref _performCount);
-            }
-        }
-
-        private class BatchFailingJob
-        {
-            public static bool Failed;
-
-            public void Perform(bool fail)
-            {
-                if (fail && !Failed)
-                {
-                    Failed = true;
-                    throw new BatchRolledBackException();
-                }
-
                 Interlocked.Increment(ref _performCount);
             }
         }
