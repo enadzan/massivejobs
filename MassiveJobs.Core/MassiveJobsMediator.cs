@@ -7,9 +7,9 @@ namespace MassiveJobs.Core
     {
         protected static readonly object InitializationLock = new object();
 
-        private static MassiveJobsMediator _defaultMediator;
+        protected static MassiveJobsMediator DefaultMediator;
 
-        public static MassiveJobsMediator DefaultInstance => _defaultMediator 
+        public static MassiveJobsMediator DefaultInstance => DefaultMediator 
                                                              ?? throw new InvalidOperationException("MassiveJobsMediator is not initialized");
 
         public static bool IsInitialized
@@ -18,7 +18,7 @@ namespace MassiveJobs.Core
             {
                 lock (InitializationLock)
                 {
-                    return _defaultMediator != null;
+                    return DefaultMediator != null;
                 }
             }
         }
@@ -27,9 +27,9 @@ namespace MassiveJobs.Core
         {
             lock (InitializationLock)
             {
-                if (_defaultMediator != null) return;
+                if (DefaultMediator != null) return;
 
-                _defaultMediator = new MassiveJobsMediator(scopeFactory);
+                DefaultMediator = new MassiveJobsMediator(scopeFactory);
             }
         }
 
@@ -37,10 +37,10 @@ namespace MassiveJobs.Core
         {
             lock (InitializationLock)
             {
-                if (_defaultMediator == null) return;
+                if (DefaultMediator == null) return;
                 
-                _defaultMediator.SafeDispose();
-                _defaultMediator = null;
+                DefaultMediator.SafeDispose();
+                DefaultMediator = null;
             }
         }
         
@@ -67,7 +67,7 @@ namespace MassiveJobs.Core
             );
         }
 
-        public void Dispose()
+        public virtual void Dispose()
         {
             Workers.SafeDispose();
             DefaultScope.SafeDispose(); 
