@@ -48,6 +48,10 @@ namespace MassiveJobs.Core
         protected readonly IJobServiceScopeFactory ScopeFactory;
         protected readonly IWorkerCoordinator Workers;
 
+        protected MassiveJobsMediator()
+        {
+        }
+
         public MassiveJobsMediator(IJobServiceScopeFactory scopeFactory)
         {
             ScopeFactory = scopeFactory;
