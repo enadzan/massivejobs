@@ -13,6 +13,9 @@ namespace MassiveJobs.Core
         private int _nextImmediateWorkerIndex;
         private int _nextScheduledWorkerIndex;
 
+        private int _nextLongRunningImmediateWorkerIndex;
+        private int _nextLongRunningScheduledWorkerIndex;
+
         protected readonly IJobLogger Logger;
         protected readonly MassiveJobsSettings Settings;
         protected readonly IMessagePublisher MessagePublisher;
@@ -43,6 +46,8 @@ namespace MassiveJobs.Core
 
             if (settings.ImmediateWorkersCount > 0) _nextImmediateWorkerIndex = tickCount % settings.ImmediateWorkersCount;
             if (settings.ScheduledWorkersCount > 0) _nextScheduledWorkerIndex = tickCount % settings.ScheduledWorkersCount;
+            if (settings.LongRunningImmediateWorkersCount > 0) _nextLongRunningImmediateWorkerIndex = tickCount % settings.LongRunningImmediateWorkersCount;
+            if (settings.LongRunningScheduledWorkersCount > 0) _nextLongRunningScheduledWorkerIndex = tickCount % settings.LongRunningScheduledWorkersCount;
         }
 
         public virtual void Dispose()
@@ -89,15 +94,36 @@ namespace MassiveJobs.Core
                 return jobInfo.Retries >= 25 ? Settings.FailedQueueName : Settings.ErrorQueueName;
             }
 
+            const int longRunningThresholdMs = 10_000; // 10 sec;
+
             if (jobInfo.PeriodicRunInfo != null)
             {
-                var workerIndex = Math.Abs(jobInfo.GetGroupKeyHashCode()) % Settings.PeriodicWorkersCount;
-                return FormatRoutingKey(Settings.PeriodicQueueNameTemplate, Settings.PeriodicWorkersCount, ref workerIndex);
+                int workerIndex;
+                if (jobInfo.TimeoutMs >= longRunningThresholdMs)
+                {
+                    workerIndex = Math.Abs(jobInfo.GetGroupKeyHashCode()) % Settings.LongRunningScheduledWorkersCount;
+                    return FormatRoutingKey(Settings.LongRunningScheduledQueueNameTemplate, Settings.LongRunningScheduledWorkersCount, ref workerIndex);
+                }
+
+                workerIndex = Math.Abs(jobInfo.GetGroupKeyHashCode()) % Settings.ScheduledWorkersCount;
+                return FormatRoutingKey(Settings.ScheduledQueueNameTemplate, Settings.ScheduledWorkersCount, ref workerIndex);
             }
 
             if (jobInfo.RunAtUtc > now)
             {
+                if (jobInfo.TimeoutMs >= longRunningThresholdMs)
+                {
+                    return FormatRoutingKey(Settings.LongRunningScheduledQueueNameTemplate,
+                        Settings.LongRunningScheduledWorkersCount, ref _nextLongRunningScheduledWorkerIndex);
+                }
+
                 return FormatRoutingKey(Settings.ScheduledQueueNameTemplate, Settings.ScheduledWorkersCount, ref _nextScheduledWorkerIndex);
+            }
+
+            if (jobInfo.TimeoutMs >= longRunningThresholdMs)
+            {
+                return FormatRoutingKey(Settings.LongRunningImmediateQueueNameTemplate, 
+                    Settings.LongRunningImmediateWorkersCount, ref _nextLongRunningImmediateWorkerIndex);
             }
 
             return FormatRoutingKey(Settings.ImmediateQueueNameTemplate, Settings.ImmediateWorkersCount, ref _nextImmediateWorkerIndex);

@@ -24,9 +24,14 @@ namespace MassiveJobs.Core.Memory
                 _messages.EnsureQueue(string.Format(_settings.ScheduledQueueNameTemplate, i));
             }
 
-            for (var i = 0; i < _settings.PeriodicWorkersCount; i++)
+            for (var i = 0; i < _settings.LongRunningImmediateWorkersCount; i++)
             {
-                _messages.EnsureQueue(string.Format(_settings.PeriodicQueueNameTemplate, i));
+                _messages.EnsureQueue(string.Format(_settings.LongRunningImmediateQueueNameTemplate, i));
+            }
+
+            for (var i = 0; i < _settings.LongRunningScheduledWorkersCount; i++)
+            {
+                _messages.EnsureQueue(string.Format(_settings.LongRunningScheduledQueueNameTemplate, i));
             }
 
             _messages.EnsureQueue(_settings.ErrorQueueName);

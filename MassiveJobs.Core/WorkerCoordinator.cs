@@ -143,69 +143,58 @@ namespace MassiveJobs.Core
         /// </summary>
         protected virtual void CreateWorkers()
         {
-            // ReSharper disable InconsistentlySynchronizedField
             MessageConsumer.Connect();
 
             for (var i = 0; i < _settings.ImmediateWorkersCount; i++)
             {
-                var queueName = string.Format(_settings.ImmediateQueueNameTemplate, i);
-
-                var worker = new WorkerImmediate(
-                    queueName,
-                    _settings.ImmediateWorkersBatchSize,
-                    _settings.MaxDegreeOfParallelismPerWorker,
-                    MessageConsumer,
-                    ServiceScopeFactory,
-                    LoggerFactory.SafeCreateLogger<WorkerImmediate>()
-                );
-
-                worker.Error += OnWorkerError;
-                Workers.Add(worker);
+                AddNewImmediateWorker(string.Format(_settings.ImmediateQueueNameTemplate, i));
             }
 
             for (var i = 0; i < _settings.ScheduledWorkersCount; i++)
             {
-                var queueName = string.Format(_settings.ScheduledQueueNameTemplate, i);
-
-                var worker = new WorkerScheduled(
-                    queueName,
-                    _settings.ScheduledWorkersBatchSize,
-                    MessageConsumer,
-                    ServiceScopeFactory,
-                    LoggerFactory.SafeCreateLogger<WorkerScheduled>()
-                );
-
-                worker.Error += OnWorkerError;
-                Workers.Add(worker);
+                AddNewScheduledWorker(string.Format(_settings.ScheduledQueueNameTemplate, i));
             }
 
-            for (var i = 0; i < _settings.PeriodicWorkersCount; i++)
+            for (var i = 0; i < _settings.LongRunningImmediateWorkersCount; i++)
             {
-                var queueName = string.Format(_settings.PeriodicQueueNameTemplate, i);
-
-                var periodicWorker = new WorkerScheduled(
-                    queueName,
-                    _settings.PeriodicWorkersBatchSize,
-                    MessageConsumer,
-                    ServiceScopeFactory,
-                    LoggerFactory.SafeCreateLogger<WorkerScheduled>()
-                );
-
-                periodicWorker.Error += OnWorkerError;
-                Workers.Add(periodicWorker);
+                AddNewImmediateWorker(string.Format(_settings.LongRunningImmediateQueueNameTemplate, i));
             }
 
-            var errorWorker = new WorkerScheduled(
-                _settings.ErrorQueueName,
+            for (var i = 0; i < _settings.LongRunningScheduledWorkersCount; i++)
+            {
+                AddNewScheduledWorker(string.Format(_settings.LongRunningScheduledQueueNameTemplate, i));
+            }
+
+            AddNewScheduledWorker(_settings.ErrorQueueName);
+        }
+
+        private void AddNewImmediateWorker(string queueName)
+        {
+            var worker = new WorkerImmediate(
+                queueName,
+                _settings.ImmediateWorkersBatchSize,
+                _settings.MaxDegreeOfParallelismPerWorker,
+                MessageConsumer,
+                ServiceScopeFactory,
+                LoggerFactory.SafeCreateLogger<WorkerImmediate>()
+            );
+
+            worker.Error += OnWorkerError;
+            Workers.Add(worker);
+        }
+
+        private void AddNewScheduledWorker(string queueName)
+        {
+            var worker = new WorkerScheduled(
+                queueName,
                 _settings.ScheduledWorkersBatchSize,
                 MessageConsumer,
                 ServiceScopeFactory,
                 LoggerFactory.SafeCreateLogger<WorkerScheduled>()
             );
 
-            errorWorker.Error += OnWorkerError;
-            Workers.Add(errorWorker);
-            // ReSharper restore InconsistentlySynchronizedField
+            worker.Error += OnWorkerError;
+            Workers.Add(worker);
         }
 
         private void Reconnect(object state)
