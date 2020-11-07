@@ -16,6 +16,7 @@ namespace MassiveJobs.Core.Tests
         {
             ImmediateWorkersCount = 2,
             ScheduledWorkersCount = 2,
+            PeriodicWorkersCount = 2
         };
 
         private InMemoryMessages _messages;
@@ -250,40 +251,10 @@ namespace MassiveJobs.Core.Tests
             _jobs.Publish<MockJob, bool>(true, null, 10_000);
 
             var totalLongRunning = 0;
-            for (var i = 0; i < _settings.LongRunningImmediateWorkersCount; i++)
+            for (var i = 0; i < _settings.LongRunningWorkersCount; i++)
             {
                 totalLongRunning +=
-                    _messages.GetCount(string.Format(_settings.LongRunningImmediateQueueNameTemplate, i));
-            }
-
-            Assert.AreEqual(1, totalLongRunning);
-        }
-
-        [TestMethod]
-        public void TestLongRunningDelayedJob()
-        {
-            _jobs.Publish<MockJob, bool>(true, TimeSpan.FromSeconds(1), 10_000);
-
-            var totalLongRunning = 0;
-            for (var i = 0; i < _settings.LongRunningScheduledWorkersCount; i++)
-            {
-                totalLongRunning +=
-                    _messages.GetCount(string.Format(_settings.LongRunningScheduledQueueNameTemplate, i));
-            }
-
-            Assert.AreEqual(1, totalLongRunning);
-        }
-
-        [TestMethod]
-        public void TestLongRunningPeriodicJob()
-        {
-            _jobs.PublishPeriodic<MockJob, bool>(true, "mock_job", 10, null, null, 10_000);
-
-            var totalLongRunning = 0;
-            for (var i = 0; i < _settings.LongRunningScheduledWorkersCount; i++)
-            {
-                totalLongRunning +=
-                    _messages.GetCount(string.Format(_settings.LongRunningScheduledQueueNameTemplate, i));
+                    _messages.GetCount(string.Format(_settings.LongRunningQueueNameTemplate, i));
             }
 
             Assert.AreEqual(1, totalLongRunning);
