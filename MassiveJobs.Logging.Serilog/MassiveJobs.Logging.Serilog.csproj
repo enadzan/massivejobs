@@ -8,7 +8,7 @@
     <PackageProjectUrl>https://massivejobs.net/</PackageProjectUrl>
     <PackageIcon>icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/enadzan/massivejobs</RepositoryUrl>
-    <Version>0.34.0</Version>
+    <Version>0.35.0</Version>
   </PropertyGroup>
 	
   <ItemGroup>
@@ -19,7 +19,7 @@
   </ItemGroup>
 	
   <ItemGroup>
-    <PackageReference Include="MassiveJobs.Core" Version="0.34.0" />
+    <PackageReference Include="MassiveJobs.Core" Version="0.35.0" />
     <PackageReference Include="Serilog" Version="2.10.0" />
   </ItemGroup>
 
