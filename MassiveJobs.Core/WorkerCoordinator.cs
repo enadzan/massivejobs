@@ -199,16 +199,17 @@ namespace MassiveJobs.Core
             {
                 var queueName = string.Format(_settings.LongRunningQueueNameTemplate, i);
 
-                var periodicWorker = new WorkerScheduled(
+                var worker = new WorkerImmediate(
                     queueName,
                     _settings.LongRunningWorkersBatchSize,
+                    _settings.MaxDegreeOfParallelismPerWorker,
                     MessageConsumer,
                     ServiceScopeFactory,
-                    LoggerFactory.SafeCreateLogger<WorkerScheduled>()
+                    LoggerFactory.SafeCreateLogger<WorkerImmediate>()
                 );
 
-                periodicWorker.Error += OnWorkerError;
-                Workers.Add(periodicWorker);
+                worker.Error += OnWorkerError;
+                Workers.Add(worker);
             }
 
             var errorWorker = new WorkerScheduled(
