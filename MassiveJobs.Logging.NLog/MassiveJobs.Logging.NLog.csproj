@@ -8,11 +8,11 @@
     <PackageProjectUrl>https://massivejobs.net/</PackageProjectUrl>
     <PackageIcon>icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/enadzan/massivejobs</RepositoryUrl>
-    <Version>0.35.0</Version>
+    <Version>0.35.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MassiveJobs.Core" Version="0.35.0" />
+    <PackageReference Include="MassiveJobs.Core" Version="0.35.1" />
     <PackageReference Include="NLog" Version="4.7.5" />
   </ItemGroup>
 
