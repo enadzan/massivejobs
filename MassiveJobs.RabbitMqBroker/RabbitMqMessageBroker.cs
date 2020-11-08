@@ -179,6 +179,12 @@ namespace MassiveJobs.RabbitMqBroker
                 DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
             }
 
+            for (var i = 0; i < _massiveJobsSettings.LongRunningWorkersCount; i++)
+            {
+                var queueName = string.Format(_massiveJobsSettings.LongRunningQueueNameTemplate, i);
+                DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
+            }
+
             for (var i = 0; i < _massiveJobsSettings.PeriodicWorkersCount; i++)
             {
                 var queueName = string.Format(_massiveJobsSettings.PeriodicQueueNameTemplate, i);

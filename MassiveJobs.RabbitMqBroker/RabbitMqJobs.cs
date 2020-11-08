@@ -43,18 +43,22 @@ namespace MassiveJobs.RabbitMqBroker
             return new MassiveJobsSettings
             {
                 MaxDegreeOfParallelismPerWorker = options.MaxDegreeOfParallelismPerWorker,
+
                 ImmediateWorkersCount = options.ImmediateWorkersCount,
+                LongRunningWorkersCount = options.LongRunningWorkersCount,
                 ScheduledWorkersCount = options.ScheduledWorkersCount,
                 PeriodicWorkersCount = options.PeriodicWorkersCount,
                 PublishBatchSize = options.PublishBatchSize,
 
                 ImmediateWorkersBatchSize = options.ImmediateWorkersBatchSize,
+                LongRunningWorkersBatchSize = options.LongRunningWorkersBatchSize,
                 ScheduledWorkersBatchSize = options.ScheduledWorkersBatchSize,
                 PeriodicWorkersBatchSize = options.PeriodicWorkersBatchSize,
 
                 MaxQueueLength = options.MaxQueueLength,
 
                 ImmediateQueueNameTemplate = $"{rabbitMqSettings.NamePrefix}{Constants.ImmediateQueueNameTemplate}",
+                LongRunningQueueNameTemplate = $"{rabbitMqSettings.NamePrefix}{Constants.LongRunningQueueNameTemplate}",
                 ScheduledQueueNameTemplate = $"{rabbitMqSettings.NamePrefix}{Constants.ScheduledQueueNameTemplate}",
                 ErrorQueueName = $"{rabbitMqSettings.NamePrefix}{Constants.ErrorQueueName}",
                 FailedQueueName = $"{rabbitMqSettings.NamePrefix}{Constants.FailedQueueName}",

@@ -27,6 +27,8 @@ namespace MassiveJobs.RabbitMqBroker.Tests
                 s.ImmediateWorkersCount = 4;
                 s.ScheduledWorkersCount = 2;
                 s.PeriodicWorkersCount = 2;
+
+                s.JobLoggerFactory = new DebugLoggerFactory();
             });
         }
 
@@ -58,6 +60,22 @@ namespace MassiveJobs.RabbitMqBroker.Tests
             }
 
             Assert.AreEqual(100_002, _performCount);
+        }
+
+        [TestMethod]
+        public void Publish_long_running_should_not_throw_exception()
+        {
+            DummyJobWithArgs.Publish(new DummyJobArgs { SomeId = 1 }, 10_000); // 10 sec timeout
+            
+            using (var tokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+            {
+                while (_performCount < 1)
+                {
+                    Task.Delay(100, tokenSource.Token).Wait();
+                }
+            }
+
+            Assert.AreEqual(1, _performCount);
         }
 
         [TestMethod]
