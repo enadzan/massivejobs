@@ -268,7 +268,7 @@ To use `MassiveJobs.RabbitMqBroker` in a .NET Core hosted environment (ASP.NET C
 dotnet add package MassiveJobs.RabbitMqBroker.Hosting
 ```
 
-Then, in your startup class, when configuring services, call `services.AddMassiveJobs()` and that's it. MassiveJobs workers will be started as a background service and you can call `Publish` on your job classes:
+Then, in your startup class, when configuring services, call `services.AddMassiveJobs()`. 
 
 ```csharp
 //...
@@ -293,6 +293,28 @@ namespace MassiveJobs.Examples.Api
 
         //...
     }
+}
+```
+
+This will register the required MassiveJobs services, but you still need to initialize the MassiveJobs library. To initialize it, call "InitMassiveJobs()" before calling "Run()" in your `Program.cs`: 
+
+```csharp
+public class Program
+{
+    public static void Main(string[] args)
+    {
+        CreateHostBuilder(args)
+            .Build()
+            .InitMassiveJobs()
+            .Run();
+    }
+
+    public static IHostBuilder CreateHostBuilder(string[] args) =>
+        Host.CreateDefaultBuilder(args)
+            .ConfigureWebHostDefaults(webBuilder =>
+            {
+                webBuilder.UseStartup<Startup>();
+            });
 }
 ```
 
