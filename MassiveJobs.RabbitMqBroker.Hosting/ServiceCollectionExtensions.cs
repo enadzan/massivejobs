@@ -72,8 +72,6 @@ namespace MassiveJobs.RabbitMqBroker.Hosting
                 );
             });
 
-            serviceCollection.AddHostedService<MassiveJobsBackgroundService>();
-
             return serviceCollection;
         }
     }
