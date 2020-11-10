@@ -152,23 +152,24 @@ Workers and publishers can be on different machines, as long as they can access 
   
 To distribute the workers across several machines you will have to configure the information about the RabbitMQ server. At minimum, that means username, password, host name (or ip address), and the port number (if your RabbitMQ server is configured to listen for connections on a non-standard port). In the example above we did not configure any of it because the defaults were sufficient - username: `guest`, password: `guest`, hostname: `localhost`, port: `-1` (= use the default port). 
   
-For example, if your RabbitMQ server is running on a machine with the hostname `rabbit.example.local`, listening on the standard port number, and you have created a user `massive` in the RabbitMQ with the password: `d0ntUseTh!s` then you would initialize `RabbitMqJobs` like this.
+For example, if your RabbitMQ server is running on a machine with the hostname `rabbit.example.local`, listening on the standard port number, and you have created a user `massive` in the RabbitMQ with the password: `d0ntUseTh!sPass` then you would initialize `RabbitMqJobs` like this.
 
 ```csharp
-var settings = new RabbitMqSettings
+RabbitMqJobs.Initialize(configureAction: options =>
 {
-    HostNames = new[] { "rabbit.example.com" },
-    Username = "massive",
-    Password = "d0ntUseTh!s"
-};
-
-RabbitMqJobs.Initialize(rabbitMqSettings: settings);
+    options.RabbitMqSettings.HostNames = new[] {"rabbit.example.com"};
+    options.RabbitMqSettings.Username = "massive";
+    options.RabbitMqSettings.Password = "d0ntUseTh!sPass";
+});
 ```
   
-Or, if you don't want to start the worker threads (ie. to use the process only for publishing jobs), just change the last line to:
+Or, if you don't want to start the worker threads (ie. to use the process only for publishing jobs):
 
 ```csharp
-RabbitMqJobs.Initialize(startWorkers: false, rabbitMqSettings: settings);
+RabbitMqJobs.Initialize(startWorkers: false, configureAction: options =>
+{
+    //...
+});
 ```
 
 Now you can deploy workers (and publishers) on multiple machines and run them. If the network connectivity is working (firewalls open etc.) everything should work. Jobs would be routed to workers in a round-robin fashion. Keep in mind that, by default, every MassiveJobs application is starting two worker threads. That means, if you have 3 machines, each running one MassiveJobs application, then the distribution of jobs would look something like this:
@@ -243,21 +244,28 @@ private static void InitializeLogging()
 ```
 Now when you start the worker application you should see logging messages in the console:
 ```powershell
-PS> .\MassiveJobs.QuickStart.exe
-2020-07-12 18:29:45,618 [1] DEBUG MassiveJobs.RabbitMqBroker.RabbitMqMessageConsumer - Connecting...
-2020-07-12 18:29:45,748 [1] WARN  MassiveJobs.RabbitMqBroker.RabbitMqMessageConsumer - Connected
+PS> dotnet run
+1: Worker
+2: Publisher
+Choose 1 or 2 -> 1
+2020-11-10 10:25:22,062 [1] DEBUG MassiveJobs.RabbitMqBroker.RabbitMqMessageConsumer - Connecting...
+2020-11-10 10:25:22,251 [1] WARN  MassiveJobs.RabbitMqBroker.RabbitMqMessageConsumer - Connected
 Initialized job worker.
 Press Enter to end the application.
 ```
+
 You will notice, that if you start the publisher application, it does not try to connect to RabbitMQ until you try to send the first messages. This is is because every MassiveJobs application maintains two connections to the RabbitMQ, one for publishing and the other for consuming messages. In the publisher, we are not starting workers, so consuming connection is not initialized.
 
 ```powershell
-PS> .\MassiveJobs.QuickStart.exe publisher
-Initialized publisher.
-Write a message and press Enter to publish it (empty message to end).
+PS> dotnet run
+1: Worker
+2: Publisher
+Choose 1 or 2 -> 2
+Initialized job publisher
+Write the job name and press Enter to publish it (empty job name to end).
 > Hello
-2020-07-12 18:30:27,196 [4] DEBUG MassiveJobs.RabbitMqBroker.RabbitMqMessagePublisher - Connecting...
-2020-07-12 18:30:27,325 [4] WARN  MassiveJobs.RabbitMqBroker.RabbitMqMessagePublisher - Connected
+2020-11-10 10:27:22,830 [4] DEBUG MassiveJobs.RabbitMqBroker.RabbitMqMessagePublisher - Connecting...
+2020-11-10 10:27:22,954 [4] WARN  MassiveJobs.RabbitMqBroker.RabbitMqMessagePublisher - Connected
 ```
 
 ## Using RabbitMqBroker for MassiveJobs in ASP.NET Core or Worker Service
