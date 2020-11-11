@@ -1,5 +1,5 @@
 # MassiveJobs.RabbitMqBroker
-Open-source library for simple, distributed background processing for .NET, powered by RabbitMQ message broker.
+Open-source library for simple, distributed background processing for .NET, powered by RabbitMQ message broker. The documentation, once finished, will be available at [MassiveJobs.NET](https://massivejob.net) web site.
 
 ## Requirements
 
