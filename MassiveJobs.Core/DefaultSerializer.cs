@@ -8,9 +8,9 @@ namespace MassiveJobs.Core
 {
     public class DefaultSerializer : IJobSerializer
     {
-        private readonly static JsonSerializerOptions Options = new JsonSerializerOptions { IgnoreNullValues = true, IgnoreReadOnlyProperties = true };
+        private static readonly JsonSerializerOptions Options = new JsonSerializerOptions { IgnoreNullValues = true, IgnoreReadOnlyProperties = true };
 
-        private readonly static Dictionary<Type, Tuple<Type, MethodInfo>> SerializationInfo = new Dictionary<Type, Tuple<Type, MethodInfo>>();
+        private static readonly Dictionary<Type, Tuple<Type, MethodInfo>> SerializationInfo = new Dictionary<Type, Tuple<Type, MethodInfo>>();
 
         public JobInfo Deserialize(ReadOnlySpan<byte> data, string argsTag, IJobTypeProvider typeProvider)
         {
@@ -24,7 +24,8 @@ namespace MassiveJobs.Core
                 {
                     var serializedType = typeof(SerializedEnvelope<>).MakeGenericType(argsType);
 
-                    var methodInfo = typeof(DefaultSerializer).GetMethod(nameof(TojobInfo), BindingFlags.Static | BindingFlags.NonPublic)
+                    // ReSharper disable once PossibleNullReferenceException
+                    var methodInfo = typeof(DefaultSerializer).GetMethod(nameof(ToJobInfo), BindingFlags.Static | BindingFlags.NonPublic)
                         .MakeGenericMethod(argsType);
 
                     info = new Tuple<Type, MethodInfo>(serializedType, methodInfo);
@@ -46,7 +47,7 @@ namespace MassiveJobs.Core
         /// <summary>
         /// Used in exceptions to log human readable job data
         /// </summary>
-        /// <param name="job"></param>
+        /// <param name="jobData"></param>
         /// <returns></returns>
         public string ToJson(ReadOnlySpan<byte> jobData)
         {
@@ -81,7 +82,7 @@ namespace MassiveJobs.Core
             };
         }
 
-        private static JobInfo TojobInfo<T>(SerializedEnvelope<T> serialized, string argsTag, IJobTypeProvider typeProvider)
+        private static JobInfo ToJobInfo<T>(SerializedEnvelope<T> serialized, string argsTag, IJobTypeProvider typeProvider)
         {
             var argsType = typeProvider.TagToType(argsTag);
             var jobType = typeProvider.TagToType(serialized.J);
@@ -106,7 +107,6 @@ namespace MassiveJobs.Core
             public TArgs A { get; set; }
             public DateTime? At { get; set; }
 
-            public string O { get; set; }
             public int? R { get; set; }
             public string E { get; set; }
             public int? T { get; set; }
