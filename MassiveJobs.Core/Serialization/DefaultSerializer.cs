@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 
-namespace MassiveJobs.Core
+namespace MassiveJobs.Core.Serialization
 {
     public class DefaultSerializer : IJobSerializer
     {

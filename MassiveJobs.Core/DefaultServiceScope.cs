@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Concurrent;
 
+using MassiveJobs.Core.Serialization;
+
 namespace MassiveJobs.Core
 {
     public class DefaultServiceScopeFactory : IJobServiceScopeFactory
