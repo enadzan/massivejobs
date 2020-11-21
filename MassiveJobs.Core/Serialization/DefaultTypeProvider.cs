@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace MassiveJobs.Core
+namespace MassiveJobs.Core.Serialization
 {
     public class DefaultTypeProvider : IJobTypeProvider
     {
