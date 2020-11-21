@@ -9,7 +9,7 @@ namespace MassiveJobs.Core.Serialization
         private static readonly Dictionary<Type, Tuple<Type, MethodInfo>> SerializationInfo = new Dictionary<Type, Tuple<Type, MethodInfo>>();
 
         protected abstract object DeserializeEnvelope(ReadOnlySpan<byte> data, Type envelopeType);
-        protected abstract byte[] SerializeEnvelope(SerializedEnvelope<object> envelope);
+        protected abstract byte[] SerializeEnvelope(Type argsType, SerializedEnvelope<object> envelope);
 
         public JobInfo Deserialize(ReadOnlySpan<byte> data, string argsTag, IJobTypeProvider typeProvider)
         {
@@ -41,7 +41,7 @@ namespace MassiveJobs.Core.Serialization
         public byte[] Serialize(JobInfo jobInfo, IJobTypeProvider typeProvider)
         {
             var serializedEnvelope = ToSerializedEnvelope(jobInfo, typeProvider);
-            return SerializeEnvelope(serializedEnvelope);
+            return SerializeEnvelope(jobInfo.ArgsType, serializedEnvelope);
         }
 
         private static SerializedEnvelope<object> ToSerializedEnvelope(JobInfo jobInfo, IJobTypeProvider typeProvider)

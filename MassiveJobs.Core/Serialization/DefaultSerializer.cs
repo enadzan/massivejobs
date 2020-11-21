@@ -8,7 +8,7 @@ namespace MassiveJobs.Core.Serialization
     {
         private static readonly JsonSerializerOptions Options = new JsonSerializerOptions { IgnoreNullValues = true, IgnoreReadOnlyProperties = true };
 
-        protected override byte[] SerializeEnvelope(SerializedEnvelope<object> envelope)
+        protected override byte[] SerializeEnvelope(Type argsType, SerializedEnvelope<object> envelope)
         {
             var json = JsonSerializer.Serialize(envelope, Options);
             return Encoding.UTF8.GetBytes(json);

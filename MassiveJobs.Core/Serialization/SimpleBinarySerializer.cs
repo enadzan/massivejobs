@@ -60,7 +60,7 @@ namespace MassiveJobs.Core.Serialization
             return env;
         }
 
-        protected override byte[] SerializeEnvelope(SerializedEnvelope<object> envelope)
+        protected override byte[] SerializeEnvelope(Type argsType, SerializedEnvelope<object> envelope)
         {
             var objectProps = new List<byte[]>();
 
@@ -79,7 +79,7 @@ namespace MassiveJobs.Core.Serialization
 
             var headerSize = objectProps.Sum(o => o.Length) + 4;
 
-            SerializeObject(envelope.A, objectProps);
+            SerializeObject(argsType, envelope.A, objectProps);
 
             var result = new byte[objectProps.Sum(p => p.Length) + 4];
 
@@ -95,11 +95,24 @@ namespace MassiveJobs.Core.Serialization
             return result;
         }
 
-        private static void SerializeObject(object obj, ICollection<byte[]> objectProps)
+        private static void SerializeObject(Type type, object obj, ICollection<byte[]> objectProps)
         {
-            if (obj == null) return; // possible for VoidArgs
+            var wrappedType = type.GetWrapperType();
 
-            var properties = GetPublicProperties(obj.GetType());
+            object wrappedObj;
+            if (type.ShouldWrap())
+            {
+                wrappedObj = GetDefaultConstructor(wrappedType).Invoke(null);
+                GetPublicProperty(wrappedType, nameof(PrimitiveWrapper<object>.Value)).SetValue(wrappedObj, obj);
+            }
+            else
+            {
+                wrappedObj = obj;
+            }
+
+            if (wrappedObj == null) return; // possible for VoidArgs
+
+            var properties = GetPublicProperties(wrappedType);
 
             var hasOrderedProperties = false;
 
@@ -112,62 +125,62 @@ namespace MassiveJobs.Core.Serialization
 
                 if (property.PropertyType == typeof(string))
                 {
-                    Serialize((string) property.GetValue(obj), objectProps);
+                    Serialize((string) property.GetValue(wrappedObj), objectProps);
                 }
                 else if (property.PropertyType == typeof(byte) || property.PropertyType == typeof(byte?))
                 {
-                    Serialize((byte?) property.GetValue(obj), objectProps);
+                    Serialize((byte?) property.GetValue(wrappedObj), objectProps);
                 }
                 else if (property.PropertyType == typeof(short) || property.PropertyType == typeof(short?))
                 {
-                    Serialize((short?) property.GetValue(obj), objectProps);
+                    Serialize((short?) property.GetValue(wrappedObj), objectProps);
                 }
                 else if (property.PropertyType == typeof(int) || property.PropertyType == typeof(int?))
                 {
-                    Serialize((int?) property.GetValue(obj), objectProps);
+                    Serialize((int?) property.GetValue(wrappedObj), objectProps);
                 }
                 else if (property.PropertyType == typeof(long) || property.PropertyType == typeof(long?))
                 {
-                    Serialize((long?) property.GetValue(obj), objectProps);
+                    Serialize((long?) property.GetValue(wrappedObj), objectProps);
                 }
                 else if (property.PropertyType == typeof(ushort) || property.PropertyType == typeof(ushort?))
                 {
-                    Serialize((ushort?) property.GetValue(obj), objectProps);
+                    Serialize((ushort?) property.GetValue(wrappedObj), objectProps);
                 }
                 else if (property.PropertyType == typeof(uint) || property.PropertyType == typeof(uint?))
                 {
-                    Serialize((uint?) property.GetValue(obj), objectProps);
+                    Serialize((uint?) property.GetValue(wrappedObj), objectProps);
                 }
                 else if (property.PropertyType == typeof(ulong) || property.PropertyType == typeof(ulong?))
                 {
-                    Serialize((ulong?) property.GetValue(obj), objectProps);
+                    Serialize((ulong?) property.GetValue(wrappedObj), objectProps);
                 }
                 else if (property.PropertyType == typeof(double) || property.PropertyType == typeof(double?))
                 {
-                    Serialize((double?) property.GetValue(obj), objectProps);
+                    Serialize((double?) property.GetValue(wrappedObj), objectProps);
                 }
                 else if (property.PropertyType == typeof(float) || property.PropertyType == typeof(float?))
                 {
-                    Serialize((float?) property.GetValue(obj), objectProps);
+                    Serialize((float?) property.GetValue(wrappedObj), objectProps);
                 }
                 else if (property.PropertyType == typeof(DateTime) || property.PropertyType == typeof(DateTime?))
                 {
-                    Serialize((DateTime?) property.GetValue(obj), objectProps);
+                    Serialize((DateTime?) property.GetValue(wrappedObj), objectProps);
                 }
                 else if (property.PropertyType == typeof(DateTimeOffset) || property.PropertyType == typeof(DateTimeOffset?))
                 {
-                    Serialize((DateTimeOffset?) property.GetValue(obj), objectProps);
+                    Serialize((DateTimeOffset?) property.GetValue(wrappedObj), objectProps);
                 }
                 else if (property.PropertyType == typeof(decimal) || property.PropertyType == typeof(decimal?))
                 {
-                    Serialize((decimal?) property.GetValue(obj), objectProps);
+                    Serialize((decimal?) property.GetValue(wrappedObj), objectProps);
                 }
             }
 
             if (!hasOrderedProperties)
             {
                 throw new Exception(
-                    $"Cannot serialize object without PropertyOrder attributes ({obj.GetType().FullName})");
+                    $"Cannot serialize object without PropertyOrder attributes ({wrappedType.FullName})");
             }
         }
 
@@ -175,9 +188,10 @@ namespace MassiveJobs.Core.Serialization
         {
             if (type == typeof(VoidArgs)) return null;
 
-            var obj = GetDefaultConstructor(type).Invoke(null);
+            var wrapperType = type.GetWrapperType();
+            var obj = GetDefaultConstructor(wrapperType).Invoke(null);
 
-            var properties = GetPublicProperties(type);
+            var properties = GetPublicProperties(wrapperType);
 
             foreach (var tuple in properties)
             {
@@ -186,59 +200,61 @@ namespace MassiveJobs.Core.Serialization
 
                 if (property.PropertyType == typeof(string))
                 {
-                    SetStringProperty(type, obj, property.Name, data, ref nextIndex);
+                    SetStringProperty(wrapperType, obj, property.Name, data, ref nextIndex);
                 }
                 else if (property.PropertyType == typeof(byte) || property.PropertyType == typeof(byte?))
                 {
-                    SetByteProperty(type, obj, property.Name, data, ref nextIndex);
+                    SetByteProperty(wrapperType, obj, property.Name, data, ref nextIndex);
                 }
                 else if (property.PropertyType == typeof(short) || property.PropertyType == typeof(short?))
                 {
-                    SetShortProperty(type, obj, property.Name, data, ref nextIndex);
+                    SetShortProperty(wrapperType, obj, property.Name, data, ref nextIndex);
                 }
                 else if (property.PropertyType == typeof(int) || property.PropertyType == typeof(int?))
                 {
-                    SetIntProperty(type, obj, property.Name, data, ref nextIndex);
+                    SetIntProperty(wrapperType, obj, property.Name, data, ref nextIndex);
                 }
                 else if (property.PropertyType == typeof(long) || property.PropertyType == typeof(long?))
                 {
-                    SetLongProperty(type, obj, property.Name, data, ref nextIndex);
+                    SetLongProperty(wrapperType, obj, property.Name, data, ref nextIndex);
                 }
                 else if (property.PropertyType == typeof(ushort) || property.PropertyType == typeof(ushort?))
                 {
-                    SetUShortProperty(type, obj, property.Name, data, ref nextIndex);
+                    SetUShortProperty(wrapperType, obj, property.Name, data, ref nextIndex);
                 }
                 else if (property.PropertyType == typeof(uint) || property.PropertyType == typeof(uint?))
                 {
-                    SetUIntProperty(type, obj, property.Name, data, ref nextIndex);
+                    SetUIntProperty(wrapperType, obj, property.Name, data, ref nextIndex);
                 }
                 else if (property.PropertyType == typeof(ulong) || property.PropertyType == typeof(ulong?))
                 {
-                    SetULongProperty(type, obj, property.Name, data, ref nextIndex);
+                    SetULongProperty(wrapperType, obj, property.Name, data, ref nextIndex);
                 }
                 else if (property.PropertyType == typeof(double) || property.PropertyType == typeof(double?))
                 {
-                    SetDoubleProperty(type, obj, property.Name, data, ref nextIndex);
+                    SetDoubleProperty(wrapperType, obj, property.Name, data, ref nextIndex);
                 }
                 else if (property.PropertyType == typeof(float) || property.PropertyType == typeof(float?))
                 {
-                    SetFloatProperty(type, obj, property.Name, data, ref nextIndex);
+                    SetFloatProperty(wrapperType, obj, property.Name, data, ref nextIndex);
                 }
                 else if (property.PropertyType == typeof(DateTime) || property.PropertyType == typeof(DateTime?))
                 {
-                    SetDateTimeProperty(type, obj, property.Name, data, ref nextIndex);
+                    SetDateTimeProperty(wrapperType, obj, property.Name, data, ref nextIndex);
                 }
                 else if (property.PropertyType == typeof(DateTimeOffset) || property.PropertyType == typeof(DateTimeOffset?))
                 {
-                    SetDateTimeOffsetProperty(type, obj, property.Name, data, ref nextIndex);
+                    SetDateTimeOffsetProperty(wrapperType, obj, property.Name, data, ref nextIndex);
                 }
                 else if (property.PropertyType == typeof(decimal) || property.PropertyType == typeof(decimal?))
                 {
-                    SetDecimalProperty(type, obj, property.Name, data, ref nextIndex);
+                    SetDecimalProperty(wrapperType, obj, property.Name, data, ref nextIndex);
                 }
             }
 
-            return obj;
+            return type.ShouldWrap()
+                ? GetPublicProperty(wrapperType, nameof(PrimitiveWrapper<object>.Value)).GetValue(obj)
+                : obj;
         }
 
         private static void Serialize(double? value, ICollection<byte[]> objectProps)
@@ -679,7 +695,8 @@ namespace MassiveJobs.Core.Serialization
         {
             if (!PropertiesCache.TryGetValue(type, out var properties))
             {
-                properties = type.GetProperties(BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Instance)
+                properties = type
+                    .GetProperties(BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Instance)
                     .Select(p => new Tuple<int, PropertyInfo>(p.GetPropertyOrder(), p))
                     .OrderBy(t => t.Item1)
                     .ToArray();
@@ -731,8 +748,24 @@ namespace MassiveJobs.Core.Serialization
         }
     }
 
+    internal class PrimitiveWrapper<T>
+    {
+        [PropertyOrder(0)]
+        public T Value { get; set; }
+    }
+
     internal static class PropertyInfoExtensions
     {
+        public static Type GetWrapperType(this Type type)
+        {
+            return WrapperTypes.TryGetValue(type, out var wrapperType) ? wrapperType : type;
+        }
+
+        public static bool ShouldWrap(this Type type)
+        {
+            return WrapperTypes.ContainsKey(type);
+        }
+
         public static int GetPropertyOrder(this PropertyInfo propInfo)
         {
             return propInfo.GetCustomAttribute<PropertyOrderAttribute>()?.Order ?? int.MaxValue;
@@ -742,5 +775,34 @@ namespace MassiveJobs.Core.Serialization
         {
             return propInfo.GetCustomAttribute<PropertyOrderAttribute>() != null;
         }
+
+        private static readonly Dictionary<Type, Type> WrapperTypes = new Dictionary<Type, Type>
+        {
+            {typeof(byte), typeof(PrimitiveWrapper<byte>)},
+            {typeof(byte?), typeof(PrimitiveWrapper<byte?>)},
+            {typeof(short), typeof(PrimitiveWrapper<short>)},
+            {typeof(short?), typeof(PrimitiveWrapper<short?>)},
+            {typeof(ushort), typeof(PrimitiveWrapper<ushort>)},
+            {typeof(ushort?), typeof(PrimitiveWrapper<ushort?>)},
+            {typeof(int), typeof(PrimitiveWrapper<int>)},
+            {typeof(int?), typeof(PrimitiveWrapper<int?>)},
+            {typeof(uint), typeof(PrimitiveWrapper<uint>)},
+            {typeof(uint?), typeof(PrimitiveWrapper<uint?>)},
+            {typeof(long), typeof(PrimitiveWrapper<long>)},
+            {typeof(long?), typeof(PrimitiveWrapper<long?>)},
+            {typeof(ulong), typeof(PrimitiveWrapper<ulong>)},
+            {typeof(ulong?), typeof(PrimitiveWrapper<ulong?>)},
+            {typeof(decimal), typeof(PrimitiveWrapper<decimal>)},
+            {typeof(decimal?), typeof(PrimitiveWrapper<decimal?>)},
+            {typeof(float), typeof(PrimitiveWrapper<float>)},
+            {typeof(float?), typeof(PrimitiveWrapper<float?>)},
+            {typeof(double), typeof(PrimitiveWrapper<double>)},
+            {typeof(double?), typeof(PrimitiveWrapper<double?>)},
+            {typeof(DateTime), typeof(PrimitiveWrapper<DateTime>)},
+            {typeof(DateTime?), typeof(PrimitiveWrapper<DateTime?>)},
+            {typeof(DateTimeOffset), typeof(PrimitiveWrapper<DateTimeOffset>)},
+            {typeof(DateTimeOffset?), typeof(PrimitiveWrapper<DateTimeOffset?>)},
+            {typeof(string), typeof(PrimitiveWrapper<string>)},
+        };
     }
 }

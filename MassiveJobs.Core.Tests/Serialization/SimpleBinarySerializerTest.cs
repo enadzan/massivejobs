@@ -175,6 +175,85 @@ namespace MassiveJobs.Core.Tests.Serialization
             Assert.IsNull(args.StringProp);
         }
 
+        [TestMethod]
+        public void Deserialize_should_correctly_deserialize_string()
+        {
+            var jobInfo = new JobInfo
+            {
+                JobType = typeof(SimpleBinarySerializer),
+                ArgsType = typeof(string),
+                Args = "Hello, World!"
+            };
+
+            var serializer = new SimpleBinarySerializer();
+
+            var typeProvider = new DefaultTypeProvider();
+
+            var serialized = serializer.Serialize(jobInfo, typeProvider);
+            var deserialized = serializer.Deserialize(serialized, typeProvider.TypeToTag(jobInfo.ArgsType), typeProvider);
+
+            Assert.IsNotNull(deserialized.JobType);
+            Assert.AreEqual(typeof(SimpleBinarySerializer), deserialized.JobType);
+
+            Assert.IsNotNull(deserialized.Args);
+            Assert.AreEqual(jobInfo.ArgsType, deserialized.Args.GetType());
+
+            var args = (string) deserialized.Args;
+
+            Assert.AreEqual("Hello, World!", args);
+        }
+
+        [TestMethod]
+        public void Deserialize_should_correctly_deserialize_decimal()
+        {
+            var jobInfo = new JobInfo
+            {
+                JobType = typeof(SimpleBinarySerializer),
+                ArgsType = typeof(decimal),
+                Args = 123.5m
+            };
+
+            var serializer = new SimpleBinarySerializer();
+
+            var typeProvider = new DefaultTypeProvider();
+
+            var serialized = serializer.Serialize(jobInfo, typeProvider);
+            var deserialized = serializer.Deserialize(serialized, typeProvider.TypeToTag(jobInfo.ArgsType), typeProvider);
+
+            Assert.IsNotNull(deserialized.JobType);
+            Assert.AreEqual(typeof(SimpleBinarySerializer), deserialized.JobType);
+
+            Assert.IsNotNull(deserialized.Args);
+            Assert.AreEqual(jobInfo.ArgsType, deserialized.Args.GetType());
+
+            var args = (decimal) deserialized.Args;
+
+            Assert.AreEqual(123.5m, args);
+        }
+
+        [TestMethod]
+        public void Deserialize_should_correctly_deserialize_nullable_decimal_with_value()
+        {
+            var jobInfo = new JobInfo
+            {
+                JobType = typeof(SimpleBinarySerializer),
+                ArgsType = typeof(decimal?),
+                Args = null
+            };
+
+            var serializer = new SimpleBinarySerializer();
+
+            var typeProvider = new DefaultTypeProvider();
+
+            var serialized = serializer.Serialize(jobInfo, typeProvider);
+            var deserialized = serializer.Deserialize(serialized, typeProvider.TypeToTag(jobInfo.ArgsType), typeProvider);
+
+            Assert.IsNotNull(deserialized.JobType);
+            Assert.AreEqual(typeof(SimpleBinarySerializer), deserialized.JobType);
+
+            Assert.IsNull(deserialized.Args);
+        }
+
         private class MyArg
         {
             [PropertyOrder(0)]
