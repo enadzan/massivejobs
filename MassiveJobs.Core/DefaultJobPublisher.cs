@@ -132,7 +132,7 @@ namespace MassiveJobs.Core
                 batch.Add(new RawMessage
                 {
                     TypeTag = JobTypeProvider.TypeToTag(job.ArgsType),
-                    Body = serializedJob.ToArray(),
+                    Body = serializedJob,
                     IsPersistent = true
                 });
 
