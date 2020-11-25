@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 
 using MassiveJobs.Core;
 using MassiveJobs.Core.Hosting;
+using MassiveJobs.Core.Serialization;
 
 namespace MassiveJobs.RabbitMqBroker.Hosting
 {
