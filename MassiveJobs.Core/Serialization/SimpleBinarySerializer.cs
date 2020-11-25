@@ -7,10 +7,12 @@ using System.Text;
 
 namespace MassiveJobs.Core.Serialization
 {
-    public class SimpleBinarySerializer: BaseSerializer
+    using PropertyDesc = Tuple<int, string, Type, Func<object, object>, Action<object, object>>;
+
+    public class SimpleBinarySerializer : BaseSerializer
     {
-        private static readonly ConcurrentDictionary<Type, Tuple<int, PropertyInfo>[]> PropertiesCache
-            = new ConcurrentDictionary<Type, Tuple<int, PropertyInfo>[]>();
+        private static readonly ConcurrentDictionary<Type, PropertyDesc[]> PropertiesCache
+            = new ConcurrentDictionary<Type, PropertyDesc[]>();
 
         private static readonly ConcurrentDictionary<Type, ConstructorInfo> ConstructorsCache
             = new ConcurrentDictionary<Type, ConstructorInfo>();
@@ -31,12 +33,18 @@ namespace MassiveJobs.Core.Serialization
 
             var periodicRunInfo = new PeriodicRunInfo();
 
-            SetIntProperty(typeof(PeriodicRunInfo), periodicRunInfo, nameof(PeriodicRunInfo.RepeatSeconds), data, ref nextIndex);
-            SetDateTimeProperty(typeof(PeriodicRunInfo), periodicRunInfo, nameof(PeriodicRunInfo.NextRunTime), data, ref nextIndex);
-            SetDateTimeProperty(typeof(PeriodicRunInfo), periodicRunInfo, nameof(PeriodicRunInfo.LastRunTimeUtc), data, ref nextIndex);
-            SetDateTimeProperty(typeof(PeriodicRunInfo), periodicRunInfo, nameof(PeriodicRunInfo.EndAtUtc), data, ref nextIndex);
-            SetStringProperty(typeof(PeriodicRunInfo), periodicRunInfo, nameof(PeriodicRunInfo.CronExp), data, ref nextIndex);
-            SetStringProperty(typeof(PeriodicRunInfo), periodicRunInfo, nameof(PeriodicRunInfo.TzId), data, ref nextIndex);
+            SetIntProperty(typeof(PeriodicRunInfo), periodicRunInfo, nameof(PeriodicRunInfo.RepeatSeconds), data,
+                ref nextIndex);
+            SetDateTimeProperty(typeof(PeriodicRunInfo), periodicRunInfo, nameof(PeriodicRunInfo.NextRunTime), data,
+                ref nextIndex);
+            SetDateTimeProperty(typeof(PeriodicRunInfo), periodicRunInfo, nameof(PeriodicRunInfo.LastRunTimeUtc), data,
+                ref nextIndex);
+            SetDateTimeProperty(typeof(PeriodicRunInfo), periodicRunInfo, nameof(PeriodicRunInfo.EndAtUtc), data,
+                ref nextIndex);
+            SetStringProperty(typeof(PeriodicRunInfo), periodicRunInfo, nameof(PeriodicRunInfo.CronExp), data,
+                ref nextIndex);
+            SetStringProperty(typeof(PeriodicRunInfo), periodicRunInfo, nameof(PeriodicRunInfo.TzId), data,
+                ref nextIndex);
 
             if (nextIndex > indexBeforePeriodicRunInfo + 18) // headers 2 + 2 + 2 + 2 + 5 + 5
             {
@@ -64,24 +72,26 @@ namespace MassiveJobs.Core.Serialization
         {
             var objectProps = new List<byte[]>();
 
-            Serialize(envelope.J, objectProps);
-            Serialize(envelope.At, objectProps);
-            Serialize(envelope.R, objectProps);
-            Serialize(envelope.T, objectProps);
-            Serialize(envelope.G, objectProps);
+            var size = 0;
 
-            Serialize(envelope.P?.RepeatSeconds, objectProps);
-            Serialize(envelope.P?.NextRunTime, objectProps);
-            Serialize(envelope.P?.LastRunTimeUtc, objectProps);
-            Serialize(envelope.P?.EndAtUtc, objectProps);
-            Serialize(envelope.P?.CronExp, objectProps);
-            Serialize(envelope.P?.TzId, objectProps);
+            size += Serialize(envelope.J, objectProps);
+            size += Serialize(envelope.At, objectProps);
+            size += Serialize(envelope.R, objectProps);
+            size += Serialize(envelope.T, objectProps);
+            size += Serialize(envelope.G, objectProps);
 
-            var headerSize = objectProps.Sum(o => o.Length) + 4;
+            size += Serialize(envelope.P?.RepeatSeconds, objectProps);
+            size += Serialize(envelope.P?.NextRunTime, objectProps);
+            size += Serialize(envelope.P?.LastRunTimeUtc, objectProps);
+            size += Serialize(envelope.P?.EndAtUtc, objectProps);
+            size += Serialize(envelope.P?.CronExp, objectProps);
+            size += Serialize(envelope.P?.TzId, objectProps);
 
-            SerializeObject(argsType, envelope.A, objectProps);
+            var headerSize = size + 4;
 
-            var result = new byte[objectProps.Sum(p => p.Length) + 4];
+            size += SerializeObject(argsType, envelope.A, objectProps);
+
+            var result = new byte[size + 4];
 
             BitConverter.GetBytes(headerSize).CopyTo(result, 0);
 
@@ -95,7 +105,7 @@ namespace MassiveJobs.Core.Serialization
             return result;
         }
 
-        private static void SerializeObject(Type type, object obj, ICollection<byte[]> objectProps)
+        private static int SerializeObject(Type type, object obj, ICollection<byte[]> objectProps)
         {
             var wrappedType = type.GetWrapperType();
 
@@ -110,70 +120,73 @@ namespace MassiveJobs.Core.Serialization
                 wrappedObj = obj;
             }
 
-            if (wrappedObj == null) return; // possible for VoidArgs
+            if (wrappedObj == null) return 0; // possible for VoidArgs
 
             var properties = GetPublicProperties(wrappedType);
 
             var hasOrderedProperties = false;
 
-            foreach (var tuple in properties)
+            var size = 0;
+
+            foreach (var property in properties)
             {
-                if (tuple.Item1 == int.MaxValue) continue; // skip properties without PropertyOrder attribute
-                var property = tuple.Item2;
+                if (property.Item1 == int.MaxValue) break; // no more properties with PropertyOrder attribute
+
+                var propertyType = property.Item3;
 
                 hasOrderedProperties = true;
 
-                if (property.PropertyType == typeof(string))
+                if (propertyType == typeof(string))
                 {
-                    Serialize((string) property.GetValue(wrappedObj), objectProps);
+                    size += Serialize((string) property.GetValue(wrappedObj), objectProps);
                 }
-                else if (property.PropertyType == typeof(byte) || property.PropertyType == typeof(byte?))
+                else if (propertyType == typeof(byte) || propertyType == typeof(byte?))
                 {
-                    Serialize((byte?) property.GetValue(wrappedObj), objectProps);
+                    size += Serialize((byte?) property.GetValue(wrappedObj), objectProps);
                 }
-                else if (property.PropertyType == typeof(short) || property.PropertyType == typeof(short?))
+                else if (propertyType == typeof(short) || propertyType == typeof(short?))
                 {
-                    Serialize((short?) property.GetValue(wrappedObj), objectProps);
+                    size += Serialize((short?) property.GetValue(wrappedObj), objectProps);
                 }
-                else if (property.PropertyType == typeof(int) || property.PropertyType == typeof(int?))
+                else if (propertyType == typeof(int) || propertyType == typeof(int?))
                 {
-                    Serialize((int?) property.GetValue(wrappedObj), objectProps);
+                    size += Serialize((int?) property.GetValue(wrappedObj), objectProps);
                 }
-                else if (property.PropertyType == typeof(long) || property.PropertyType == typeof(long?))
+                else if (propertyType == typeof(long) || propertyType == typeof(long?))
                 {
-                    Serialize((long?) property.GetValue(wrappedObj), objectProps);
+                    size += Serialize((long?) property.GetValue(wrappedObj), objectProps);
                 }
-                else if (property.PropertyType == typeof(ushort) || property.PropertyType == typeof(ushort?))
+                else if (propertyType == typeof(ushort) || propertyType == typeof(ushort?))
                 {
-                    Serialize((ushort?) property.GetValue(wrappedObj), objectProps);
+                    size += Serialize((ushort?) property.GetValue(wrappedObj), objectProps);
                 }
-                else if (property.PropertyType == typeof(uint) || property.PropertyType == typeof(uint?))
+                else if (propertyType == typeof(uint) || propertyType == typeof(uint?))
                 {
-                    Serialize((uint?) property.GetValue(wrappedObj), objectProps);
+                    size += Serialize((uint?) property.GetValue(wrappedObj), objectProps);
                 }
-                else if (property.PropertyType == typeof(ulong) || property.PropertyType == typeof(ulong?))
+                else if (propertyType == typeof(ulong) || propertyType == typeof(ulong?))
                 {
-                    Serialize((ulong?) property.GetValue(wrappedObj), objectProps);
+                    size += Serialize((ulong?) property.GetValue(wrappedObj), objectProps);
                 }
-                else if (property.PropertyType == typeof(double) || property.PropertyType == typeof(double?))
+                else if (propertyType == typeof(double) || propertyType == typeof(double?))
                 {
-                    Serialize((double?) property.GetValue(wrappedObj), objectProps);
+                    size += Serialize((double?) property.GetValue(wrappedObj), objectProps);
                 }
-                else if (property.PropertyType == typeof(float) || property.PropertyType == typeof(float?))
+                else if (propertyType == typeof(float) || propertyType == typeof(float?))
                 {
-                    Serialize((float?) property.GetValue(wrappedObj), objectProps);
+                    size += Serialize((float?) property.GetValue(wrappedObj), objectProps);
                 }
-                else if (property.PropertyType == typeof(DateTime) || property.PropertyType == typeof(DateTime?))
+                else if (propertyType == typeof(DateTime) || propertyType == typeof(DateTime?))
                 {
-                    Serialize((DateTime?) property.GetValue(wrappedObj), objectProps);
+                    size += Serialize((DateTime?) property.GetValue(wrappedObj), objectProps);
                 }
-                else if (property.PropertyType == typeof(DateTimeOffset) || property.PropertyType == typeof(DateTimeOffset?))
+                else if (propertyType == typeof(DateTimeOffset) || propertyType == typeof(DateTimeOffset?))
                 {
-                    Serialize((DateTimeOffset?) property.GetValue(wrappedObj), objectProps);
+                    size += Serialize((DateTimeOffset?) property.GetValue(wrappedObj), objectProps);
                 }
-                else if (property.PropertyType == typeof(decimal) || property.PropertyType == typeof(decimal?))
+                else if (propertyType == typeof(decimal) || propertyType == typeof(decimal?))
                 {
-                    Serialize((decimal?) property.GetValue(wrappedObj), objectProps);
+                    size += Serialize((decimal?) property.GetValue(wrappedObj), objectProps);
                 }
             }
 
@@ -182,6 +195,8 @@ namespace MassiveJobs.Core.Serialization
                 throw new Exception(
                     $"Cannot serialize object without PropertyOrder attributes ({wrappedType.FullName})");
             }
+
+            return size;
         }
 
         private object DeserializeObject(Type type, in ReadOnlySpan<byte> data, ref int nextIndex)
@@ -196,59 +211,61 @@ namespace MassiveJobs.Core.Serialization
             foreach (var tuple in properties)
             {
                 if (tuple.Item1 == int.MaxValue) continue; // skip properties without PropertyOrder attribute
-                var property = tuple.Item2;
+                var propertyName = tuple.Item2;
+                var propertyType = tuple.Item3;
 
-                if (property.PropertyType == typeof(string))
+                if (propertyType == typeof(string))
                 {
-                    SetStringProperty(wrapperType, obj, property.Name, data, ref nextIndex);
+                    SetStringProperty(wrapperType, obj, propertyName, data, ref nextIndex);
                 }
-                else if (property.PropertyType == typeof(byte) || property.PropertyType == typeof(byte?))
+                else if (propertyType == typeof(byte) || propertyType == typeof(byte?))
                 {
-                    SetByteProperty(wrapperType, obj, property.Name, data, ref nextIndex);
+                    SetByteProperty(wrapperType, obj, propertyName, data, ref nextIndex);
                 }
-                else if (property.PropertyType == typeof(short) || property.PropertyType == typeof(short?))
+                else if (propertyType == typeof(short) || propertyType == typeof(short?))
                 {
-                    SetShortProperty(wrapperType, obj, property.Name, data, ref nextIndex);
+                    SetShortProperty(wrapperType, obj, propertyName, data, ref nextIndex);
                 }
-                else if (property.PropertyType == typeof(int) || property.PropertyType == typeof(int?))
+                else if (propertyType == typeof(int) || propertyType == typeof(int?))
                 {
-                    SetIntProperty(wrapperType, obj, property.Name, data, ref nextIndex);
+                    SetIntProperty(wrapperType, obj, propertyName, data, ref nextIndex);
                 }
-                else if (property.PropertyType == typeof(long) || property.PropertyType == typeof(long?))
+                else if (propertyType == typeof(long) || propertyType == typeof(long?))
                 {
-                    SetLongProperty(wrapperType, obj, property.Name, data, ref nextIndex);
+                    SetLongProperty(wrapperType, obj, propertyName, data, ref nextIndex);
                 }
-                else if (property.PropertyType == typeof(ushort) || property.PropertyType == typeof(ushort?))
+                else if (propertyType == typeof(ushort) || propertyType == typeof(ushort?))
                 {
-                    SetUShortProperty(wrapperType, obj, property.Name, data, ref nextIndex);
+                    SetUShortProperty(wrapperType, obj, propertyName, data, ref nextIndex);
                 }
-                else if (property.PropertyType == typeof(uint) || property.PropertyType == typeof(uint?))
+                else if (propertyType == typeof(uint) || propertyType == typeof(uint?))
                 {
-                    SetUIntProperty(wrapperType, obj, property.Name, data, ref nextIndex);
+                    SetUIntProperty(wrapperType, obj, propertyName, data, ref nextIndex);
                 }
-                else if (property.PropertyType == typeof(ulong) || property.PropertyType == typeof(ulong?))
+                else if (propertyType == typeof(ulong) || propertyType == typeof(ulong?))
                 {
-                    SetULongProperty(wrapperType, obj, property.Name, data, ref nextIndex);
+                    SetULongProperty(wrapperType, obj, propertyName, data, ref nextIndex);
                 }
-                else if (property.PropertyType == typeof(double) || property.PropertyType == typeof(double?))
+                else if (propertyType == typeof(double) || propertyType == typeof(double?))
                 {
-                    SetDoubleProperty(wrapperType, obj, property.Name, data, ref nextIndex);
+                    SetDoubleProperty(wrapperType, obj, propertyName, data, ref nextIndex);
                 }
-                else if (property.PropertyType == typeof(float) || property.PropertyType == typeof(float?))
+                else if (propertyType == typeof(float) || propertyType == typeof(float?))
                 {
-                    SetFloatProperty(wrapperType, obj, property.Name, data, ref nextIndex);
+                    SetFloatProperty(wrapperType, obj, propertyName, data, ref nextIndex);
                 }
-                else if (property.PropertyType == typeof(DateTime) || property.PropertyType == typeof(DateTime?))
+                else if (propertyType == typeof(DateTime) || propertyType == typeof(DateTime?))
                 {
-                    SetDateTimeProperty(wrapperType, obj, property.Name, data, ref nextIndex);
+                    SetDateTimeProperty(wrapperType, obj, propertyName, data, ref nextIndex);
                 }
-                else if (property.PropertyType == typeof(DateTimeOffset) || property.PropertyType == typeof(DateTimeOffset?))
+                else if (propertyType == typeof(DateTimeOffset) ||
+                         propertyType == typeof(DateTimeOffset?))
                 {
-                    SetDateTimeOffsetProperty(wrapperType, obj, property.Name, data, ref nextIndex);
+                    SetDateTimeOffsetProperty(wrapperType, obj, propertyName, data, ref nextIndex);
                 }
-                else if (property.PropertyType == typeof(decimal) || property.PropertyType == typeof(decimal?))
+                else if (propertyType == typeof(decimal) || propertyType == typeof(decimal?))
                 {
-                    SetDecimalProperty(wrapperType, obj, property.Name, data, ref nextIndex);
+                    SetDecimalProperty(wrapperType, obj, propertyName, data, ref nextIndex);
                 }
             }
 
@@ -257,7 +274,7 @@ namespace MassiveJobs.Core.Serialization
                 : obj;
         }
 
-        private static void Serialize(double? value, ICollection<byte[]> objectProps)
+        private static int Serialize(double? value, ICollection<byte[]> objectProps)
         {
             var bytes = new byte[value.HasValue ? 10 : 2];
             bytes[0] = (byte) SupportedTypes.Double;
@@ -269,9 +286,11 @@ namespace MassiveJobs.Core.Serialization
             }
 
             objectProps.Add(bytes);
+            return bytes.Length;
         }
 
-        private void SetDoubleProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data, ref int nextIndex)
+        private void SetDoubleProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data,
+            ref int nextIndex)
         {
             if (data[nextIndex] != (byte) SupportedTypes.Double)
                 throw new Exception($"Expected Double ({(byte) SupportedTypes.Double}) but found {data[nextIndex]}");
@@ -286,7 +305,7 @@ namespace MassiveJobs.Core.Serialization
             prop.SetValue(obj, value);
         }
 
-        private static void Serialize(float? value, ICollection<byte[]> objectProps)
+        private static int Serialize(float? value, ICollection<byte[]> objectProps)
         {
             var bytes = new byte[value.HasValue ? 6 : 2];
             bytes[0] = (byte) SupportedTypes.Float;
@@ -298,9 +317,11 @@ namespace MassiveJobs.Core.Serialization
             }
 
             objectProps.Add(bytes);
+            return bytes.Length;
         }
 
-        private void SetFloatProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data, ref int nextIndex)
+        private void SetFloatProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data,
+            ref int nextIndex)
         {
             if (data[nextIndex] != (byte) SupportedTypes.Float)
                 throw new Exception($"Expected Float ({(byte) SupportedTypes.Float}) but found {data[nextIndex]}");
@@ -315,7 +336,7 @@ namespace MassiveJobs.Core.Serialization
             prop.SetValue(obj, value);
         }
 
-        private static void Serialize(ulong? value, ICollection<byte[]> objectProps)
+        private static int Serialize(ulong? value, ICollection<byte[]> objectProps)
         {
             var bytes = new byte[value.HasValue ? 10 : 2];
             bytes[0] = (byte) SupportedTypes.ULong;
@@ -327,9 +348,11 @@ namespace MassiveJobs.Core.Serialization
             }
 
             objectProps.Add(bytes);
+            return bytes.Length;
         }
 
-        private void SetULongProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data, ref int nextIndex)
+        private void SetULongProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data,
+            ref int nextIndex)
         {
             if (data[nextIndex] != (byte) SupportedTypes.ULong)
                 throw new Exception($"Expected ULong ({(byte) SupportedTypes.ULong}) but found {data[nextIndex]}");
@@ -344,7 +367,7 @@ namespace MassiveJobs.Core.Serialization
             prop.SetValue(obj, value);
         }
 
-        private static void Serialize(long? value, ICollection<byte[]> objectProps)
+        private static int Serialize(long? value, ICollection<byte[]> objectProps)
         {
             var bytes = new byte[value.HasValue ? 10 : 2];
             bytes[0] = (byte) SupportedTypes.Long;
@@ -356,9 +379,11 @@ namespace MassiveJobs.Core.Serialization
             }
 
             objectProps.Add(bytes);
+            return bytes.Length;
         }
 
-        private void SetLongProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data, ref int nextIndex)
+        private void SetLongProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data,
+            ref int nextIndex)
         {
             if (data[nextIndex] != (byte) SupportedTypes.Long)
                 throw new Exception($"Expected Long ({(byte) SupportedTypes.Long}) but found {data[nextIndex]}");
@@ -373,7 +398,7 @@ namespace MassiveJobs.Core.Serialization
             prop.SetValue(obj, value);
         }
 
-        private static void Serialize(uint? value, ICollection<byte[]> objectProps)
+        private static int Serialize(uint? value, ICollection<byte[]> objectProps)
         {
             var bytes = new byte[value.HasValue ? 6 : 2];
             bytes[0] = (byte) SupportedTypes.UInt;
@@ -385,9 +410,11 @@ namespace MassiveJobs.Core.Serialization
             }
 
             objectProps.Add(bytes);
+            return bytes.Length;
         }
 
-        private void SetUIntProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data, ref int nextIndex)
+        private void SetUIntProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data,
+            ref int nextIndex)
         {
             if (data[nextIndex] != (byte) SupportedTypes.UInt)
                 throw new Exception($"Expected UInt ({(byte) SupportedTypes.UInt}) but found {data[nextIndex]}");
@@ -402,7 +429,7 @@ namespace MassiveJobs.Core.Serialization
             prop.SetValue(obj, value);
         }
 
-        private static void Serialize(int? value, ICollection<byte[]> objectProps)
+        private static int Serialize(int? value, ICollection<byte[]> objectProps)
         {
             var bytes = new byte[value.HasValue ? 6 : 2];
             bytes[0] = (byte) SupportedTypes.Int;
@@ -414,9 +441,11 @@ namespace MassiveJobs.Core.Serialization
             }
 
             objectProps.Add(bytes);
+            return bytes.Length;
         }
 
-        private void SetIntProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data, ref int nextIndex)
+        private void SetIntProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data,
+            ref int nextIndex)
         {
             if (data[nextIndex] != (byte) SupportedTypes.Int)
                 throw new Exception($"Expected Int ({(byte) SupportedTypes.Int}) but found {data[nextIndex]}");
@@ -431,7 +460,7 @@ namespace MassiveJobs.Core.Serialization
             prop.SetValue(obj, value);
         }
 
-        private static void Serialize(ushort? value, ICollection<byte[]> objectProps)
+        private static int Serialize(ushort? value, ICollection<byte[]> objectProps)
         {
             var bytes = new byte[value.HasValue ? 4 : 2];
             bytes[0] = (byte) SupportedTypes.UShort;
@@ -443,9 +472,11 @@ namespace MassiveJobs.Core.Serialization
             }
 
             objectProps.Add(bytes);
+            return bytes.Length;
         }
 
-        private void SetUShortProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data, ref int nextIndex)
+        private void SetUShortProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data,
+            ref int nextIndex)
         {
             if (data[nextIndex] != (byte) SupportedTypes.UShort)
                 throw new Exception($"Expected UShort ({(byte) SupportedTypes.UShort}) but found {data[nextIndex]}");
@@ -460,7 +491,7 @@ namespace MassiveJobs.Core.Serialization
             prop.SetValue(obj, value);
         }
 
-        private static void Serialize(short? value, ICollection<byte[]> objectProps)
+        private static int Serialize(short? value, ICollection<byte[]> objectProps)
         {
             var bytes = new byte[value.HasValue ? 4 : 2];
             bytes[0] = (byte) SupportedTypes.Short;
@@ -472,9 +503,11 @@ namespace MassiveJobs.Core.Serialization
             }
 
             objectProps.Add(bytes);
+            return bytes.Length;
         }
 
-        private void SetShortProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data, ref int nextIndex)
+        private void SetShortProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data,
+            ref int nextIndex)
         {
             if (data[nextIndex] != (byte) SupportedTypes.Short)
                 throw new Exception($"Expected Short ({(byte) SupportedTypes.Short}) but found {data[nextIndex]}");
@@ -489,7 +522,7 @@ namespace MassiveJobs.Core.Serialization
             prop.SetValue(obj, value);
         }
 
-        private static void Serialize(byte? value, ICollection<byte[]> objectProps)
+        private static int Serialize(byte? value, ICollection<byte[]> objectProps)
         {
             var bytes = new byte[value.HasValue ? 3 : 2];
             bytes[0] = (byte) SupportedTypes.Byte;
@@ -501,9 +534,11 @@ namespace MassiveJobs.Core.Serialization
             }
 
             objectProps.Add(bytes);
+            return bytes.Length;
         }
 
-        private void SetByteProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data, ref int nextIndex)
+        private void SetByteProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data,
+            ref int nextIndex)
         {
             if (data[nextIndex] != (byte) SupportedTypes.Byte)
                 throw new Exception($"Expected Byte ({(byte) SupportedTypes.Byte}) but found {data[nextIndex]}");
@@ -518,7 +553,7 @@ namespace MassiveJobs.Core.Serialization
             prop.SetValue(obj, value);
         }
 
-        private static void Serialize(string value, ICollection<byte[]> objectProps)
+        private static int Serialize(string value, ICollection<byte[]> objectProps)
         {
             var valueBytes = value != null ? Encoding.UTF8.GetBytes(value) : null;
             var length = valueBytes?.Length ?? 0;
@@ -537,9 +572,11 @@ namespace MassiveJobs.Core.Serialization
             }
 
             objectProps.Add(bytes);
+            return bytes.Length;
         }
 
-        private void SetStringProperty(Type type, object obj, string propName, ReadOnlySpan<byte> data, ref int nextIndex)
+        private void SetStringProperty(Type type, object obj, string propName, ReadOnlySpan<byte> data,
+            ref int nextIndex)
         {
             if (data[nextIndex] != (byte) SupportedTypes.String)
                 throw new Exception($"Expected String ({(byte) SupportedTypes.String}) but found {data[nextIndex]}");
@@ -558,7 +595,7 @@ namespace MassiveJobs.Core.Serialization
             prop.SetValue(obj, value);
         }
 
-        private static void Serialize(decimal? value, ICollection<byte[]> objectProps)
+        private static int Serialize(decimal? value, ICollection<byte[]> objectProps)
         {
             var bytes = new byte[value.HasValue ? 18 : 2];
             bytes[0] = (byte) SupportedTypes.Decimal;
@@ -575,9 +612,11 @@ namespace MassiveJobs.Core.Serialization
             }
 
             objectProps.Add(bytes);
+            return bytes.Length;
         }
 
-        private void SetDecimalProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data, ref int nextIndex)
+        private void SetDecimalProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data,
+            ref int nextIndex)
         {
             if (data[nextIndex] != (byte) SupportedTypes.Decimal)
                 throw new Exception($"Expected Decimal ({(byte) SupportedTypes.Decimal}) but found {data[nextIndex]}");
@@ -604,7 +643,7 @@ namespace MassiveJobs.Core.Serialization
             prop.SetValue(obj, new decimal(part0, part1, part2, sign, scale));
         }
 
-        private static void Serialize(DateTimeOffset? value, ICollection<byte[]> objectProps)
+        private static int Serialize(DateTimeOffset? value, ICollection<byte[]> objectProps)
         {
             var bytes = new byte[value.HasValue ? 12 : 2];
             bytes[0] = (byte) SupportedTypes.DateTimeOffset;
@@ -615,14 +654,17 @@ namespace MassiveJobs.Core.Serialization
                 BitConverter.GetBytes(value.Value.Ticks).CopyTo(bytes, 2);
                 BitConverter.GetBytes((short) value.Value.Offset.TotalMinutes).CopyTo(bytes, 10);
             }
-                
+
             objectProps.Add(bytes);
+            return bytes.Length;
         }
 
-        private void SetDateTimeOffsetProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data, ref int nextIndex)
+        private void SetDateTimeOffsetProperty(Type type, object obj, string propName, in ReadOnlySpan<byte> data,
+            ref int nextIndex)
         {
             if (data[nextIndex] != (byte) SupportedTypes.DateTimeOffset)
-                throw new Exception($"Expected DateTimeOffset ({(byte) SupportedTypes.DateTimeOffset}) but found {data[nextIndex]}");
+                throw new Exception(
+                    $"Expected DateTimeOffset ({(byte) SupportedTypes.DateTimeOffset}) but found {data[nextIndex]}");
 
             nextIndex++;
             if (data[nextIndex++] == 0) return;
@@ -637,7 +679,7 @@ namespace MassiveJobs.Core.Serialization
             prop.SetValue(obj, new DateTimeOffset(ticks, offset));
         }
 
-        private static void Serialize(DateTime? value, ICollection<byte[]> objectProps)
+        private static int Serialize(DateTime? value, ICollection<byte[]> objectProps)
         {
             var bytes = new byte[value.HasValue ? 11 : 2];
             bytes[0] = (byte) SupportedTypes.DateTime;
@@ -650,12 +692,15 @@ namespace MassiveJobs.Core.Serialization
             }
 
             objectProps.Add(bytes);
+            return bytes.Length;
         }
 
-        private void SetDateTimeProperty(Type type, object obj, string propName, ReadOnlySpan<byte> data, ref int nextIndex)
+        private void SetDateTimeProperty(Type type, object obj, string propName, ReadOnlySpan<byte> data,
+            ref int nextIndex)
         {
             if (data[nextIndex] != (byte) SupportedTypes.DateTime)
-                throw new Exception($"Expected DateTime ({(byte) SupportedTypes.DateTime}) but found {data[nextIndex]}");
+                throw new Exception(
+                    $"Expected DateTime ({(byte) SupportedTypes.DateTime}) but found {data[nextIndex]}");
 
             nextIndex++;
             if (data[nextIndex++] == 0) return;
@@ -680,29 +725,29 @@ namespace MassiveJobs.Core.Serialization
             return ctor;
         }
 
-        private static PropertyInfo GetPublicProperty(Type type, string propertyName)
+        private static PropertyDesc GetPublicProperty(Type type, string propertyName)
         {
             var properties = GetPublicProperties(type);
             foreach (var tuple in properties)
             {
-                if (tuple.Item2.Name == propertyName) return tuple.Item2;
+                if (tuple.Item2 == propertyName) return tuple;
             }
 
             throw new Exception($"Property {propertyName} not found on {type.Name}");
         }
 
-        private static IEnumerable<Tuple<int, PropertyInfo>> GetPublicProperties(Type type)
+        private static IEnumerable<PropertyDesc> GetPublicProperties(Type type)
         {
             if (!PropertiesCache.TryGetValue(type, out var properties))
             {
                 properties = type
                     .GetProperties(BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Instance)
-                    .Select(p => new Tuple<int, PropertyInfo>(p.GetPropertyOrder(), p))
+                    .Select(p => new PropertyDesc(p.GetPropertyOrder(), p.Name, p.PropertyType, p.GetGetDelegate(), p.GetSetDelegate()))
                     .OrderBy(t => t.Item1)
                     .ToArray();
 
                 var duplicates = properties
-                    .Where(t => t.Item2.HasPropertyOrder())
+                    .Where(t => t.Item1 != int.MaxValue)
                     .GroupBy(t => t.Item1)
                     .Select(grp => new Tuple<int, int>(grp.Key, grp.Count()))
                     .Where(t => t.Item2 > 1)
@@ -756,6 +801,58 @@ namespace MassiveJobs.Core.Serialization
 
     internal static class PropertyInfoExtensions
     {
+        public static void SetValue(this PropertyDesc propertyDesc, object obj, object value)
+        {
+            propertyDesc.Item5(obj, value);
+        }
+
+        public static object GetValue(this PropertyDesc propertyDesc, object obj)
+        {
+            return propertyDesc.Item4(obj);
+        }
+
+        /// <summary>
+        /// Based on: https://blogs.msmvps.com/jonskeet/2008/08/09/making-reflection-fly-and-exploring-delegates/
+        /// </summary>
+        /// <param name="propertyInfo"></param>
+        /// <returns></returns>
+        public static Func<object, object> GetGetDelegate(this PropertyInfo propertyInfo)
+        {
+            var type = propertyInfo.DeclaringType;
+            var method = propertyInfo.GetMethod;
+
+            // First fetch the generic form
+            MethodInfo genericHelper = typeof(PropertyInfoExtensions).GetMethod("GetMethodHelper",
+                BindingFlags.Static | BindingFlags.NonPublic) ?? throw new Exception("GetMethodHelper not found");
+
+            // Now supply the type arguments
+            MethodInfo constructedHelper = genericHelper.MakeGenericMethod(type, method.ReturnType);
+
+            // Now call it. The null argument is because it’s a static method.
+            return (Func<object, object>) constructedHelper.Invoke(null, new object[] {method});
+        }
+
+        /// <summary>
+        /// Based on: https://blogs.msmvps.com/jonskeet/2008/08/09/making-reflection-fly-and-exploring-delegates/
+        /// </summary>
+        /// <param name="propertyInfo"></param>
+        /// <returns></returns>
+        public static Action<object, object> GetSetDelegate(this PropertyInfo propertyInfo)
+        {
+            var type = propertyInfo.DeclaringType;
+            var method = propertyInfo.SetMethod;
+
+            // First fetch the generic form
+            MethodInfo genericHelper = typeof(PropertyInfoExtensions).GetMethod("SetMethodHelper",
+                BindingFlags.Static | BindingFlags.NonPublic) ?? throw new Exception("SetMethodHelper not found");
+
+            // Now supply the type arguments
+            MethodInfo constructedHelper = genericHelper.MakeGenericMethod(type, method.GetParameters()[0].ParameterType);
+
+            // Now call it. The null argument is because it’s a static method.
+            return (Action<object, object>) constructedHelper.Invoke(null, new object[] {method});
+        }
+
         public static Type GetWrapperType(this Type type)
         {
             return WrapperTypes.TryGetValue(type, out var wrapperType) ? wrapperType : type;
@@ -774,6 +871,28 @@ namespace MassiveJobs.Core.Serialization
         public static bool HasPropertyOrder(this PropertyInfo propInfo)
         {
             return propInfo.GetCustomAttribute<PropertyOrderAttribute>() != null;
+        }
+
+        // ReSharper disable once UnusedMember.Local
+        private static Func<object, object> GetMethodHelper<TTarget, TReturn>(MethodInfo method)
+            where TTarget : class
+        {
+            // Convert the slow MethodInfo into a fast, strongly typed, open delegate
+            var func = (Func<TTarget, TReturn>) Delegate.CreateDelegate(typeof(Func<TTarget, TReturn>), method);
+
+            // Now create a more weakly typed delegate which will call the strongly typed one
+            return target => func((TTarget)target);
+        }
+
+        // ReSharper disable once UnusedMember.Local
+        private static Action<object, object> SetMethodHelper<TTarget, TParam>(MethodInfo method)
+            where TTarget : class
+        {
+            // Convert the slow MethodInfo into a fast, strongly typed, open delegate
+            var action = (Action<TTarget, TParam>) Delegate.CreateDelegate(typeof(Action<TTarget, TParam>), method);
+
+            // Now create a more weakly typed delegate which will call the strongly typed one
+            return (target, param) => action((TTarget) target, (TParam) param);
         }
 
         private static readonly Dictionary<Type, Type> WrapperTypes = new Dictionary<Type, Type>
