@@ -60,7 +60,7 @@ namespace MassiveJobs.Core
                         job = reflectionInfo.Ctor.Invoke(null);
                         break;
                     case ReflectionUtilities.ConstructorType.NeedsPublisher:
-                        job = reflectionInfo.Ctor.Invoke(new[] { publisher });
+                        job = reflectionInfo.Ctor.Invoke(new object[] { publisher });
                         break;
                     default:
                         var parametersInfo = reflectionInfo.Ctor.GetParameters();
@@ -86,16 +86,16 @@ namespace MassiveJobs.Core
                 switch (reflectionInfo.PerfMethodType)
                 {
                     case ReflectionUtilities.PerformMethodType.NoArgs:
-                        result = reflectionInfo.PerfMethod.Invoke(job, null);
+                        result = reflectionInfo.PerformDelegate1(job);
                         break;
                     case ReflectionUtilities.PerformMethodType.NeedsArgs:
-                        result = reflectionInfo.PerfMethod.Invoke(job, new object[] { jobInfo.Args });
+                        result = reflectionInfo.PerformDelegate2(job, jobInfo.Args);
                         break;
                     case ReflectionUtilities.PerformMethodType.NeedsCancellationToken:
-                        result = reflectionInfo.PerfMethod.Invoke(job, new object[] { cancellationToken });
+                        result = reflectionInfo.PerformDelegate3(job, cancellationToken);
                         break;
                     case ReflectionUtilities.PerformMethodType.NeedsArgsAndCancellationToken:
-                        result = reflectionInfo.PerfMethod.Invoke(job, new object[] { jobInfo.Args, cancellationToken });
+                        result = reflectionInfo.PerformDelegate4(job, jobInfo.Args, cancellationToken);
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(reflectionInfo.PerfMethodType));
