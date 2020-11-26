@@ -24,12 +24,12 @@ namespace MassiveJobs.RabbitMqBroker.Tests
             {
                 s.RabbitMqSettings.VirtualHost = "massivejobs.tests";
                 s.RabbitMqSettings.NamePrefix = "tests.";
-                s.RabbitMqSettings.PrefetchCount = 400;
-                s.PublishBatchSize = 200;
-                s.ImmediateWorkersBatchSize = 400;
+                s.RabbitMqSettings.PrefetchCount = 1000;
+                s.PublishBatchSize = 300;
+                s.ImmediateWorkersBatchSize = 1000;
 
                 s.MaxDegreeOfParallelismPerWorker = 2;
-                s.ImmediateWorkersCount = 3;
+                s.ImmediateWorkersCount = 2;
                 s.ScheduledWorkersCount = 2;
                 s.PeriodicWorkersCount = 2;
 

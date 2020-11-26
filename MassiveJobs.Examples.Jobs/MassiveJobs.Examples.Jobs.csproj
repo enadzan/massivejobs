@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MassiveJobs.Core" Version="0.36.2" />
+    <PackageReference Include="MassiveJobs.Core" Version="0.36.3" />
   </ItemGroup>
 
 </Project>
