@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 
@@ -14,12 +15,12 @@ namespace MassiveJobs.Core.Serialization
         private static readonly ConcurrentDictionary<Type, PropertyDesc[]> PropertiesCache
             = new ConcurrentDictionary<Type, PropertyDesc[]>();
 
-        private static readonly ConcurrentDictionary<Type, ConstructorInfo> ConstructorsCache
-            = new ConcurrentDictionary<Type, ConstructorInfo>();
+        private static readonly ConcurrentDictionary<Type, Func<object>> ConstructorsCache
+            = new ConcurrentDictionary<Type, Func<object>>();
 
         protected override object DeserializeEnvelope(ReadOnlySpan<byte> data, Type envType)
         {
-            var env = GetDefaultConstructor(envType).Invoke(null);
+            var env = GetDefaultConstructor(envType)();
 
             var nextIndex = 4; // skip header size field
 
@@ -112,7 +113,7 @@ namespace MassiveJobs.Core.Serialization
             object wrappedObj;
             if (type.ShouldWrap())
             {
-                wrappedObj = GetDefaultConstructor(wrappedType).Invoke(null);
+                wrappedObj = GetDefaultConstructor(wrappedType)();
                 GetPublicProperty(wrappedType, nameof(PrimitiveWrapper<object>.Value)).SetValue(wrappedObj, obj);
             }
             else
@@ -204,7 +205,7 @@ namespace MassiveJobs.Core.Serialization
             if (type == typeof(VoidArgs)) return null;
 
             var wrapperType = type.GetWrapperType();
-            var obj = GetDefaultConstructor(wrapperType).Invoke(null);
+            var obj = GetDefaultConstructor(wrapperType)();
 
             var properties = GetPublicProperties(wrapperType);
 
@@ -715,14 +716,31 @@ namespace MassiveJobs.Core.Serialization
             prop.SetValue(obj, new DateTime(ticks, kind));
         }
 
-        private static ConstructorInfo GetDefaultConstructor(Type type)
+        private static Func<object> GetDefaultConstructor(Type type)
         {
             if (ConstructorsCache.TryGetValue(type, out var ctor)) return ctor;
 
-            ctor = type.GetConstructor(Type.EmptyTypes);
+            var genericMethod = typeof(SimpleBinarySerializer)
+                                    .GetMethod(nameof(CreateDefaultConstructor),
+                                        BindingFlags.Static | BindingFlags.NonPublic)?
+                                    .MakeGenericMethod(type)
+                                ?? throw new Exception($"{nameof(CreateDefaultConstructor)} not found");
+
+            ctor = (Func<object>) genericMethod.Invoke(null, null);
+
             ConstructorsCache.TryAdd(type, ctor);
 
             return ctor;
+        }
+
+        private static Func<object> CreateDefaultConstructor<T>()
+        {
+            var strongD = Expression.Lambda<Func<T>>(
+                Expression.New(typeof(T)),
+                Array.Empty<ParameterExpression>())
+            .Compile();
+
+            return () => strongD();
         }
 
         private static PropertyDesc GetPublicProperty(Type type, string propertyName)
@@ -822,8 +840,8 @@ namespace MassiveJobs.Core.Serialization
             var method = propertyInfo.GetMethod;
 
             // First fetch the generic form
-            MethodInfo genericHelper = typeof(PropertyInfoExtensions).GetMethod("GetMethodHelper",
-                BindingFlags.Static | BindingFlags.NonPublic) ?? throw new Exception("GetMethodHelper not found");
+            MethodInfo genericHelper = typeof(PropertyInfoExtensions).GetMethod(nameof(GetMethodHelper),
+                BindingFlags.Static | BindingFlags.NonPublic) ?? throw new Exception($"{nameof(GetMethodHelper)} not found");
 
             // Now supply the type arguments
             MethodInfo constructedHelper = genericHelper.MakeGenericMethod(type, method.ReturnType);
@@ -843,8 +861,8 @@ namespace MassiveJobs.Core.Serialization
             var method = propertyInfo.SetMethod;
 
             // First fetch the generic form
-            MethodInfo genericHelper = typeof(PropertyInfoExtensions).GetMethod("SetMethodHelper",
-                BindingFlags.Static | BindingFlags.NonPublic) ?? throw new Exception("SetMethodHelper not found");
+            MethodInfo genericHelper = typeof(PropertyInfoExtensions).GetMethod(nameof(SetMethodHelper),
+                BindingFlags.Static | BindingFlags.NonPublic) ?? throw new Exception($"{nameof(SetMethodHelper)} not found");
 
             // Now supply the type arguments
             MethodInfo constructedHelper = genericHelper.MakeGenericMethod(type, method.GetParameters()[0].ParameterType);
@@ -873,7 +891,6 @@ namespace MassiveJobs.Core.Serialization
             return propInfo.GetCustomAttribute<PropertyOrderAttribute>() != null;
         }
 
-        // ReSharper disable once UnusedMember.Local
         private static Func<object, object> GetMethodHelper<TTarget, TReturn>(MethodInfo method)
             where TTarget : class
         {
@@ -884,7 +901,6 @@ namespace MassiveJobs.Core.Serialization
             return target => func((TTarget)target);
         }
 
-        // ReSharper disable once UnusedMember.Local
         private static Action<object, object> SetMethodHelper<TTarget, TParam>(MethodInfo method)
             where TTarget : class
         {
