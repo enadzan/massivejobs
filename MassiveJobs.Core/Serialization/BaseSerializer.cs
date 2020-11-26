@@ -4,9 +4,11 @@ using System.Reflection;
 
 namespace MassiveJobs.Core.Serialization
 {
+    using ToJobInfoDelegate = Func<object, string, IJobTypeProvider, JobInfo>;
+
     public abstract class BaseSerializer : IJobSerializer
     {
-        private static readonly Dictionary<Type, Tuple<Type, MethodInfo>> SerializationInfo = new Dictionary<Type, Tuple<Type, MethodInfo>>();
+        private static readonly Dictionary<Type, Tuple<Type, ToJobInfoDelegate>> SerializationInfo = new Dictionary<Type, Tuple<Type, ToJobInfoDelegate>>();
 
         protected abstract object DeserializeEnvelope(ReadOnlySpan<byte> data, Type envelopeType);
         protected abstract byte[] SerializeEnvelope(Type argsType, SerializedEnvelope<object> envelope);
@@ -15,7 +17,7 @@ namespace MassiveJobs.Core.Serialization
         {
             var argsType = typeProvider.TagToType(argsTag);
 
-            Tuple<Type, MethodInfo> info;
+            Tuple<Type, ToJobInfoDelegate> info;
 
             lock (SerializationInfo)
             {
@@ -24,10 +26,12 @@ namespace MassiveJobs.Core.Serialization
                     var serializedType = typeof(SerializedEnvelope<>).MakeGenericType(argsType);
 
                     // ReSharper disable once PossibleNullReferenceException
-                    var methodInfo = typeof(BaseSerializer).GetMethod(nameof(ToJobInfo), BindingFlags.Static | BindingFlags.NonPublic)
+                    var methodInfo = typeof(BaseSerializer).GetMethod(nameof(GetToJobInfoDelegate), BindingFlags.Static | BindingFlags.NonPublic)
                         .MakeGenericMethod(argsType);
 
-                    info = new Tuple<Type, MethodInfo>(serializedType, methodInfo);
+                    var jobDelegate = (ToJobInfoDelegate) methodInfo.Invoke(null, new object[] {argsType});
+
+                    info = new Tuple<Type, ToJobInfoDelegate>(serializedType, jobDelegate);
 
                     SerializationInfo.Add(argsType, info);
                 }
@@ -35,7 +39,7 @@ namespace MassiveJobs.Core.Serialization
 
             var serializedEnv = DeserializeEnvelope(data, info.Item1);
 
-            return (JobInfo)info.Item2.Invoke(null, new[] { serializedEnv, argsTag, typeProvider });
+            return info.Item2(serializedEnv, argsTag, typeProvider);
         }
 
         public byte[] Serialize(JobInfo jobInfo, IJobTypeProvider typeProvider)
@@ -78,6 +82,23 @@ namespace MassiveJobs.Core.Serialization
                 GroupKey = serialized.G,
                 PeriodicRunInfo = serialized.P
             };
+        }
+
+        private static ToJobInfoDelegate GetToJobInfoDelegate<T>(Type argsType)
+        {
+            // ReSharper disable once PossibleNullReferenceException
+            var methodInfo = typeof(BaseSerializer)
+                .GetMethod(nameof(ToJobInfo), BindingFlags.Static | BindingFlags.NonPublic)
+                .MakeGenericMethod(argsType);
+
+            // Convert the slow MethodInfo into a fast, strongly typed, open delegate
+            var func = (Func<SerializedEnvelope<T>, string, IJobTypeProvider, JobInfo>) Delegate.CreateDelegate(
+                typeof(Func<SerializedEnvelope<T>, string, IJobTypeProvider, JobInfo>),
+                methodInfo
+            );
+
+            // Now create a more weakly typed delegate which will call the strongly typed one
+            return (env, argsTag, typeProvider) => func((SerializedEnvelope<T>) env, argsTag, typeProvider);
         }
 
         protected class SerializedEnvelope<TArgs>
