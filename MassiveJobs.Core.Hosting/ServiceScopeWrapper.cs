@@ -1,9 +1,35 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using System;
 
+using MassiveJobs.Core.DependencyInjection;
+
 namespace MassiveJobs.Core.Hosting
 {
-    public class ServiceScopeWrapper : IJobServiceScope
+    class ServiceProviderWrapper : IJobServiceProvider
+    {
+        private readonly IServiceProvider _serviceProvider;
+
+        public ServiceProviderWrapper(IServiceProvider serviceProvider)
+        {
+            _serviceProvider = serviceProvider;
+        }
+
+        public void Dispose()
+        {
+        }
+
+        public object GetService(Type type)
+        {
+            return _serviceProvider.GetService(type);
+        }
+
+        public object GetRequiredService(Type type)
+        {
+            return _serviceProvider.GetRequiredService(type);
+        }
+    }
+
+    class ServiceScopeWrapper : IJobServiceScope
     {
         private readonly IServiceScope _scope;
 
@@ -28,7 +54,7 @@ namespace MassiveJobs.Core.Hosting
         }
     }
 
-    public class ServiceScopeFactoryWrapper : IJobServiceScopeFactory
+    class ServiceScopeFactoryWrapper : IJobServiceScopeFactory
     {
         private readonly IServiceScopeFactory _scopeFactory;
 

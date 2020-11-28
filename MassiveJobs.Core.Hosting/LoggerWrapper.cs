@@ -12,17 +12,17 @@ namespace MassiveJobs.Core.Hosting
             _msLoggerFactory = msLoggerFactory;
         }
 
-        public IJobLogger<TCategory> CreateLogger<TCategory>()
+        public IJobLogger CreateLogger(string categoryName)
         {
-            return new LoggerWrapper<TCategory>(_msLoggerFactory.CreateLogger<TCategory>());
+            return new LoggerWrapper(_msLoggerFactory.CreateLogger(categoryName));
         }
     }
 
-    public class LoggerWrapper<TCategory> : IJobLogger<TCategory>
+    public class LoggerWrapper : IJobLogger
     {
         private readonly ILogger _msLogger;
 
-        public LoggerWrapper(ILogger<TCategory> msLogger)
+        public LoggerWrapper(ILogger msLogger)
         {
             _msLogger = msLogger;
         }
@@ -56,6 +56,26 @@ namespace MassiveJobs.Core.Hosting
                 default:
                     return LogLevel.None;
             }
+        }
+    }
+
+    public class LoggerWrapper<TCategory> : IJobLogger<TCategory>
+    {
+        private readonly LoggerWrapper _loggerWrapper;
+
+        public LoggerWrapper(ILogger<TCategory> msLogger)
+        {
+            _loggerWrapper = new LoggerWrapper(msLogger);
+        }
+
+        public bool IsEnabled(JobLogLevel logLevel)
+        {
+            return _loggerWrapper.IsEnabled(logLevel);
+        }
+
+        public void Log(JobLogLevel logLevel, Exception exception, string message)
+        {
+            _loggerWrapper.Log(logLevel, exception, message);
         }
     }
 }
