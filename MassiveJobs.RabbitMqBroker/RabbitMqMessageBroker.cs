@@ -21,7 +21,7 @@ namespace MassiveJobs.RabbitMqBroker
         private readonly RabbitMqSettings _rabbitMqSettings;
         private readonly MassiveJobsSettings _massiveJobsSettings;
 
-        public RabbitMqMessageBroker(RabbitMqSettings rabbitMqSettings, MassiveJobsSettings massiveJobsSettings, bool automaticRecoveryEnabled, IJobLogger logger)
+        protected RabbitMqMessageBroker(RabbitMqSettings rabbitMqSettings, MassiveJobsSettings massiveJobsSettings, bool automaticRecoveryEnabled, IJobLogger logger)
         {
             Logger = logger;
 
@@ -42,7 +42,7 @@ namespace MassiveJobs.RabbitMqBroker
                     Enabled = rabbitMqSettings.SslEnabled,
                     ServerName = rabbitMqSettings.SslServerName,
                     CertPath = rabbitMqSettings.SslClientCertPath,
-                    CertPassphrase = rabbitMqSettings.SslClientCertPassphrase
+                    CertPassphrase = rabbitMqSettings.SslClientCertPassPhrase
                 }
             };
         }
@@ -107,9 +107,9 @@ namespace MassiveJobs.RabbitMqBroker
                     Logger.LogError(ex, "Failed connection create");
                     throw;
                 }
+            
+                Logger.LogWarning("Connected");
             }
-
-            Logger.LogWarning("Connected");
         }
 
         private void ConnectionOnConnectionShutdown(object sender, ShutdownEventArgs e)
@@ -153,12 +153,12 @@ namespace MassiveJobs.RabbitMqBroker
         {
             try
             {
-                var location = System.Reflection.Assembly.GetEntryAssembly().Location;
+                var location = System.Reflection.Assembly.GetEntryAssembly()?.Location ?? "unknown";
                 return Path.GetFileName(location);
             }
             catch (Exception ex)
             {
-                Logger.LogWarning(ex, "Failed retreiving entry file name");
+                Logger.LogWarning(ex, "Failed retrieving entry file name");
                 return "";
             }
         }
