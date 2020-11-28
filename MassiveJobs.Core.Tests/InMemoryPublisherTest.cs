@@ -29,8 +29,8 @@ namespace MassiveJobs.Core.Tests
 
             _messages = new InMemoryMessages();
 
-            _jobs = Jobs
-                .Configure(_settings)
+            _jobs = Jobs.Configure()
+                .RegisterInstance(_settings)
                 .WithInMemoryBroker(_messages)
                 .InitializeNew();
         }

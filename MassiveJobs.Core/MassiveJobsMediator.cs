@@ -55,7 +55,7 @@ namespace MassiveJobs.Core
         public MassiveJobsMediator(IJobServiceProvider serviceProvider)
         {
             ServiceProvider = serviceProvider;
-            Workers = new WorkerCoordinator(serviceProvider);
+            Workers = new WorkerCoordinator(serviceProvider.ServiceFactory);
         }
 
         public virtual void Dispose()
@@ -66,7 +66,8 @@ namespace MassiveJobs.Core
 
         public void Publish(IEnumerable<JobInfo> jobs)
         {
-            using (var scope = ServiceProvider.GetRequiredService<IJobServiceScopeFactory>().CreateScope())
+            using (var scope = ServiceProvider.ServiceFactory.GetRequiredService<IJobServiceScopeFactory>()
+                .CreateScope())
             {
                 scope.GetRequiredService<IJobPublisher>().Publish(jobs);
             }
