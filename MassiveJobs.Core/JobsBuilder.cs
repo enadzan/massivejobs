@@ -27,6 +27,14 @@ namespace MassiveJobs.Core
             return new JobsBuilder(new DefaultServiceProvider());
         }
 
+        public JobsBuilder WithSettings(string namePrefix = "", Action<MassiveJobsSettings> configureAction = null)
+        {
+            var settings = new MassiveJobsSettings(namePrefix);
+            configureAction?.Invoke(settings);
+            RegisterInstance(settings);
+            return this;
+        }
+
         public JobsBuilder RegisterInstance<TService>(TService instance)
         {
             _serviceProvider.ServiceCollection.RegisterInstance(instance);
