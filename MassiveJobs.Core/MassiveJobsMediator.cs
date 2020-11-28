@@ -23,13 +23,13 @@ namespace MassiveJobs.Core
             }
         }
 
-        public static void Initialize(IJobServiceScopeFactory scopeFactory)
+        public static void Initialize(IJobServiceProvider serviceProvider)
         {
             lock (InitializationLock)
             {
                 if (DefaultMediator != null) return;
 
-                DefaultMediator = new MassiveJobsMediator(scopeFactory);
+                DefaultMediator = new MassiveJobsMediator(serviceProvider);
             }
         }
 
@@ -44,38 +44,28 @@ namespace MassiveJobs.Core
             }
         }
         
-        protected IJobServiceScope DefaultScope;
-        protected IJobServiceScopeFactory ScopeFactory;
+        protected IJobServiceProvider ServiceProvider;
         protected IWorkerCoordinator Workers;
 
         protected MassiveJobsMediator()
         {
         }
 
-        public MassiveJobsMediator(IJobServiceScopeFactory scopeFactory)
+        public MassiveJobsMediator(IJobServiceProvider serviceProvider)
         {
-            ScopeFactory = scopeFactory;
-
-            DefaultScope = scopeFactory.CreateScope();
-
-            Workers = new WorkerCoordinator(
-                scopeFactory,
-                DefaultScope.GetRequiredService<MassiveJobsSettings>(),
-                DefaultScope.GetRequiredService<IMessageConsumer>(),
-                DefaultScope.GetService<IJobLoggerFactory>(),
-                DefaultScope.GetService<IJobLogger<WorkerCoordinator>>()
-            );
+            ServiceProvider = serviceProvider;
+            Workers = new WorkerCoordinator(serviceProvider);
         }
 
         public virtual void Dispose()
         {
             Workers.SafeDispose();
-            DefaultScope.SafeDispose(); 
+            ServiceProvider.SafeDispose(); 
         }
 
         public void Publish(IEnumerable<JobInfo> jobs)
         {
-            using (var scope = ScopeFactory.CreateScope())
+            using (var scope = ServiceProvider.GetRequiredService<IJobServiceScopeFactory>().CreateScope())
             {
                 scope.GetRequiredService<IJobPublisher>().Publish(jobs);
             }

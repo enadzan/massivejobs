@@ -25,7 +25,7 @@ namespace MassiveJobs.Core
             int batchSize, 
             IMessageConsumer messageConsumer, 
             IJobServiceScopeFactory serviceScopeFactory, 
-            IJobLogger logger)
+            IJobLogger<WorkerScheduled> logger)
             : base(queueName, batchSize, 1, messageConsumer, serviceScopeFactory, logger)
         {
             _timer = new Timer(CheckScheduledJobs);

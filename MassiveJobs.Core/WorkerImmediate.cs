@@ -11,7 +11,7 @@ namespace MassiveJobs.Core
             int maxDegreeOfParallelism,
             IMessageConsumer messageConsumer, 
             IJobServiceScopeFactory serviceScopeFactory, 
-            IJobLogger logger)
+            IJobLogger<WorkerImmediate> logger)
             : base(queueName, batchSize, maxDegreeOfParallelism, messageConsumer, serviceScopeFactory, logger)
         {
         }

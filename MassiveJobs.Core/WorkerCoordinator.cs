@@ -6,38 +6,30 @@ namespace MassiveJobs.Core
 {
     public class WorkerCoordinator : IWorkerCoordinator
     {
-        protected readonly IJobLogger Logger;
+        protected readonly IJobLogger<WorkerCoordinator> Logger;
         protected readonly List<IWorker> Workers;
         protected readonly object WorkersLock = new object();
 
         protected readonly IMessageConsumer MessageConsumer;
-        protected readonly IJobLoggerFactory LoggerFactory;
-        protected readonly IJobServiceScopeFactory ServiceScopeFactory;
+        protected readonly IJobServiceProvider ServiceProvider;
 
         private readonly Timer _reconnectTimer;
         private readonly MassiveJobsSettings _settings;
 
         private readonly int[] _reconnectTimes = {1, 2, 5, 10, 30, 60, 120};
-        private int _reconnectTimeIndex = 0;
+        private int _reconnectTimeIndex;
 
-        public WorkerCoordinator(
-            IJobServiceScopeFactory serviceScopeFactory, 
-            MassiveJobsSettings settings, 
-            IMessageConsumer messageConsumer, 
-            IJobLoggerFactory loggerFactory = null, 
-            IJobLogger logger = null)
+        public WorkerCoordinator(IJobServiceProvider serviceProvider, IJobLogger<WorkerCoordinator> logger = null)
         {
-            ServiceScopeFactory = serviceScopeFactory;
+            ServiceProvider = serviceProvider;
 
-            _settings = settings;
+            _settings = serviceProvider.GetRequiredService<MassiveJobsSettings>();
             _reconnectTimer = new Timer(Reconnect);
 
             Workers = new List<IWorker>();
-            Logger = logger ?? loggerFactory.SafeCreateLogger<WorkerCoordinator>();
+            Logger = logger ?? serviceProvider.GetRequiredService<IJobLogger<WorkerCoordinator>>();
 
-            LoggerFactory = loggerFactory;
-
-            MessageConsumer = messageConsumer;
+            MessageConsumer = serviceProvider.GetRequiredService<IMessageConsumer>();
             MessageConsumer.Disconnected += MessageBrokerDisconnected;
         }
 
@@ -155,8 +147,8 @@ namespace MassiveJobs.Core
                     _settings.ImmediateWorkersBatchSize,
                     _settings.MaxDegreeOfParallelismPerWorker,
                     MessageConsumer,
-                    ServiceScopeFactory,
-                    LoggerFactory.SafeCreateLogger<WorkerImmediate>()
+                    ServiceProvider.GetRequiredService<IJobServiceScopeFactory>(),
+                    ServiceProvider.GetRequiredService<IJobLogger<WorkerImmediate>>()
                 );
 
                 worker.Error += OnWorkerError;
@@ -170,9 +162,9 @@ namespace MassiveJobs.Core
                 var worker = new WorkerScheduled(
                     queueName,
                     _settings.ScheduledWorkersBatchSize,
-                    MessageConsumer,
-                    ServiceScopeFactory,
-                    LoggerFactory.SafeCreateLogger<WorkerScheduled>()
+                    ServiceProvider.GetRequiredService<IMessageConsumer>(),
+                    ServiceProvider.GetRequiredService<IJobServiceScopeFactory>(),
+                    ServiceProvider.GetRequiredService<IJobLogger<WorkerScheduled>>()
                 );
 
                 worker.Error += OnWorkerError;
@@ -186,9 +178,9 @@ namespace MassiveJobs.Core
                 var periodicWorker = new WorkerScheduled(
                     queueName,
                     _settings.PeriodicWorkersBatchSize,
-                    MessageConsumer,
-                    ServiceScopeFactory,
-                    LoggerFactory.SafeCreateLogger<WorkerScheduled>()
+                    ServiceProvider.GetRequiredService<IMessageConsumer>(),
+                    ServiceProvider.GetRequiredService<IJobServiceScopeFactory>(),
+                    ServiceProvider.GetRequiredService<IJobLogger<WorkerScheduled>>()
                 );
 
                 periodicWorker.Error += OnWorkerError;
@@ -203,9 +195,9 @@ namespace MassiveJobs.Core
                     queueName,
                     _settings.LongRunningWorkersBatchSize,
                     _settings.MaxDegreeOfParallelismPerWorker,
-                    MessageConsumer,
-                    ServiceScopeFactory,
-                    LoggerFactory.SafeCreateLogger<WorkerImmediate>()
+                    ServiceProvider.GetRequiredService<IMessageConsumer>(),
+                    ServiceProvider.GetRequiredService<IJobServiceScopeFactory>(),
+                    ServiceProvider.GetRequiredService<IJobLogger<WorkerImmediate>>()
                 );
 
                 worker.Error += OnWorkerError;
@@ -215,9 +207,9 @@ namespace MassiveJobs.Core
             var errorWorker = new WorkerScheduled(
                 _settings.ErrorQueueName,
                 _settings.ScheduledWorkersBatchSize,
-                MessageConsumer,
-                ServiceScopeFactory,
-                LoggerFactory.SafeCreateLogger<WorkerScheduled>()
+                ServiceProvider.GetRequiredService<IMessageConsumer>(),
+                ServiceProvider.GetRequiredService<IJobServiceScopeFactory>(),
+                ServiceProvider.GetRequiredService<IJobLogger<WorkerScheduled>>()
             );
 
             errorWorker.Error += OnWorkerError;

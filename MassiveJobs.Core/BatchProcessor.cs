@@ -25,12 +25,12 @@ namespace MassiveJobs.Core
 
         public event Action<Exception> Error;
 
-        protected BatchProcessor(int batchSize, IJobLogger logger)
+        protected BatchProcessor(int batchSize, IJobLogger<BatchProcessor<TMessage>> logger)
         {
             _batchSize = batchSize;
             _messages = new ConcurrentQueue<TMessage>();
 
-            Logger = logger ?? new DefaultLogger<BatchProcessor<TMessage>>();
+            Logger = logger;
         }
 
         public virtual void Dispose()
@@ -193,6 +193,10 @@ namespace MassiveJobs.Core
         {
             try
             {
+                #if DEBUG
+                Console.WriteLine(ex);
+                #endif
+
                 Logger.LogError(ex, "Error while processing jobs");
                 Error?.Invoke(ex);
             }

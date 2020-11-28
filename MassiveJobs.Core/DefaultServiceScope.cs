@@ -1,58 +1,44 @@
 ﻿using System;
-using System.Collections.Concurrent;
-
+using MassiveJobs.Core.LightInject;
 using MassiveJobs.Core.Serialization;
 
 namespace MassiveJobs.Core
 {
-    public class DefaultServiceScopeFactory : IJobServiceScopeFactory
+    public class DefaultJobServiceProvider : IJobServiceProvider
     {
-        internal MassiveJobsSettings Settings { get; }
-        internal IMessagePublisher MessagePublisher { get; }
-        internal IMessageConsumer MessageConsumer { get; }
-        internal IJobLoggerFactory JobLoggerFactory { get; }
-        internal IJobSerializer JobSerializer { get; }
-        internal IJobTypeProvider JobTypeProvider { get; }
-        internal IJobRunner JobRunner { get; }
+        private readonly IServiceContainer _container;
 
-        public DefaultServiceScopeFactory(
+        public DefaultJobServiceProvider(
             MassiveJobsSettings settings,
             IMessagePublisher messagePublisher,
             IMessageConsumer messageConsumer,
             IJobLoggerFactory jobLoggerFactory = null,
             IJobSerializer jobSerializer = null,
-            IJobTypeProvider jobTypeProvider = null,
-            IJobRunner jobRunner = null
-            )
+            IJobTypeProvider jobTypeProvider = null)
         {
-            Settings = settings;
-            MessagePublisher = messagePublisher;
-            MessageConsumer = messageConsumer;
-            JobLoggerFactory = jobLoggerFactory;
-            JobSerializer = jobSerializer ?? new DefaultSerializer();
-            JobTypeProvider = jobTypeProvider ?? new DefaultTypeProvider();
-            JobRunner = jobRunner ?? new DefaultJobRunner(JobLoggerFactory.SafeCreateLogger<DefaultJobRunner>());
-        }
+            _container = new ServiceContainer();
+            _container.RegisterInstance(settings);
+            _container.RegisterInstance(typeof(IMessagePublisher), messagePublisher);
+            _container.RegisterInstance(typeof(IMessageConsumer), messageConsumer);
+            _container.RegisterInstance(typeof(IJobLoggerFactory), jobLoggerFactory ?? new DefaultLoggerFactory());
+            _container.RegisterInstance(typeof(IJobSerializer), jobSerializer ?? new DefaultSerializer());
+            _container.RegisterInstance(typeof(IJobTypeProvider), jobTypeProvider ?? new DefaultTypeProvider());
+            _container.Register<IJobRunner, DefaultJobRunner>(new PerContainerLifetime());
+            _container.Register<IJobServiceScopeFactory>(f => new DefaultJobServiceScopeFactory(f), new PerContainerLifetime());
+            _container.Register<IJobPublisher, DefaultJobPublisher>(new PerScopeLifetime());
+            _container.Register(typeof(IJobLogger<>), typeof(DefaultLogger<>));
 
-        public IJobServiceScope CreateScope()
-        {
-            return new DefaultServiceScope(this);
+            _container.Compile();
+            _container.Compile<IJobLogger<WorkerCoordinator>>();
+            _container.Compile<IJobLogger<WorkerImmediate>>();
+            _container.Compile<IJobLogger<WorkerScheduled>>();
+            _container.Compile<IJobLogger<DefaultJobPublisher>>();
+            _container.Compile<IJobLogger<DefaultJobRunner>>();
         }
 
         public void Dispose()
         {
-        }
-    }
-
-    public class DefaultServiceScope : IJobServiceScope
-    {
-        private readonly ConcurrentBag<IJobPublisher> _publishers;
-        private readonly DefaultServiceScopeFactory _factory;
-
-        public DefaultServiceScope(DefaultServiceScopeFactory serviceScopeFactory)
-        {
-            _factory = serviceScopeFactory;
-            _publishers = new ConcurrentBag<IJobPublisher>();
+            _container.Dispose();
         }
 
         public object GetRequiredService(Type serviceType)
@@ -63,50 +49,65 @@ namespace MassiveJobs.Core
 
         public virtual object GetService(Type serviceType)
         {
-            if (serviceType == typeof(IJobPublisher))
-            {
-                var publisher = new DefaultJobPublisher(
-                    _factory.Settings,
-                    _factory.MessagePublisher,
-                    _factory.JobTypeProvider,
-                    _factory.JobSerializer,
-                    _factory.JobLoggerFactory.SafeCreateLogger<DefaultJobPublisher>()
-                );
+            return _container.TryGetInstance(serviceType);
+        }
+    }
 
-                _publishers.Add(publisher);
+    class DefaultJobServiceScopeFactory : IJobServiceScopeFactory
+    {
+        private readonly IServiceFactory _factory;
 
-                return publisher;
-            }
-
-            if (serviceType == typeof(IJobRunner)) return _factory.JobRunner;
-            if (serviceType == typeof(MassiveJobsSettings)) return _factory.Settings;
-            if (serviceType == typeof(IMessagePublisher)) return _factory.MessagePublisher;
-            if (serviceType == typeof(IMessageConsumer)) return _factory.MessageConsumer;
-            if (serviceType == typeof(IJobSerializer)) return _factory.JobSerializer;
-            if (serviceType == typeof(IJobTypeProvider)) return _factory.JobTypeProvider;
-
-            return null;
+        public DefaultJobServiceScopeFactory(IServiceFactory factory)
+        {
+            _factory = factory;
         }
 
         public void Dispose()
         {
-            while (_publishers.Count > 0)
-            {
-                if (_publishers.TryTake(out var publisher)) publisher.SafeDispose();
-            }
+        }
+
+        public IJobServiceScope CreateScope()
+        {
+            return new DefaultJobServiceScope(_factory.BeginScope());
         }
     }
 
-    public static class ServiceScopeExtensions
+    class DefaultJobServiceScope : IJobServiceScope
     {
-        public static TService GetService<TService>(this IJobServiceScope scope)
+        private readonly Scope _scope;
+
+        internal DefaultJobServiceScope(Scope scope)
         {
-            return (TService)scope?.GetService(typeof(TService));
+            _scope = scope;
         }
 
-        public static TService GetRequiredService<TService>(this IJobServiceScope scope)
+        public object GetRequiredService(Type serviceType)
         {
-            return (TService)scope?.GetRequiredService(typeof(TService));
+            var svc = GetService(serviceType);
+            return svc ?? throw new ArgumentException($"Service of type {serviceType?.AssemblyQualifiedName} is not registered.");
+        }
+
+        public virtual object GetService(Type serviceType)
+        {
+            return _scope.TryGetInstance(serviceType);
+        }
+
+        public void Dispose()
+        {
+            _scope.Dispose();
+        }
+    }
+
+    public static class JobServiceProviderExtensions
+    {
+        public static TService GetService<TService>(this IJobServiceProvider provider)
+        {
+            return (TService)provider?.GetService(typeof(TService));
+        }
+
+        public static TService GetRequiredService<TService>(this IJobServiceProvider provider)
+        {
+            return (TService)provider?.GetRequiredService(typeof(TService));
         }
     }
 }

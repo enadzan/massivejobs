@@ -8,20 +8,19 @@ namespace MassiveJobs.Core
 {
     public class DefaultJobRunner : IJobRunner
     {
-        private readonly IJobLogger _logger;
-        private readonly int _defaultJobTimeout;
+        private readonly IJobLogger<DefaultJobRunner> _logger;
+        private const int DefaultJobTimeoutMs = 5 * 1000;
 
-        public DefaultJobRunner(IJobLogger logger, int defaultJobTimeoutMs = 5 * 1000)
+        public DefaultJobRunner(IJobLogger<DefaultJobRunner> logger)
         {
-            _logger = logger ?? new DefaultLogger<DefaultJobRunner>();
-            _defaultJobTimeout = defaultJobTimeoutMs;
+            _logger = logger;
         }
 
         public void RunJob(IJobPublisher publisher, JobInfo jobInfo, IJobServiceScope serviceScope, CancellationToken cancellationToken)
         {
             try
             {
-                using (var timeoutTokenSource = new CancellationTokenSource(jobInfo.TimeoutMs ?? _defaultJobTimeout))
+                using (var timeoutTokenSource = new CancellationTokenSource(jobInfo.TimeoutMs ?? DefaultJobTimeoutMs))
                 {
                     var timeoutToken = timeoutTokenSource.Token;
 
@@ -111,6 +110,7 @@ namespace MassiveJobs.Core
             }
             catch (TargetInvocationException ex)
             {
+                if (ex.InnerException == null) throw;
                 ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
             }
         }

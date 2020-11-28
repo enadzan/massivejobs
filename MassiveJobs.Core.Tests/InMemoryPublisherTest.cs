@@ -33,13 +33,13 @@ namespace MassiveJobs.Core.Tests
             var messagePublisher = new InMemoryMessagePublisher(_settings, _messages);
             var messageConsumer = new InMemoryMessageConsumer(_messages);
 
-            var scopeFactory = new DefaultServiceScopeFactory(
+            var serviceProvider = new DefaultJobServiceProvider(
                 _settings,
                 messagePublisher,
                 messageConsumer
             );
 
-            _jobs = new MassiveJobsMediator(scopeFactory);
+            _jobs = new MassiveJobsMediator(serviceProvider);
         }
 
         [TestCleanup]

@@ -16,7 +16,7 @@ namespace MassiveJobs.Core
         protected readonly IJobServiceScopeFactory ServiceScopeFactory;
 
         protected Worker(string queueName, int batchSize, int masMaxDegreeOfParallelism, 
-            IMessageConsumer messageConsumer, IJobServiceScopeFactory serviceScopeFactory, IJobLogger logger)
+            IMessageConsumer messageConsumer, IJobServiceScopeFactory serviceScopeFactory, IJobLogger<Worker> logger)
             : base(batchSize, logger)
         {
             _maxDegreeOfParallelism = masMaxDegreeOfParallelism;

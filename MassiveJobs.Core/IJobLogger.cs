@@ -25,6 +25,6 @@ namespace MassiveJobs.Core
 
     public interface IJobLoggerFactory
     {
-        IJobLogger<TCategory> CreateLogger<TCategory>();
+        IJobLogger CreateLogger(string categoryName);
     }
 }
