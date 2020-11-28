@@ -1,8 +1,8 @@
 ﻿namespace MassiveJobs.Core.Memory
 {
-    public static class JobsExtensions
+    public static class JobsBuilderExtensions
     {
-        public static Jobs WithInMemoryBroker(this Jobs jobs, InMemoryMessages messages = null)
+        public static JobsBuilder WithInMemoryBroker(this JobsBuilder jobs, InMemoryMessages messages = null)
         {
             jobs.RegisterInstance(messages ?? new InMemoryMessages());
             jobs.RegisterSingleton<IMessagePublisher, InMemoryMessagePublisher>();

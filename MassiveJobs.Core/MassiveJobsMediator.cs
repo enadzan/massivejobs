@@ -24,13 +24,12 @@ namespace MassiveJobs.Core
             }
         }
 
-        public static void Initialize(IJobServiceProvider serviceProvider)
+        public static void Initialize(IJobServiceFactory serviceFactory)
         {
             lock (InitializationLock)
             {
                 if (DefaultMediator != null) return;
-
-                DefaultMediator = new MassiveJobsMediator(serviceProvider);
+                DefaultMediator = new MassiveJobsMediator(serviceFactory);
             }
         }
 
@@ -45,29 +44,32 @@ namespace MassiveJobs.Core
             }
         }
         
-        protected IJobServiceProvider ServiceProvider;
+        protected IJobServiceFactory ServiceFactory;
         protected IWorkerCoordinator Workers;
 
         protected MassiveJobsMediator()
         {
         }
 
-        public MassiveJobsMediator(IJobServiceProvider serviceProvider)
+        public MassiveJobsMediator(IJobServiceFactory serviceFactory)
         {
-            ServiceProvider = serviceProvider;
-            Workers = new WorkerCoordinator(serviceProvider.ServiceFactory);
+            ServiceFactory = serviceFactory;
+            Workers = new WorkerCoordinator(serviceFactory);
         }
 
         public virtual void Dispose()
         {
             Workers.SafeDispose();
-            ServiceProvider.SafeDispose(); 
+
+            if (ServiceFactory is IDisposable disposable)
+            {
+                disposable.SafeDispose();
+            }
         }
 
         public void Publish(IEnumerable<JobInfo> jobs)
         {
-            using (var scope = ServiceProvider.ServiceFactory.GetRequiredService<IJobServiceScopeFactory>()
-                .CreateScope())
+            using (var scope = ServiceFactory.GetRequiredService<IJobServiceScopeFactory>().CreateScope())
             {
                 scope.GetRequiredService<IJobPublisher>().Publish(jobs);
             }

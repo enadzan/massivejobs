@@ -3,87 +3,81 @@ using MassiveJobs.Core.DependencyInjection;
 
 namespace MassiveJobs.Core
 {
-    public class Jobs
+    public class JobsBuilder
     {
         private readonly IJobServiceProvider _serviceProvider;
 
-        private Jobs(IJobServiceProvider serviceProvider)
+        private JobsBuilder(IJobServiceProvider serviceProvider)
         {
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         }
 
-        public static Jobs Configure(IJobServiceProvider serviceProvider)
+        public static JobsBuilder Configure(IJobServiceProvider serviceProvider)
         {
-            return new Jobs(serviceProvider);
+            return new JobsBuilder(serviceProvider);
         }
 
-        public static Jobs Configure()
-        {
-            return new Jobs(new DefaultServiceProvider());
-        }
-
-        public static void Deinitialize()
+        public static void DisposeJobs()
         {
             MassiveJobsMediator.Deinitialize();
         }
 
-        public Jobs RegisterInstance<TService>(TService instance)
+        public static JobsBuilder Configure()
+        {
+            return new JobsBuilder(new DefaultServiceProvider());
+        }
+
+        public JobsBuilder RegisterInstance<TService>(TService instance)
         {
             _serviceProvider.ServiceCollection.RegisterInstance(instance);
             return this;
         }
 
-        public Jobs RegisterSingleton<TService>(Func<IJobServiceFactory, TService> factory)
+        public JobsBuilder RegisterSingleton<TService>(Func<IJobServiceFactory, TService> factory)
         {
             _serviceProvider.ServiceCollection.RegisterSingleton(factory);
             return this;
         }
 
-        public Jobs RegisterSingleton<TService, TImplementation>() where TImplementation : TService
+        public JobsBuilder RegisterSingleton<TService, TImplementation>() where TImplementation : TService
         {
             _serviceProvider.ServiceCollection.RegisterSingleton<TService, TImplementation>();
             return this;
         }
 
-        public Jobs RegisterScoped<TService>(Func<IJobServiceFactory, TService> factory)
+        public JobsBuilder RegisterScoped<TService>(Func<IJobServiceFactory, TService> factory)
         {
             _serviceProvider.ServiceCollection.RegisterScoped(factory);
             return this;
         }
 
-        public Jobs RegisterScoped<TService, TImplementation>() where TImplementation : TService
+        public JobsBuilder RegisterScoped<TService, TImplementation>() where TImplementation : TService
         {
             _serviceProvider.ServiceCollection.RegisterScoped<TService, TImplementation>();
             return this;
         }
 
-        public Jobs RegisterTransient<TService>(Func<IJobServiceFactory, TService> factory)
+        public JobsBuilder RegisterTransient<TService>(Func<IJobServiceFactory, TService> factory)
         {
             _serviceProvider.ServiceCollection.RegisterTransient(factory);
             return this;
         }
 
-        public Jobs RegisterTransient<TService, TImplementation>() where TImplementation : TService
+        public JobsBuilder RegisterTransient<TService, TImplementation>() where TImplementation : TService
         {
             _serviceProvider.ServiceCollection.RegisterTransient<TService, TImplementation>();
             return this;
         }
 
-        public void Initialize(bool startWorkers = true)
+        public void Build(bool startWorkers = true)
         {
             ValidateAndCompile();
-            MassiveJobsMediator.Initialize(_serviceProvider);
+            MassiveJobsMediator.Initialize(_serviceProvider.ServiceFactory);
 
             if (startWorkers)
             {
                 MassiveJobsMediator.DefaultInstance.StartJobWorkers();
             }
-        }
-
-        internal MassiveJobsMediator InitializeNew()
-        {
-            ValidateAndCompile();
-            return new MassiveJobsMediator(_serviceProvider);
         }
 
         private void ValidateAndCompile()

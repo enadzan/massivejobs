@@ -20,7 +20,6 @@ namespace MassiveJobs.Core.Tests
         };
 
         private InMemoryMessages _messages;
-        private MassiveJobsMediator _jobs;
 
         [TestInitialize]
         public void TestInit()
@@ -29,24 +28,22 @@ namespace MassiveJobs.Core.Tests
 
             _messages = new InMemoryMessages();
 
-            _jobs = Jobs.Configure()
+            JobsBuilder.Configure()
                 .RegisterInstance(_settings)
                 .WithInMemoryBroker(_messages)
-                .InitializeNew();
+                .Build();
         }
 
         [TestCleanup]
         public void TestCleanup()
         {
-            _jobs.SafeDispose();
+            JobsBuilder.DisposeJobs();
         }
 
         [TestMethod]
         public void TestPublishInc()
         {
-            _jobs.StartJobWorkers();
-
-            _jobs.Publish<MockJob, bool>(true);
+            MockJobInc.Publish(true);
 
             Thread.Sleep(100);
 
@@ -56,10 +53,8 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestPublishWithDelay()
         {
-            _jobs.StartJobWorkers();
-
-            _jobs.Publish<MockJob, bool>(true, TimeSpan.FromSeconds(2));
-            _jobs.Publish<MockJob, bool>(true, TimeSpan.FromSeconds(2));
+            MockJobInc.Publish(true, TimeSpan.FromSeconds(2));
+            MockJobInc.Publish(true, TimeSpan.FromSeconds(2));
 
             Thread.Sleep(1000);
 
@@ -73,9 +68,7 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestPublishDec()
         {
-            _jobs.StartJobWorkers();
-
-            _jobs.Publish<MockJob, bool>(false);
+            MockJobInc.Publish(false);
 
             Thread.Sleep(100);
 
@@ -85,10 +78,8 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestFailedJobs()
         {
-            _jobs.StartJobWorkers();
-
-            _jobs.Publish<MockJob, bool>(true);
-            _jobs.Publish<MockJobFailed, bool>(true);
+            MockJobInc.Publish(true);
+            MockJobFailed.Publish(true);
 
             Thread.Sleep(100);
 
@@ -99,10 +90,8 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestFailedAsyncJobs()
         {
-            _jobs.StartJobWorkers();
-
-            _jobs.Publish<MockJob, bool>(true);
-            _jobs.Publish<MockAsyncJobFailed>();
+            MockJobInc.Publish(true);
+            MockAsyncJobFailed.Publish();
 
             Thread.Sleep(100);
 
@@ -113,10 +102,8 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestCanceledAsyncJobs()
         {
-            _jobs.StartJobWorkers();
-
-            _jobs.Publish<MockJob, bool>(true);
-            _jobs.Publish<MockAsyncJobCanceled>();
+            MockJobInc.Publish(true);
+            MockAsyncJobCanceled.Publish();
 
             Thread.Sleep(200);
 
@@ -127,11 +114,9 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestScheduleParallel()
         {
-            _jobs.StartJobWorkers();
-
             for (var i = 0; i < 10000; i++)
             {
-                _jobs.Publish<MockJob, bool>(true);
+                MockJobInc.Publish(true);
             }
 
             Thread.Sleep(500);
@@ -142,9 +127,7 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestScheduleWithTimeoutDefault()
         {
-            _jobs.StartJobWorkers();
-
-            _jobs.Publish<LongRunningJobAsync, int>(6000);
+            LongRunningJobAsync.Publish(6000);
 
             Thread.Sleep(6000);
 
@@ -155,9 +138,7 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestScheduleWithTimeoutCustom()
         {
-            _jobs.StartJobWorkers();
-
-            _jobs.Publish<LongRunningJobAsync, int>(2000, null, 1000);
+            LongRunningJobAsync.Publish(2000, 1000);
 
             Thread.Sleep(2000);
 
@@ -168,11 +149,9 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestScheduleWithCancelledJobs()
         {
-            _jobs.StartJobWorkers();
+            LongRunningJobAsync.Publish(2000);
 
-            _jobs.Publish<LongRunningJobAsync, int>(2000);
-
-            _jobs.StopJobWorkers();
+            MassiveJobsMediator.DefaultInstance.StopJobWorkers();
 
             Assert.AreEqual(0, _performCount);
 
@@ -189,9 +168,7 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestPeriodicJob()
         {
-            _jobs.StartJobWorkers();
-
-            _jobs.PublishPeriodic<MockJob, bool>(true, "test_job", 1);
+            MockJobInc.PublishPeriodic(true, "test_job", 1);
 
             Thread.Sleep(3500);
 
@@ -201,9 +178,7 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestPeriodicJobWithEndTime()
         {
-            _jobs.StartJobWorkers();
-
-            _jobs.PublishPeriodic<MockJob, bool>(true, "test_job", 1, null, DateTime.UtcNow.AddMilliseconds(4500));
+            MockJobInc.PublishPeriodic(true, "test_job", 1, null, DateTime.UtcNow.AddMilliseconds(4500));
 
             Thread.Sleep(6000);
 
@@ -213,9 +188,7 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestCronJobWithEndTime()
         {
-            _jobs.StartJobWorkers();
-
-            _jobs.PublishPeriodic<MockJob>("test_job", "0/2 * * ? * *", null, null, DateTime.UtcNow.AddSeconds(4));
+            MockJob.PublishPeriodic("test_job", "0/2 * * ? * *", null, null, DateTime.UtcNow.AddSeconds(4));
 
             Thread.Sleep(6000);
 
@@ -225,13 +198,11 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestPeriodicJobCancelling()
         {
-            _jobs.StartJobWorkers();
-
-            _jobs.PublishPeriodic<MockJob, bool>(true, "test_job", 1);
+            MockJobInc.PublishPeriodic(true, "test_job", 1);
 
             Thread.Sleep(3500);
 
-            _jobs.CancelPeriodic<MockJob, bool>(true, "test_job");
+            MockJobInc.CancelPeriodic("test_job");
 
             Thread.Sleep(1000);
 
@@ -241,7 +212,7 @@ namespace MassiveJobs.Core.Tests
         [TestMethod]
         public void TestLongRunningImmediateJob()
         {
-            _jobs.Publish<MockJob, bool>(true, null, 10_000);
+            MockJobInc.Publish(true, 10_000);
 
             var totalLongRunning = 0;
             for (var i = 0; i < _settings.LongRunningWorkersCount; i++)
@@ -253,25 +224,28 @@ namespace MassiveJobs.Core.Tests
             Assert.AreEqual(1, totalLongRunning);
         }
 
-        private class MockJob
+        private class MockJob: Job<MockJob>
         {
-            public void Perform()
+            public override void Perform()
             {
                 Interlocked.Increment(ref _performCount);
             }
+        }
 
-            public void Perform(bool increment)
+        private class MockJobInc: Job<MockJobInc, bool>
+        {
+            public override void Perform(bool increment)
             {
                 if (increment) Interlocked.Increment(ref _performCount);
                 else Interlocked.Decrement(ref _performCount);
             }
         }
 
-        private class MockJobFailed
+        private class MockJobFailed: Job<MockJobFailed, bool>
         {
             public static bool ShoudFail { get; set; } = true;
 
-            public void Perform(bool _)
+            public override void Perform(bool _)
             {
                 if (ShoudFail)
                 {
@@ -281,9 +255,9 @@ namespace MassiveJobs.Core.Tests
             }
         }
 
-        private class MockAsyncJobFailed
+        private class MockAsyncJobFailed: JobAsync<MockAsyncJobFailed>
         {
-            public async Task Perform(CancellationToken cancellationToken)
+            public override async Task Perform(CancellationToken cancellationToken)
             {
                 await Task.Delay(10, cancellationToken);
 
@@ -291,18 +265,18 @@ namespace MassiveJobs.Core.Tests
             }
         }
 
-        private class MockAsyncJobCanceled
+        private class MockAsyncJobCanceled: JobAsync<MockAsyncJobCanceled>
         {
-            public async Task Perform(CancellationToken cancellationToken)
+            public override async Task Perform(CancellationToken cancellationToken)
             {
                 await Task.Delay(100, cancellationToken);
                 throw new OperationCanceledException();
             }
         }
 
-        private class LongRunningJobAsync
+        private class LongRunningJobAsync: JobAsync<LongRunningJobAsync, int>
         {
-            public async Task Perform(int delayMs, CancellationToken cancellationToken)
+            public override async Task Perform(int delayMs, CancellationToken cancellationToken)
             {
                 await Task.Delay(delayMs, cancellationToken);
                 Interlocked.Increment(ref _performCount);
