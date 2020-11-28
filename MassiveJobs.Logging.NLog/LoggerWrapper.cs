@@ -4,9 +4,9 @@ using MassiveJobs.Core;
 
 namespace MassiveJobs.Logging.NLog
 {
-    public class LoggerWrapper<TCategory> : IJobLogger<TCategory>
+    public class LoggerWrapper : IJobLogger
     {
-        private ILogger _logger;
+        private readonly ILogger _logger;
 
         public LoggerWrapper(ILogger logger)
         {
@@ -43,10 +43,10 @@ namespace MassiveJobs.Logging.NLog
 
     public class LoggerWrapperFactory : IJobLoggerFactory
     {
-        public IJobLogger<TCategory> CreateLogger<TCategory>()
+        public IJobLogger CreateLogger(string categoryName)
         {
-            var logger = LogManager.GetLogger(typeof(TCategory).FullName);
-            return new LoggerWrapper<TCategory>(logger);
+            var logger = LogManager.GetLogger(categoryName);
+            return new LoggerWrapper(logger);
         }
     }
 }

@@ -2,12 +2,13 @@
 using Serilog;
 using Serilog.Events;
 using MassiveJobs.Core;
+using Serilog.Core;
 
 namespace MassiveJobs.Logging.Serilog
 {
-    public class LoggerWrapper<TCategory> : IJobLogger<TCategory>
+    public class LoggerWrapper : IJobLogger
     {
-        private ILogger _logger;
+        private readonly ILogger _logger;
 
         public LoggerWrapper(ILogger logger)
         {
@@ -44,9 +45,9 @@ namespace MassiveJobs.Logging.Serilog
 
     public class LoggerWrapperFactory : IJobLoggerFactory
     {
-        public IJobLogger<TCategory> CreateLogger<TCategory>()
+        public IJobLogger CreateLogger(string categoryName)
         {
-            return new LoggerWrapper<TCategory>(Log.ForContext<TCategory>());
+            return new LoggerWrapper(Log.ForContext(Constants.SourceContextPropertyName, categoryName));
         }
     }
 }

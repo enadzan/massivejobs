@@ -4,9 +4,9 @@ using MassiveJobs.Core;
 
 namespace MassiveJobs.Logging.Log4Net
 {
-    public class LoggerWrapper<TCategory> : IJobLogger<TCategory>
+    public class LoggerWrapper : IJobLogger
     {
-        private ILog _logger;
+        private readonly ILog _logger;
 
         public LoggerWrapper(ILog logger)
         {
@@ -43,11 +43,10 @@ namespace MassiveJobs.Logging.Log4Net
 
     public class LoggerWrapperFactory : IJobLoggerFactory
     {
-        public IJobLogger<TCategory> CreateLogger<TCategory>()
+        public IJobLogger CreateLogger(string categoryName)
         {
-            var logger = LogManager.GetLogger(typeof(TCategory));
-
-            return new LoggerWrapper<TCategory>(logger);
+            var logger = LogManager.GetLogger(categoryName);
+            return new LoggerWrapper(logger);
         }
     }
 }
