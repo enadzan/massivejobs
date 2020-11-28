@@ -6,7 +6,7 @@
         {
             NamePrefix = namePrefix;
             ImmediateQueueNameTemplate = namePrefix + "massivejobs.immediate.{0:#00}";
-            LongRunningQueueNameTemplate = namePrefix = "massivejobs.long-running.{0:#00}";
+            LongRunningQueueNameTemplate = namePrefix + "massivejobs.long-running.{0:#00}";
             ScheduledQueueNameTemplate = namePrefix + "massivejobs.scheduled.{0:#00}";
             PeriodicQueueNameTemplate = namePrefix + "massivejobs.periodic.{0:#00}";
             ErrorQueueName = namePrefix + "massivejobs.error";
