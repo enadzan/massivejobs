@@ -6,8 +6,10 @@
         {
             messages = messages ?? new InMemoryMessages();
 
-            initializer.WithMessagePublisher(new InMemoryMessagePublisher(initializer.Settings, messages));
-            initializer.WithMessageConsumer(new InMemoryMessageConsumer(messages));
+            initializer.WithMessageBroker(
+                p => new InMemoryMessagePublisher(p.GetRequiredService<MassiveJobsSettings>(), messages),
+                _ => new InMemoryMessageConsumer(messages)
+            );
 
             return initializer;
         }

@@ -4,17 +4,17 @@ namespace MassiveJobs.Core
 {
     public class Jobs
     {
-        public MassiveJobsSettings Settings { get; }
-
+        private MassiveJobsSettings _settings;
         private IJobLoggerFactory _loggerFactory;
-        private IJobSerializer _serializer;
-        private IJobTypeProvider _typeProvider;
-        private IMessagePublisher _messagePublisher;
-        private IMessageConsumer _messageConsumer;
+
+        private Func<IJobServiceProvider, IJobSerializer> _serializerFactory;
+        private Func<IJobServiceProvider, IJobTypeProvider> _typeProviderFactory;
+        private Func<IJobServiceProvider, IMessagePublisher> _publisherFactory;
+        private Func<IJobServiceProvider, IMessageConsumer> _consumerFactory;
 
         private Jobs(MassiveJobsSettings settings)
         {
-            Settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         }
 
         public static Jobs Configure(MassiveJobsSettings settings = null)
@@ -33,33 +33,35 @@ namespace MassiveJobs.Core
             return this;
         }
 
-        public Jobs WithSerializer(IJobSerializer serializer)
+        public Jobs WithSerializer(Func<IJobServiceProvider, IJobSerializer> serializerFactory)
         {
-            _serializer = serializer;
+            _serializerFactory = serializerFactory;
             return this;
         }
 
-        public Jobs WithTypeProvider(IJobTypeProvider typeProvider)
+        public Jobs WithTypeProvider(Func<IJobServiceProvider, IJobTypeProvider> typeProviderFactory)
         {
-            _typeProvider = typeProvider;
+            _typeProviderFactory = typeProviderFactory;
             return this;
         }
 
-        public Jobs WithMessagePublisher(IMessagePublisher messagePublisher)
+        public Jobs WithMessageBroker(
+            Func<IJobServiceProvider, IMessagePublisher> publisherFactory,
+            Func<IJobServiceProvider, IMessageConsumer> consumerFactory)
         {
-            _messagePublisher = messagePublisher;
+            _publisherFactory = publisherFactory;
+            _consumerFactory = consumerFactory;
             return this;
         }
 
-        public Jobs WithMessageConsumer(IMessageConsumer messageConsumer)
-        {
-            _messageConsumer = messageConsumer;
-            return this;
-        }
-
-        public void Initialize()
+        public virtual void Initialize(bool startWorkers = true)
         {
             MassiveJobsMediator.Initialize(CreateServiceProvider());
+
+            if (startWorkers)
+            {
+                MassiveJobsMediator.DefaultInstance.StartJobWorkers();
+            }
         }
 
         internal MassiveJobsMediator InitializeNew()
@@ -71,16 +73,14 @@ namespace MassiveJobs.Core
         {
             if (MassiveJobsMediator.IsInitialized) throw new Exception("MassiveJobs already initialized");
 
-            if (_messageConsumer == null) throw new Exception("Message consumer must be configured");
-            if (_messagePublisher == null) throw new Exception("Message consumer must be configured");
+            if (_consumerFactory == null) throw new Exception("Message consumer must be configured");
+            if (_publisherFactory == null) throw new Exception("Message consumer must be configured");
 
-            return new DefaultJobServiceProvider(
-                Settings,
-                _messagePublisher,
-                _messageConsumer,
-                _loggerFactory,
-                _serializer,
-                _typeProvider);
+            var provider = new DefaultJobServiceProvider(_settings, _loggerFactory);
+
+            provider.RegisterServices(_publisherFactory, _consumerFactory, _serializerFactory, _typeProviderFactory);
+
+            return provider;
         }
     }
 }

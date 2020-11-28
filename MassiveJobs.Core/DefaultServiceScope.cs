@@ -8,25 +8,33 @@ namespace MassiveJobs.Core
     {
         private readonly IServiceContainer _container;
 
-        public DefaultJobServiceProvider(
-            MassiveJobsSettings settings,
-            IMessagePublisher messagePublisher,
-            IMessageConsumer messageConsumer,
-            IJobLoggerFactory jobLoggerFactory = null,
-            IJobSerializer jobSerializer = null,
-            IJobTypeProvider jobTypeProvider = null)
+        public DefaultJobServiceProvider(MassiveJobsSettings settings, IJobLoggerFactory jobLoggerFactory = null)
         {
             _container = new ServiceContainer();
+
             _container.RegisterInstance(settings);
-            _container.RegisterInstance(typeof(IMessagePublisher), messagePublisher);
-            _container.RegisterInstance(typeof(IMessageConsumer), messageConsumer);
             _container.RegisterInstance(typeof(IJobLoggerFactory), jobLoggerFactory ?? new DefaultLoggerFactory());
-            _container.RegisterInstance(typeof(IJobSerializer), jobSerializer ?? new DefaultSerializer());
-            _container.RegisterInstance(typeof(IJobTypeProvider), jobTypeProvider ?? new DefaultTypeProvider());
+
             _container.Register<IJobRunner, DefaultJobRunner>(new PerContainerLifetime());
             _container.Register<IJobServiceScopeFactory>(f => new DefaultJobServiceScopeFactory(f), new PerContainerLifetime());
             _container.Register<IJobPublisher, DefaultJobPublisher>(new PerScopeLifetime());
             _container.Register(typeof(IJobLogger<>), typeof(DefaultLogger<>));
+        }
+
+        internal void RegisterServices(
+            Func<IJobServiceProvider, IMessagePublisher> messagePublisherFactory,
+            Func<IJobServiceProvider, IMessageConsumer> messageConsumerFactory,
+            Func<IJobServiceProvider, IJobSerializer> jobSerializerFactory = null,
+            Func<IJobServiceProvider, IJobTypeProvider> jobTypeProviderFactory = null)
+        {
+            if (messagePublisherFactory == null) throw new ArgumentNullException(nameof(messagePublisherFactory));
+            if (messageConsumerFactory == null) throw new ArgumentNullException(nameof(messageConsumerFactory));
+
+            _container.RegisterInstance(typeof(IJobSerializer), jobSerializerFactory?.Invoke(this) ?? new DefaultSerializer());
+            _container.RegisterInstance(typeof(IJobTypeProvider), jobTypeProviderFactory?.Invoke(this) ?? new DefaultTypeProvider());
+
+            _container.RegisterInstance(typeof(IMessagePublisher), messagePublisherFactory(this));
+            _container.RegisterInstance(typeof(IMessageConsumer), messageConsumerFactory(this));
 
             _container.Compile();
             _container.Compile<IJobLogger<WorkerCoordinator>>();
