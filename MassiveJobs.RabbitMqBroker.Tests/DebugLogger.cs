@@ -15,7 +15,7 @@ namespace MassiveJobs.RabbitMqBroker.Tests
 
         public bool IsEnabled(JobLogLevel logLevel)
         {
-            return true;
+            return logLevel >= JobLogLevel.Debug;
         }
 
         public void Log(JobLogLevel logLevel, Exception exception, string message)
