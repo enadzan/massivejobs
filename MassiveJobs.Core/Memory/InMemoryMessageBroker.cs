@@ -11,31 +11,10 @@ namespace MassiveJobs.Core.Memory
 
         public InMemoryMessagePublisher(MassiveJobsSettings settings, InMemoryMessages messages)
         {
-            _settings = settings;
             _messages = messages;
+            _messages.EnsureQueues(settings);
 
-            for (var i = 0; i < _settings.ImmediateWorkersCount; i++)
-            {
-                _messages.EnsureQueue(string.Format(_settings.ImmediateQueueNameTemplate, i));
-            }
-
-            for (var i = 0; i < _settings.ScheduledWorkersCount; i++)
-            {
-                _messages.EnsureQueue(string.Format(_settings.ScheduledQueueNameTemplate, i));
-            }
-
-            for (var i = 0; i < _settings.PeriodicWorkersCount; i++)
-            {
-                _messages.EnsureQueue(string.Format(_settings.PeriodicQueueNameTemplate, i));
-            }
-
-            for (var i = 0; i < _settings.LongRunningWorkersCount; i++)
-            {
-                _messages.EnsureQueue(string.Format(_settings.LongRunningQueueNameTemplate, i));
-            }
-
-            _messages.EnsureQueue(_settings.ErrorQueueName);
-            _messages.EnsureQueue(_settings.FailedQueueName);
+            _settings = settings;
         }
 
         public void Publish(string routingKey, IEnumerable<RawMessage> messages, TimeSpan timeout)
@@ -61,14 +40,18 @@ namespace MassiveJobs.Core.Memory
     public class InMemoryMessageConsumer : IMessageConsumer
     {
         private readonly InMemoryMessages _messages;
+        private readonly IJobLoggerFactory _loggerFactory;
 
 #pragma warning disable CS0067
         public event MessageConsumerDisconnected Disconnected;
 #pragma warning restore CS0067
 
-        public InMemoryMessageConsumer(InMemoryMessages messages)
+        public InMemoryMessageConsumer(MassiveJobsSettings settings, InMemoryMessages messages, IJobLoggerFactory loggerFactory)
         {
             _messages = messages;
+            _messages.EnsureQueues(settings);
+
+            _loggerFactory = loggerFactory;
         }
 
         public void Dispose()
@@ -81,7 +64,7 @@ namespace MassiveJobs.Core.Memory
 
         public IMessageReceiver CreateReceiver(string queueName)
         {
-            return new InMemoryMessageReceiver(_messages, queueName);
+            return new InMemoryMessageReceiver(_messages, queueName, _loggerFactory.CreateLogger<InMemoryMessageReceiver>());
         }
     }
 
@@ -89,16 +72,18 @@ namespace MassiveJobs.Core.Memory
     {
         private readonly InMemoryMessages _messages;
         private readonly string _queueName;
+        private readonly IJobLogger<InMemoryMessageReceiver> _logger;
         private readonly Thread _consumerThread;
 
         private volatile bool _disposed;
 
         public event MessageReceivedHandler MessageReceived;
 
-        public InMemoryMessageReceiver(InMemoryMessages messages, string queueName)
+        public InMemoryMessageReceiver(InMemoryMessages messages, string queueName, IJobLogger<InMemoryMessageReceiver> logger)
         {
             _messages = messages;
             _queueName = queueName;
+            _logger = logger;
             _consumerThread = new Thread(ConsumerFunction) { IsBackground = true };
         }
 
@@ -119,20 +104,27 @@ namespace MassiveJobs.Core.Memory
         
         public void ConsumerFunction()
         {
-            ulong lastReceivedTag = 0;
-
-            while (!_disposed)
+            try
             {
-                if (_messages.GetMessages(_queueName, lastReceivedTag, out var batch))
-                {
-                    foreach (var msg in batch)
-                    {
-                        if (_disposed) break;
+                ulong lastReceivedTag = 0;
 
-                        MessageReceived?.Invoke(this, msg);
-                        lastReceivedTag = msg.DeliveryTag;
+                while (!_disposed)
+                {
+                    if (_messages.GetMessages(_queueName, lastReceivedTag, out var batch))
+                    {
+                        foreach (var msg in batch)
+                        {
+                            if (_disposed) break;
+
+                            MessageReceived?.Invoke(this, msg);
+                            lastReceivedTag = msg.DeliveryTag;
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in consumer function");
             }
         }
 

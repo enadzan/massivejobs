@@ -2,9 +2,7 @@
 
 namespace MassiveJobs.Core.DependencyInjection
 {
-    public interface IJobServiceProvider : IDisposable
+    public interface IJobServiceProvider : IJobServiceFactory, IDisposable
     {
-        object GetService(Type type);
-        object GetRequiredService(Type type);
     }
 }

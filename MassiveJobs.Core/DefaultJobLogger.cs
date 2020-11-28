@@ -24,11 +24,11 @@ namespace MassiveJobs.Core
         }
     }
 
-    class DefaultLogger<TCategory> : IJobLogger<TCategory>
+    class DefaultJobLogger<TCategory> : IJobLogger<TCategory>
     {
         private readonly IJobLogger _logger;
 
-        public DefaultLogger(IJobLoggerFactory factory)
+        public DefaultJobLogger(IJobLoggerFactory factory)
         {
             _logger = factory.CreateLogger(typeof(TCategory).FullName);
         }

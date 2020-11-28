@@ -1,19 +1,14 @@
-﻿using MassiveJobs.Core.DependencyInjection;
-
-namespace MassiveJobs.Core.Memory
+﻿namespace MassiveJobs.Core.Memory
 {
     public static class JobsExtensions
     {
-        public static Jobs WithInMemoryBroker(this Jobs initializer, InMemoryMessages messages = null)
+        public static Jobs WithInMemoryBroker(this Jobs jobs, InMemoryMessages messages = null)
         {
-            messages = messages ?? new InMemoryMessages();
+            jobs.RegisterInstance(messages ?? new InMemoryMessages());
+            jobs.RegisterSingleton<IMessagePublisher, InMemoryMessagePublisher>();
+            jobs.RegisterSingleton<IMessageConsumer, InMemoryMessageConsumer>();
 
-            initializer.WithMessageBroker(
-                p => new InMemoryMessagePublisher(p.GetRequiredService<MassiveJobsSettings>(), messages),
-                _ => new InMemoryMessageConsumer(messages)
-            );
-
-            return initializer;
+            return jobs;
         }
     }
 }

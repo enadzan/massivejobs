@@ -7,20 +7,37 @@ namespace MassiveJobs.Core.Memory
 {
     public class InMemoryMessages
     {
-        private ulong _lastDeliveryTag = 0;
+        private ulong _lastDeliveryTag;
 
         private readonly Dictionary<string, Tuple<List<RawMessage>, AutoResetEvent>> _publishedMessages
                     = new Dictionary<string, Tuple<List<RawMessage>, AutoResetEvent>>();
 
-        public void EnsureQueue(string queueName)
+        internal void EnsureQueues(MassiveJobsSettings settings)
         {
             lock (_publishedMessages)
             {
-                if (!_publishedMessages.TryGetValue(queueName, out var messages))
+                for (var i = 0; i < settings.ImmediateWorkersCount; i++)
                 {
-                    messages = new Tuple<List<RawMessage>, AutoResetEvent>(new List<RawMessage>(), new AutoResetEvent(false));
-                    _publishedMessages.Add(queueName, messages);
+                    EnsureQueue(string.Format(settings.ImmediateQueueNameTemplate, i));
                 }
+
+                for (var i = 0; i < settings.ScheduledWorkersCount; i++)
+                {
+                    EnsureQueue(string.Format(settings.ScheduledQueueNameTemplate, i));
+                }
+
+                for (var i = 0; i < settings.PeriodicWorkersCount; i++)
+                {
+                    EnsureQueue(string.Format(settings.PeriodicQueueNameTemplate, i));
+                }
+
+                for (var i = 0; i < settings.LongRunningWorkersCount; i++)
+                {
+                    EnsureQueue(string.Format(settings.LongRunningQueueNameTemplate, i));
+                }
+
+                EnsureQueue(settings.ErrorQueueName);
+                EnsureQueue(settings.FailedQueueName);
             }
         }
 
@@ -104,6 +121,15 @@ namespace MassiveJobs.Core.Memory
                 if (!_publishedMessages.TryGetValue(queueName, out var messages)) throw new Exception($"Unknown queue ({queueName})");
 
                 messages.Item1.RemoveAll(m => m.DeliveryTag == deliveryTag);
+            }
+        }
+
+        private void EnsureQueue(string queueName)
+        {
+            if (!_publishedMessages.TryGetValue(queueName, out var messages))
+            {
+                messages = new Tuple<List<RawMessage>, AutoResetEvent>(new List<RawMessage>(), new AutoResetEvent(false));
+                _publishedMessages.Add(queueName, messages);
             }
         }
     }

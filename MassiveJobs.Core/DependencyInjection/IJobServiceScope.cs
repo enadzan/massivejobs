@@ -1,6 +1,8 @@
-﻿namespace MassiveJobs.Core.DependencyInjection
+﻿using System;
+
+namespace MassiveJobs.Core.DependencyInjection
 {
-    public interface IJobServiceScope: IJobServiceProvider
+    public interface IJobServiceScope : IJobServiceFactory, IDisposable
     {
     }
 }

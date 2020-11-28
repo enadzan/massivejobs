@@ -4,6 +4,11 @@ namespace MassiveJobs.Core
 {
     public static class LoggerExtensions
     {
+        public static IJobLogger<TCategory> CreateLogger<TCategory>(this IJobLoggerFactory loggerFactory)
+        {
+            return new DefaultJobLogger<TCategory>(loggerFactory);
+        }
+
         public static void LogTrace(this IJobLogger logger, string message)
         {
             logger.Log(JobLogLevel.Trace, null, message);

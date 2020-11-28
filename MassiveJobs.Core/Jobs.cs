@@ -1,4 +1,5 @@
 ﻿using System;
+using MassiveJobs.Core.LightInject;
 using MassiveJobs.Core.DependencyInjection;
 using MassiveJobs.Core.Serialization;
 
@@ -6,24 +7,16 @@ namespace MassiveJobs.Core
 {
     public class Jobs
     {
-        private readonly DefaultJobServiceProvider _serviceProvider;
+        private readonly DefaultServiceProvider _serviceProvider;
 
-        private Func<IJobServiceProvider, IJobSerializer> _serializerFactory;
-        private Func<IJobServiceProvider, IJobTypeProvider> _typeProviderFactory;
-        private Func<IJobServiceProvider, IMessagePublisher> _publisherFactory;
-        private Func<IJobServiceProvider, IMessageConsumer> _consumerFactory;
-
-        public IJobServiceCollection ServiceCollection { get; }
-
-        private Jobs(DefaultJobServiceProvider serviceProvider)
+        private Jobs(DefaultServiceProvider serviceProvider)
         {
             _serviceProvider = serviceProvider;
-            ServiceCollection = new DefaultServiceCollection(serviceProvider);
         }
 
-        public static Jobs Configure(MassiveJobsSettings settings = null, IJobLoggerFactory loggerFactory = null)
+        public static Jobs Configure(MassiveJobsSettings settings = null)
         {
-            return new Jobs(new DefaultJobServiceProvider(settings, loggerFactory));
+            return new Jobs(new DefaultServiceProvider(settings ?? new MassiveJobsSettings()));
         }
 
         public static void Deinitialize()
@@ -31,30 +24,51 @@ namespace MassiveJobs.Core
             MassiveJobsMediator.Deinitialize();
         }
 
-        public Jobs WithSerializer(Func<IJobServiceProvider, IJobSerializer> serializerFactory)
+        public Jobs RegisterInstance<TService>(TService instance)
         {
-            _serializerFactory = serializerFactory;
+            _serviceProvider.Container.RegisterInstance(instance);
             return this;
         }
 
-        public Jobs WithTypeProvider(Func<IJobServiceProvider, IJobTypeProvider> typeProviderFactory)
+        public Jobs RegisterSingleton<TService>(Func<IJobServiceFactory, TService> factory)
         {
-            _typeProviderFactory = typeProviderFactory;
+            _serviceProvider.Container.RegisterSingleton(f => factory(new DefaultServiceFactory(f)));
             return this;
         }
 
-        public Jobs WithMessageBroker(
-            Func<IJobServiceProvider, IMessagePublisher> publisherFactory,
-            Func<IJobServiceProvider, IMessageConsumer> consumerFactory)
+        public Jobs RegisterSingleton<TService, TImplementation>() where TImplementation : TService
         {
-            _publisherFactory = publisherFactory;
-            _consumerFactory = consumerFactory;
+            _serviceProvider.Container.RegisterSingleton<TService, TImplementation>();
+            return this;
+        }
+
+        public Jobs RegisterScoped<TService>(Func<IJobServiceFactory, TService> factory)
+        {
+            _serviceProvider.Container.RegisterScoped(f => factory(new DefaultServiceFactory(f)));
+            return this;
+        }
+
+        public Jobs RegisterScoped<TService, TImplementation>() where TImplementation : TService
+        {
+            _serviceProvider.Container.RegisterScoped<TService, TImplementation>();
+            return this;
+        }
+
+        public Jobs RegisterTransient<TService>(Func<IJobServiceFactory, TService> factory)
+        {
+            _serviceProvider.Container.RegisterTransient(f => factory(new DefaultServiceFactory(f)));
+            return this;
+        }
+
+        public Jobs RegisterTransient<TService, TImplementation>() where TImplementation : TService
+        {
+            _serviceProvider.Container.RegisterTransient<TService, TImplementation>();
             return this;
         }
 
         public void Initialize(bool startWorkers = true)
         {
-            RegisterInstances();
+            Validate();
             MassiveJobsMediator.Initialize(_serviceProvider);
 
             if (startWorkers)
@@ -65,19 +79,35 @@ namespace MassiveJobs.Core
 
         internal MassiveJobsMediator InitializeNew()
         {
-            RegisterInstances();
+            Validate();
             return new MassiveJobsMediator(_serviceProvider);
         }
 
-        private void RegisterInstances()
+        private void Validate()
         {
-            if (_publisherFactory == null) throw new ArgumentNullException($"{nameof(IMessagePublisher)} must be registered");
-            if (_consumerFactory == null) throw new ArgumentNullException($"{nameof(IMessageConsumer)} must be registered");
+            var hasSerializer = false;
+            var hasTypeProvider = false;
+            var hasMessagePublisher = false;
+            var hasMessageConsumer = false;
+            var hasLoggerFactory = false;
 
-            ServiceCollection.RegisterInstance(_typeProviderFactory ?? (_ => new DefaultTypeProvider()));
-            ServiceCollection.RegisterInstance(_serializerFactory ?? (_ => new DefaultSerializer()));
-            ServiceCollection.RegisterInstance(_publisherFactory);
-            ServiceCollection.RegisterInstance(_consumerFactory);
+            foreach (var sr in _serviceProvider.Container.AvailableServices)
+            {
+                if (sr.ServiceType == typeof(IJobSerializer)) hasSerializer = true;
+                else if (sr.ServiceType == typeof(IJobTypeProvider)) hasTypeProvider = true;
+                else if (sr.ServiceType == typeof(IMessagePublisher)) hasMessagePublisher = true;
+                else if (sr.ServiceType == typeof(IMessageConsumer)) hasMessageConsumer = true;
+                else if (sr.ServiceType == typeof(IJobLoggerFactory)) hasLoggerFactory = true;
+            }
+
+            if (!hasMessagePublisher) throw new ArgumentNullException($"{nameof(IMessagePublisher)} must be registered");
+            if (!hasMessageConsumer) throw new ArgumentNullException($"{nameof(IMessageConsumer)} must be registered");
+
+            if (!hasTypeProvider) RegisterSingleton<IJobTypeProvider, DefaultTypeProvider>();
+            if (!hasSerializer) RegisterSingleton<IJobSerializer, DefaultSerializer>();
+            if (!hasLoggerFactory) RegisterSingleton<IJobLoggerFactory, DefaultLoggerFactory>();
+
+            _serviceProvider.Compile();
         }
     }
 }
