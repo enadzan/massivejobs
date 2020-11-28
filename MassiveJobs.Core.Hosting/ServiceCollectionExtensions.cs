@@ -14,7 +14,10 @@ namespace MassiveJobs.Core.Hosting
             Action<MassiveJobsHostingOptions> configureAction = null)
         {
             var options = new MassiveJobsHostingOptions();
+
             configureAction?.Invoke(options);
+
+            options.MassiveJobsSettings = options.MassiveJobsSettings ?? new MassiveJobsSettings();
 
             serviceCollection.AddSingleton(options);
             serviceCollection.AddSingleton(options.MassiveJobsSettings);
@@ -24,7 +27,7 @@ namespace MassiveJobs.Core.Hosting
             serviceCollection.TryAddSingleton<IJobRunner, DefaultJobRunner>();
             serviceCollection.TryAddSingleton<IJobSerializer, DefaultSerializer>();
             serviceCollection.TryAddSingleton<IJobTypeProvider, DefaultTypeProvider>();
-            serviceCollection.TryAddSingleton<IJobServiceProvider, ServiceProviderWrapper>();
+            serviceCollection.TryAddSingleton<IJobServiceFactory, ServiceFactoryWrapper>();
             serviceCollection.TryAddSingleton<IJobServiceScopeFactory, ServiceScopeFactoryWrapper>();
 
             serviceCollection.AddScoped<IJobPublisher, DefaultJobPublisher>();

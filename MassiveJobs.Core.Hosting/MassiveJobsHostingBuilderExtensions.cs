@@ -7,12 +7,9 @@ namespace MassiveJobs.Core.Hosting
     {
         public static void UseInMemoryBroker(this MassiveJobsHostingBuilder hostingBuilder)
         {
-            var messages = new InMemoryMessages();
-
-            hostingBuilder.ServiceCollection.AddSingleton(
-                p => new InMemoryMessagePublisher(p.GetRequiredService<MassiveJobsSettings>(), messages));
-
-            hostingBuilder.ServiceCollection.AddSingleton(new InMemoryMessageConsumer(messages));
+            hostingBuilder.ServiceCollection.AddSingleton(new InMemoryMessages());
+            hostingBuilder.ServiceCollection.AddSingleton<IMessagePublisher, InMemoryMessagePublisher>();
+            hostingBuilder.ServiceCollection.AddSingleton<IMessageConsumer, InMemoryMessageConsumer>();
         }
     }
 }

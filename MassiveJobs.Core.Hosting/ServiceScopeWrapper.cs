@@ -5,17 +5,13 @@ using MassiveJobs.Core.DependencyInjection;
 
 namespace MassiveJobs.Core.Hosting
 {
-    class ServiceProviderWrapper : IJobServiceProvider
+    class ServiceFactoryWrapper : IJobServiceFactory
     {
         private readonly IServiceProvider _serviceProvider;
 
-        public ServiceProviderWrapper(IServiceProvider serviceProvider)
+        public ServiceFactoryWrapper(IServiceProvider serviceProvider)
         {
             _serviceProvider = serviceProvider;
-        }
-
-        public void Dispose()
-        {
         }
 
         public object GetService(Type type)
