@@ -20,7 +20,6 @@ namespace MassiveJobs.Core.Tests
         };
 
         private InMemoryMessages _messages;
-
         private MassiveJobsMediator _jobs;
 
         [TestInitialize]
@@ -30,16 +29,10 @@ namespace MassiveJobs.Core.Tests
 
             _messages = new InMemoryMessages();
 
-            var messagePublisher = new InMemoryMessagePublisher(_settings, _messages);
-            var messageConsumer = new InMemoryMessageConsumer(_messages);
-
-            var serviceProvider = new DefaultJobServiceProvider(
-                _settings,
-                messagePublisher,
-                messageConsumer
-            );
-
-            _jobs = new MassiveJobsMediator(serviceProvider);
+            _jobs = Jobs
+                .Configure(_settings)
+                .WithInMemoryBroker(_messages)
+                .InitializeNew();
         }
 
         [TestCleanup]
