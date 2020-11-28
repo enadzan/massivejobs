@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using MassiveJobs.Core.DependencyInjection;
 
 namespace MassiveJobs.Core
 {

@@ -1,6 +1,8 @@
-﻿namespace MassiveJobs.Core.Memory
+﻿using MassiveJobs.Core.DependencyInjection;
+
+namespace MassiveJobs.Core.Memory
 {
-    public static class InitializerExtensions
+    public static class JobsExtensions
     {
         public static Jobs WithInMemoryBroker(this Jobs initializer, InMemoryMessages messages = null)
         {

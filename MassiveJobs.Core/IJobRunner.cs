@@ -1,4 +1,5 @@
 ﻿using System.Threading;
+using MassiveJobs.Core.DependencyInjection;
 
 namespace MassiveJobs.Core
 {
