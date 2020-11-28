@@ -13,8 +13,6 @@
         public string SslClientCertPath { get; set; }
         public string SslClientCertPassPhrase { get; set; }
 
-        internal string ExchangeName { get; set; }
-
         public ushort PrefetchCount { get; set; } = 100;
     }
 }

@@ -15,6 +15,7 @@ namespace MassiveJobs.RabbitMqBroker
         protected volatile ModelPool ModelPool;
 
         protected readonly IJobLogger Logger;
+        protected readonly string ExchangeName;
 
         private readonly object _connectionLock = new object();
         private readonly ConnectionFactory _connectionFactory;
@@ -24,6 +25,7 @@ namespace MassiveJobs.RabbitMqBroker
         protected RabbitMqMessageBroker(RabbitMqSettings rabbitMqSettings, MassiveJobsSettings massiveJobsSettings, bool automaticRecoveryEnabled, IJobLogger logger)
         {
             Logger = logger;
+            ExchangeName = $"{massiveJobsSettings.NamePrefix}massivejobs.direct";
 
             _rabbitMqSettings = rabbitMqSettings;
             _massiveJobsSettings = massiveJobsSettings;
@@ -165,35 +167,35 @@ namespace MassiveJobs.RabbitMqBroker
 
         protected virtual void DeclareTopology(IModel model)
         {
-            model.ExchangeDeclare(_rabbitMqSettings.ExchangeName, ExchangeType.Direct, true);
+            model.ExchangeDeclare(ExchangeName, ExchangeType.Direct, true);
 
             for (var i = 0; i < _massiveJobsSettings.ScheduledWorkersCount; i++)
             {
                 var queueName = string.Format(_massiveJobsSettings.ScheduledQueueNameTemplate, i);
-                DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
+                DeclareAndBindQueue(model, ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
             }
 
             for (var i = 0; i < _massiveJobsSettings.ImmediateWorkersCount; i++)
             {
                 var queueName = string.Format(_massiveJobsSettings.ImmediateQueueNameTemplate, i);
-                DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
+                DeclareAndBindQueue(model, ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
             }
 
             for (var i = 0; i < _massiveJobsSettings.LongRunningWorkersCount; i++)
             {
                 var queueName = string.Format(_massiveJobsSettings.LongRunningQueueNameTemplate, i);
-                DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
+                DeclareAndBindQueue(model, ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
             }
 
             for (var i = 0; i < _massiveJobsSettings.PeriodicWorkersCount; i++)
             {
                 var queueName = string.Format(_massiveJobsSettings.PeriodicQueueNameTemplate, i);
-                DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength, false, true);
+                DeclareAndBindQueue(model, ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength, false, true);
             }
 
-            DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.ErrorQueueName, QueueLength.NoLimit, isLazy: true);
-            DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.FailedQueueName, QueueLength.NoLimit, isLazy: true);
-            DeclareAndBindQueue(model, _rabbitMqSettings.ExchangeName, _massiveJobsSettings.StatsQueueName, 1000, true, true);
+            DeclareAndBindQueue(model, ExchangeName, _massiveJobsSettings.ErrorQueueName, QueueLength.NoLimit, isLazy: true);
+            DeclareAndBindQueue(model, ExchangeName, _massiveJobsSettings.FailedQueueName, QueueLength.NoLimit, isLazy: true);
+            DeclareAndBindQueue(model, ExchangeName, _massiveJobsSettings.StatsQueueName, 1000, true, true);
         }
 
         protected static void DeclareAndBindQueue(IModel model, string exchangeName, string queueName, int maxLength, bool dropHeadOnOverflow = false,

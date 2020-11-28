@@ -9,12 +9,9 @@ namespace MassiveJobs.RabbitMqBroker
 {
     public class RabbitMqMessagePublisher : RabbitMqMessageBroker, IMessagePublisher
     {
-        private readonly RabbitMqSettings _rmqSettings;
-
         public RabbitMqMessagePublisher(RabbitMqSettings rmqSettings, MassiveJobsSettings jobsSettings, IJobLogger logger)
             : base(rmqSettings, jobsSettings, true, logger)
         {
-            _rmqSettings = rmqSettings;
         }
 
         public void Publish(string routingKey, IEnumerable<RawMessage> messages, TimeSpan timeout)
@@ -28,7 +25,7 @@ namespace MassiveJobs.RabbitMqBroker
                 {
                     poolEntry.BasicProperties.Type = msg.TypeTag;
                     poolEntry.BasicProperties.Persistent = msg.IsPersistent;
-                    poolEntry.Model.BasicPublish(_rmqSettings.ExchangeName, routingKey, poolEntry.BasicProperties, msg.Body);
+                    poolEntry.Model.BasicPublish(ExchangeName, routingKey, poolEntry.BasicProperties, msg.Body);
                 }
 
                 poolEntry.Model.WaitForConfirmsOrDie(timeout);

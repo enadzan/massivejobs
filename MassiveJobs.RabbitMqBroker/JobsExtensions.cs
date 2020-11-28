@@ -13,12 +13,7 @@ namespace MassiveJobs.RabbitMqBroker
 
             configureAction?.Invoke(rabbitMqSettings);
 
-            jobs.ServiceCollection.RegisterInstance(p =>
-            {
-                var settings = p.GetRequiredService<MassiveJobsSettings>();
-                rabbitMqSettings.ExchangeName = $"{settings.NamePrefix}massivejobs.direct";
-                return rabbitMqSettings;
-            });
+            jobs.ServiceCollection.RegisterInstance(_ => rabbitMqSettings);
 
             jobs.WithMessageBroker(
                 p => new RabbitMqMessagePublisher(
