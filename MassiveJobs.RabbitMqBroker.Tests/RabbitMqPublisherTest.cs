@@ -20,33 +20,30 @@ namespace MassiveJobs.RabbitMqBroker.Tests
         {
             _performCount = 0;
 
-            var settings = new MassiveJobsSettings("tests.")
-            {
-                PublishBatchSize = 300,
-                ImmediateWorkersBatchSize = 1000,
-
-                MaxDegreeOfParallelismPerWorker = 2,
-                ImmediateWorkersCount = 2,
-                ScheduledWorkersCount = 2,
-                PeriodicWorkersCount = 2,
-            };
-
-            Jobs
-                .Configure(settings, new DebugLoggerFactory())
-                .WithTypeProvider(_ => new TypeProvider())
-                .WithSerializer(_ => new SimpleBinarySerializer())
+            JobsBuilder.Configure()
+                .WithSettings("tests.", s =>
+                {
+                    s.PublishBatchSize = 300;
+                    s.ImmediateWorkersBatchSize = 1000;
+                    s.MaxDegreeOfParallelismPerWorker = 2;
+                    s.ImmediateWorkersCount = 2;
+                    s.ScheduledWorkersCount = 2;
+                    s.PeriodicWorkersCount = 2;
+                })
+                .RegisterInstance<IJobTypeProvider>(new TypeProvider())
+                .RegisterInstance<IJobSerializer>(new SimpleBinarySerializer())
                 .WithRabbitMqBroker(s =>
                 {
                     s.VirtualHost = "massivejobs.tests";
                     s.PrefetchCount = 1000;
                 })
-                .Initialize();
+                .Build();
         }
 
         [TestCleanup]
         public void TestCleanup()
         {
-            MassiveJobsMediator.DefaultInstance.SafeDispose();
+            JobsBuilder.DisposeJobs();
         }
 
         [TestMethod]

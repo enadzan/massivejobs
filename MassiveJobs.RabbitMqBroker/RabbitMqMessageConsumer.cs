@@ -1,4 +1,5 @@
-﻿using RabbitMQ.Client;
+﻿using System;
+using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
 using MassiveJobs.Core;
@@ -7,13 +8,18 @@ namespace MassiveJobs.RabbitMqBroker
 {
     public class RabbitMqMessageConsumer : RabbitMqMessageBroker, IMessageConsumer
     {
+        private readonly IJobLoggerFactory _loggerFactory;
         private readonly ushort _prefetchCount;
 
         public event MessageConsumerDisconnected Disconnected;
 
-        public RabbitMqMessageConsumer(RabbitMqSettings rmqSettings, MassiveJobsSettings jobsSettings, IJobLogger logger)
-            : base(rmqSettings, jobsSettings, false, logger)
+        public RabbitMqMessageConsumer(RabbitMqSettings rmqSettings,
+            MassiveJobsSettings jobsSettings,
+            IJobLoggerFactory loggerFactory,
+            IJobLogger<RabbitMqMessageConsumer> consumerLogger)
+            : base(rmqSettings, jobsSettings, false, consumerLogger)
         {
+            _loggerFactory = loggerFactory;
             _prefetchCount = rmqSettings.PrefetchCount;
         }
 
@@ -25,7 +31,13 @@ namespace MassiveJobs.RabbitMqBroker
         public IMessageReceiver CreateReceiver(string queueName)
         {
             EnsureConnectionExists();
-            return new MessageReceiver(Connection, queueName, _prefetchCount);
+
+            return new MessageReceiver(
+                Connection,
+                queueName,
+                _prefetchCount,
+                _loggerFactory.CreateLogger<MessageReceiver>()
+            );
         }
 
         protected override void OnDisconnected()
@@ -38,12 +50,15 @@ namespace MassiveJobs.RabbitMqBroker
             private readonly IModel _model;
             private readonly EventingBasicConsumer _consumer;
             private readonly string _queueName;
+            private readonly IJobLogger<MessageReceiver> _logger;
 
             public event MessageReceivedHandler MessageReceived;
 
-            public MessageReceiver(IConnection connection, string queueName, ushort prefetchCount)
+            public MessageReceiver(IConnection connection, string queueName, ushort prefetchCount,
+                IJobLogger<MessageReceiver> logger)
             {
                 _queueName = queueName;
+                _logger = logger;
 
                 _model = connection.CreateModel();
                 _model.BasicQos(0, prefetchCount, false);
@@ -74,17 +89,24 @@ namespace MassiveJobs.RabbitMqBroker
 
             private void ConsumerOnReceived(object sender, BasicDeliverEventArgs e)
             {
-                if (MessageReceived == null) return;
-
-                var message = new RawMessage
+                try
                 {
-                    TypeTag = e.BasicProperties?.Type,
-                    IsPersistent = e.BasicProperties?.Persistent ?? false,
-                    Body = e.Body.ToArray(),
-                    DeliveryTag = e.DeliveryTag
-                };
+                    if (MessageReceived == null) return;
 
-                MessageReceived(this, message);
+                    var message = new RawMessage
+                    {
+                        TypeTag = e.BasicProperties?.Type,
+                        IsPersistent = e.BasicProperties?.Persistent ?? false,
+                        Body = e.Body.ToArray(),
+                        DeliveryTag = e.DeliveryTag
+                    };
+
+                    MessageReceived(this, message);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error in {nameof(ConsumerOnReceived)}");
+                }
             }
 
             public void Start()

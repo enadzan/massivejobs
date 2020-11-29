@@ -14,7 +14,7 @@ namespace MassiveJobs.RabbitMqBroker
         protected volatile IConnection Connection;
         protected volatile ModelPool ModelPool;
 
-        protected readonly IJobLogger Logger;
+        protected readonly IJobLogger<RabbitMqMessageBroker> Logger;
         protected readonly string ExchangeName;
 
         private readonly object _connectionLock = new object();
@@ -22,7 +22,8 @@ namespace MassiveJobs.RabbitMqBroker
         private readonly RabbitMqSettings _rabbitMqSettings;
         private readonly MassiveJobsSettings _massiveJobsSettings;
 
-        protected RabbitMqMessageBroker(RabbitMqSettings rabbitMqSettings, MassiveJobsSettings massiveJobsSettings, bool automaticRecoveryEnabled, IJobLogger logger)
+        protected RabbitMqMessageBroker(RabbitMqSettings rabbitMqSettings, MassiveJobsSettings massiveJobsSettings, bool automaticRecoveryEnabled, 
+            IJobLogger<RabbitMqMessageBroker> logger)
         {
             Logger = logger;
             ExchangeName = $"{massiveJobsSettings.NamePrefix}massivejobs.direct";

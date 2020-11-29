@@ -9,7 +9,7 @@ namespace MassiveJobs.RabbitMqBroker
 {
     public class RabbitMqMessagePublisher : RabbitMqMessageBroker, IMessagePublisher
     {
-        public RabbitMqMessagePublisher(RabbitMqSettings rmqSettings, MassiveJobsSettings jobsSettings, IJobLogger logger)
+        public RabbitMqMessagePublisher(RabbitMqSettings rmqSettings, MassiveJobsSettings jobsSettings, IJobLogger<RabbitMqMessagePublisher> logger)
             : base(rmqSettings, jobsSettings, true, logger)
         {
         }
