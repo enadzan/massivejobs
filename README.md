@@ -66,8 +66,7 @@ namespace MassiveJobs.QuickStart
     /// <summary>
     /// This is a "job" class. 
     /// It will be instantiated every time a message is received and Perform will be called.
-    /// It inherits from the Job generic class. The firt type parameter (MessageReceiver) specifies the type of job,
-    /// and the second type parameter (string) specifies the type of parameter expected by the Perform method.
+    /// It inherits from 
     /// </summary>
     public class MessageReceiver: Job<MessageReceiver, string>
     {
@@ -91,7 +90,9 @@ namespace MassiveJobs.QuickStart
             // This is not mandatory, an application can run job workers
             // and publish jobs using the same MassiveJobs instance.
 
-            RabbitMqJobs.Initialize(startWorkers);
+            JobsBuilder.Configure()
+                .WithRabbitMqBroker()
+                .Build(startWorkers);
 
             if (startWorkers)
             {
@@ -101,6 +102,8 @@ namespace MassiveJobs.QuickStart
             {
                 RunPublisher();
             }
+            
+            JobsBuilder.DisposeJobs();
         }
 
         private static void RunWorker()
@@ -155,21 +158,25 @@ To distribute the workers across several machines you will have to configure the
 For example, if your RabbitMQ server is running on a machine with the hostname `rabbit.example.local`, listening on the standard port number, and you have created a user `massive` in the RabbitMQ with the password: `d0ntUseTh!sPass` then you would initialize `RabbitMqJobs` like this.
 
 ```csharp
-RabbitMqJobs.Initialize(configureAction: options =>
-{
-    options.RabbitMqSettings.HostNames = new[] {"rabbit.example.com"};
-    options.RabbitMqSettings.Username = "massive";
-    options.RabbitMqSettings.Password = "d0ntUseTh!sPass";
-});
+JobsBuilder.Configure()
+  .WithRabbitMqBroker(s =>
+  {
+      s.HostNames = new[] {"rabbit.example.com"};
+      s.Username = "massive";
+      s.Password = "d0ntUseTh!sPass";
+  })
+  .Build();
 ```
   
 Or, if you don't want to start the worker threads (ie. to use the process only for publishing jobs):
 
 ```csharp
-RabbitMqJobs.Initialize(startWorkers: false, configureAction: options =>
-{
+JobsBuilder.Configure()
+  .WithRabbitMqBroker(s =>
+  {
     //...
-});
+  })
+  .Build(false);
 ```
 
 Now you can deploy workers (and publishers) on multiple machines and run them. If the network connectivity is working (firewalls open etc.) everything should work. Jobs would be routed to workers in a round-robin fashion. Keep in mind that, by default, every MassiveJobs application is starting two worker threads. That means, if you have 3 machines, each running one MassiveJobs application, then the distribution of jobs would look something like this:
@@ -195,6 +202,10 @@ It is very important to configure logging in your application running MassiveJob
 For example, if you want to add log4net logging to the quick-start example, first install the `MassiveJobs.Logging.Log4Net` package in your project. After that, initialize log4net library, and finally MassiveJobs.
 
 ```csharp
+//...
+using MassiveJobs.Logging.Log4Net;
+//...
+
 private static void Main()
 {
     InitializeLogging();
@@ -209,12 +220,10 @@ private static void Main()
     // This is not mandatory, an application can run job workers
     // and publish jobs using the same MassiveJobs instance.
 
-    RabbitMqJobs.Initialize(startWorkers, configureAction: options =>
-    {
-        options.JobLoggerFactory = new MassiveJobs.Logging.Log4Net.LoggerWrapperFactory();
-        // for NLog: options.JobLoggerFactory = new MassiveJobs.Logging.NLog.LoggerWrapperFactory(); 
-        // for Serilog: options.JobLoggerFactory = new MassiveJobs.Logging.Serilog.LoggerWrapperFactory();
-    });
+    JobsBuilder.Configure()
+      .WithLog4Net()
+      .WithRabbitMqBroker()
+      .Build(startWorkers);
 
     if (startWorkers)
     {
@@ -238,7 +247,7 @@ private static void InitializeLogging()
     var hierarchy = (Hierarchy)LogManager.GetRepository(Assembly.GetExecutingAssembly());
     hierarchy.Root.AddAppender(new ConsoleAppender { Layout = patternLayout });
 
-    hierarchy.Root.Level = Level.Debug;
+    hierarchy.Root.Level = Level.Warn;
     hierarchy.Configured = true;
 }
 ```
@@ -248,7 +257,6 @@ PS> dotnet run
 1: Worker
 2: Publisher
 Choose 1 or 2 -> 1
-2020-11-10 10:25:22,062 [1] DEBUG MassiveJobs.RabbitMqBroker.RabbitMqMessageConsumer - Connecting...
 2020-11-10 10:25:22,251 [1] WARN  MassiveJobs.RabbitMqBroker.RabbitMqMessageConsumer - Connected
 Initialized job worker.
 Press Enter to end the application.
@@ -264,7 +272,6 @@ Choose 1 or 2 -> 2
 Initialized job publisher
 Write the job name and press Enter to publish it (empty job name to end).
 > Hello
-2020-11-10 10:27:22,830 [4] DEBUG MassiveJobs.RabbitMqBroker.RabbitMqMessagePublisher - Connecting...
 2020-11-10 10:27:22,954 [4] WARN  MassiveJobs.RabbitMqBroker.RabbitMqMessagePublisher - Connected
 ```
 
@@ -296,7 +303,8 @@ namespace MassiveJobs.Examples.Api
         public void ConfigureServices(IServiceCollection services)
         {
             //...
-            services.AddMassiveJobs();
+            services.AddMassiveJobs()
+              .UseRabbitMqBroker();
         }
 
         //...
@@ -304,29 +312,7 @@ namespace MassiveJobs.Examples.Api
 }
 ```
 
-This will register the required MassiveJobs services, but you still need to initialize the MassiveJobs library. To initialize it, call "InitMassiveJobs()" before calling "Run()" in your `Program.cs`: 
-
-```csharp
-public class Program
-{
-    public static void Main(string[] args)
-    {
-        CreateHostBuilder(args)
-            .Build()
-            .InitMassiveJobs()
-            .Run();
-    }
-
-    public static IHostBuilder CreateHostBuilder(string[] args) =>
-        Host.CreateDefaultBuilder(args)
-            .ConfigureWebHostDefaults(webBuilder =>
-            {
-                webBuilder.UseStartup<Startup>();
-            });
-}
-```
-
-For example, if you have a `Customer` entity and want to send a welcome email to a newly created customer, you might have something like this:
+This will register the required MassiveJobs services, and start a background hosted service for running the job workers. Now you can publish jobs from a controller. For example, if you have a `Customer` entity and want to send a welcome email to a newly created customer, you might have something like this:
 
 ```csharp
 // POST: api/Customers
