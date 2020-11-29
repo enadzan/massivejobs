@@ -22,6 +22,7 @@ namespace MassiveJobs.Core.Hosting
             serviceCollection.AddSingleton(options);
             serviceCollection.AddSingleton(options.MassiveJobsSettings);
 
+            serviceCollection.AddSingleton<IJobLoggerFactory, LoggerFactoryWrapper>();
             serviceCollection.AddSingleton(typeof(IJobLogger<>), typeof(LoggerWrapper<>));
 
             serviceCollection.TryAddSingleton<IJobRunner, DefaultJobRunner>();
