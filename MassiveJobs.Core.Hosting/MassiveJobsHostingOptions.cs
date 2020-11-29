@@ -6,7 +6,7 @@ namespace MassiveJobs.Core.Hosting
     {
         public MassiveJobsSettings MassiveJobsSettings { get; set; }
 
-        public bool StartWorkers { get; set; }
+        public bool StartWorkers { get; set; } = true;
         public Action OnInitAction { get; set; }
     }
 }
