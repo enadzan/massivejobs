@@ -3,6 +3,7 @@
 using Serilog;
 
 using MassiveJobs.Core;
+using MassiveJobs.Logging.Serilog;
 using MassiveJobs.RabbitMqBroker;
 
 using MassiveJobs.Examples.Jobs;
@@ -20,17 +21,13 @@ namespace MassiveJobs.DotNetFramework.ConsoleTest
                 .WriteTo.Console()
                 .CreateLogger();
 
-            // initialize RabbitMqJobs
+            // initialize MassiveJobs
 
-            RabbitMqJobs.Initialize(true, s =>
-            {
-                s.RabbitMqSettings.VirtualHost = "massivejobs";
-                s.RabbitMqSettings.NamePrefix = "examples.";
-
-                s.MaxQueueLength = QueueLength.NoLimit;
-                s.PublishBatchSize = 400;
-                s.JobLoggerFactory = new MassiveJobs.Logging.Serilog.LoggerWrapperFactory();
-            });
+            JobsBuilder.Configure()
+                .WithSerilog()
+                .WithSettings("examples.")
+                .WithRabbitMqBroker()
+                .Build();
 
             Console.WriteLine("Testing periodic jobs. Press Enter to quit!");
 
@@ -38,7 +35,7 @@ namespace MassiveJobs.DotNetFramework.ConsoleTest
 
             Console.ReadLine();
 
-            MassiveJobsMediator.DefaultInstance.Dispose();
+            JobsBuilder.DisposeJobs();
         }
     }
 }

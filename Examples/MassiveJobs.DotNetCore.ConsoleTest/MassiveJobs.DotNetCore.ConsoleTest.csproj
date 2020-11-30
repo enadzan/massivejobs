@@ -6,8 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MassiveJobs.RabbitMqBroker" Version="0.36.3" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="3.1.9" />
+    <PackageReference Include="MassiveJobs.Logging.Serilog" Version="0.44.2" />
+    <PackageReference Include="MassiveJobs.RabbitMqBroker" Version="0.44.2" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="3.1.1" />
   </ItemGroup>
 
   <ItemGroup>

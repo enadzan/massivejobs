@@ -1,8 +1,8 @@
 ﻿using System;
-
-using Microsoft.Extensions.Logging;
+using Serilog;
 
 using MassiveJobs.Core;
+using MassiveJobs.Logging.Serilog;
 using MassiveJobs.RabbitMqBroker;
 
 using MassiveJobs.Examples.Jobs;
@@ -13,23 +13,20 @@ namespace MassiveJobs.DotNetCore.ConsoleTest
     {
         private static void Main()
         {
-            var loggerFactory = LoggerFactory.Create(builder =>
-            {
-                builder
-                    .SetMinimumLevel(LogLevel.Warning)
-                    .AddFilter("Microsoft", LogLevel.Warning)
-                    .AddFilter("System", LogLevel.Warning)
-                    .AddConsole();
-            });
+            // initialize Serilog
 
-            RabbitMqJobs.Initialize(true, s =>
-            {
-                s.RabbitMqSettings.VirtualHost = "massivejobs";
-                s.RabbitMqSettings.NamePrefix = "examples.";
-                s.MaxQueueLength = QueueLength.NoLimit;
-                s.PublishBatchSize = 400;
-                s.JobLoggerFactory = new LoggerFactoryWrapper(loggerFactory);
-            });
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Warning()
+                .WriteTo.Console()
+                .CreateLogger();
+
+            // Initialize MassiveJobs
+
+            JobsBuilder.Configure()
+                .WithSettings("examples.")
+                .WithRabbitMqBroker()
+                .WithSerilog() // NOT needed if running in WorkerService or ASP.NET Core (more at: https://massivejobs.net)
+                .Build();
 
             Console.WriteLine("Testing periodic jobs. Press Enter to quit!");
 
@@ -37,7 +34,7 @@ namespace MassiveJobs.DotNetCore.ConsoleTest
 
             Console.ReadLine();
 
-            MassiveJobsMediator.DefaultInstance.Dispose();
+            JobsBuilder.DisposeJobs();
         }
     }
 }
