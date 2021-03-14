@@ -1,6 +1,8 @@
 ﻿using MassiveJobs.Core.Cron;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace MassiveJobs.Core.Tests.Cron
@@ -579,6 +581,35 @@ namespace MassiveJobs.Core.Tests.Cron
                 Assert.AreEqual(expectedTime, actualTime);
 
                 expectedTime = expectedTime.AddDays(1);
+            }
+        }
+
+        [TestMethod]
+        public void TestAmericanDaylightSavings()
+        {
+            var timeZoneInfo = TimeZoneConverter.TZConvert.GetTimeZoneInfo("America/New_York");
+            var cronGen = new CronSequenceGenerator("0 35 13 ? * *", timeZoneInfo);
+
+            var lastTimeUtc = TimeZoneInfo.ConvertTimeToUtc(new DateTime(2021, 3, 12, 18, 35, 0), timeZoneInfo);
+
+            var expectedUtc = new List<DateTime>
+            {
+                DateTime.ParseExact("13.03.2021 18:35", "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
+                DateTime.ParseExact("14.03.2021 17:35", "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
+                DateTime.ParseExact("15.03.2021 17:35", "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
+                DateTime.ParseExact("16.03.2021 17:35", "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
+                DateTime.ParseExact("17.03.2021 17:35", "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
+                DateTime.ParseExact("18.03.2021 17:35", "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
+                DateTime.ParseExact("19.03.2021 17:35", "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
+                DateTime.ParseExact("20.03.2021 17:35", "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
+                DateTime.ParseExact("21.03.2021 17:35", "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
+                DateTime.ParseExact("22.03.2021 17:35", "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal)
+            };
+
+            for (var i = 0; i < 10; i++)
+            {
+                lastTimeUtc = cronGen.NextUtc(lastTimeUtc);
+                Assert.AreEqual(expectedUtc[i], lastTimeUtc);
             }
         }
     }
