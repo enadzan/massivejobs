@@ -27,7 +27,7 @@ namespace MassiveJobs.Core
             IMessageConsumer messageConsumer, 
             IJobServiceScopeFactory serviceScopeFactory, 
             IJobLogger<WorkerScheduled> logger)
-            : base(queueName, batchSize, 1, messageConsumer, serviceScopeFactory, logger)
+            : base(queueName, batchSize, 1, true, messageConsumer, serviceScopeFactory, logger)
         {
             _timer = new Timer(CheckScheduledJobs);
             _scheduledJobs = new ConcurrentDictionary<ulong, JobInfo>();
@@ -177,13 +177,16 @@ namespace MassiveJobs.Core
 
         private void ConfirmSkippedMessages()
         {
-            foreach (var kvp in _periodicSkipJobs)
-            {
-                while (kvp.Value.Count > 0)
+            using (var scope = ServiceScopeFactory.CreateScope())
+            { 
+                foreach (var kvp in _periodicSkipJobs)
                 {
-                    if (kvp.Value.TryTake(out var deliveryTag))
+                    while (kvp.Value.Count > 0)
                     {
-                        OnMessageProcessed(deliveryTag);
+                        if (kvp.Value.TryTake(out var deliveryTag))
+                        {
+                            OnMessageProcessed(scope, deliveryTag);
+                        }
                     }
                 }
             }
@@ -211,7 +214,7 @@ namespace MassiveJobs.Core
 
                 foreach (var kvp in batch)
                 {
-                    OnMessageProcessed(kvp.Key);
+                    OnMessageProcessed(scope, kvp.Key);
                 }
             }
         }

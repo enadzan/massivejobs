@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Threading;
 
+using MassiveJobs.Core.DependencyInjection;
+
 namespace MassiveJobs.Core.Memory
 {
     public class InMemoryMessagePublisher : IMessagePublisher
@@ -62,7 +64,7 @@ namespace MassiveJobs.Core.Memory
         {
         }
 
-        public IMessageReceiver CreateReceiver(string queueName)
+        public IMessageReceiver CreateReceiver(string queueName, bool singleActiveConsumer = false)
         {
             return new InMemoryMessageReceiver(_messages, queueName, _loggerFactory.CreateLogger<InMemoryMessageReceiver>());
         }
@@ -97,7 +99,7 @@ namespace MassiveJobs.Core.Memory
             _messages.RemoveBatch(_queueName, lastDeliveryTag);
         }
 
-        public void AckMessageProcessed(ulong deliveryTag)
+        public void AckMessageProcessed(IJobServiceScope scope, ulong deliveryTag)
         {
             _messages.RemoveMessage(_queueName, deliveryTag);
         }
@@ -131,6 +133,11 @@ namespace MassiveJobs.Core.Memory
         public void Dispose()
         {
             _disposed = true;
+        }
+
+        public void AckBatchMessageProcessed(IJobServiceScope scope, ulong deliveryTag)
+        {
+            // nothing to do
         }
     }
 }

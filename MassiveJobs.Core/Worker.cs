@@ -10,17 +10,18 @@ namespace MassiveJobs.Core
     {
         private readonly IMessageConsumer _messageConsumer;
         private readonly int _maxDegreeOfParallelism;
-
+        private readonly bool _singleActiveConsumer;
         private volatile IMessageReceiver _messageReceiver;
 
         protected readonly string QueueName;
         protected readonly IJobServiceScopeFactory ServiceScopeFactory;
 
-        protected Worker(string queueName, int batchSize, int masMaxDegreeOfParallelism, 
+        protected Worker(string queueName, int batchSize, int masMaxDegreeOfParallelism, bool singleActiveConsumer,
             IMessageConsumer messageConsumer, IJobServiceScopeFactory serviceScopeFactory, IJobLogger<Worker> logger)
             : base(batchSize, logger)
         {
             _maxDegreeOfParallelism = masMaxDegreeOfParallelism;
+            _singleActiveConsumer = singleActiveConsumer;
             _messageConsumer = messageConsumer;
             ServiceScopeFactory = serviceScopeFactory;
 
@@ -55,7 +56,7 @@ namespace MassiveJobs.Core
         {
             if (_messageReceiver != null) return;
 
-            _messageReceiver = _messageConsumer.CreateReceiver(QueueName);
+            _messageReceiver = _messageConsumer.CreateReceiver(QueueName, _singleActiveConsumer);
             _messageReceiver.MessageReceived += OnMessageReceived;
             _messageReceiver.Start();
         }
@@ -107,6 +108,8 @@ namespace MassiveJobs.Core
                     var jobPublisher = scope.GetRequiredService<IJobPublisher>();
 
                     jobRunner.RunJob(jobPublisher, job, scope, cancellationToken);
+
+                    _messageReceiver.AckBatchMessageProcessed(scope, msg.DeliveryTag);
                 }
             });
         }
@@ -116,9 +119,9 @@ namespace MassiveJobs.Core
             _messageReceiver.AckBatchProcessed(lastDeliveryTag);
         }
 
-        protected void OnMessageProcessed(ulong deliveryTag)
+        protected void OnMessageProcessed(IJobServiceScope scope, ulong deliveryTag)
         {
-            _messageReceiver.AckMessageProcessed(deliveryTag);
+            _messageReceiver.AckMessageProcessed(scope, deliveryTag);
         }
 
         private void OnMessageReceived(IMessageReceiver sender, RawMessage message)

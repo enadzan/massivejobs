@@ -21,6 +21,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.RabbitMqBroker.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.RabbitMqBroker.Tests", "MassiveJobs.RabbitMqBroker.Tests\MassiveJobs.RabbitMqBroker.Tests.csproj", "{7B685B6F-D227-43C6-9E90-CA118E679DFF}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.SqlServerBroker", "MassiveJobs.SqlServerBroker\MassiveJobs.SqlServerBroker.csproj", "{29DA26A7-B67D-4CF6-9A8C-DBB1E5925EC8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MassiveJobs.SqlServerBroker.Tests", "MassiveJobs.SqlServerBroker.Tests\MassiveJobs.SqlServerBroker.Tests.csproj", "{B51C5C5E-794C-4038-93BF-29E9B00F012B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -63,6 +67,14 @@ Global
 		{7B685B6F-D227-43C6-9E90-CA118E679DFF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7B685B6F-D227-43C6-9E90-CA118E679DFF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7B685B6F-D227-43C6-9E90-CA118E679DFF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{29DA26A7-B67D-4CF6-9A8C-DBB1E5925EC8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{29DA26A7-B67D-4CF6-9A8C-DBB1E5925EC8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{29DA26A7-B67D-4CF6-9A8C-DBB1E5925EC8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{29DA26A7-B67D-4CF6-9A8C-DBB1E5925EC8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B51C5C5E-794C-4038-93BF-29E9B00F012B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B51C5C5E-794C-4038-93BF-29E9B00F012B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B51C5C5E-794C-4038-93BF-29E9B00F012B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B51C5C5E-794C-4038-93BF-29E9B00F012B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

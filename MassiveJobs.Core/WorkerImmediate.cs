@@ -13,7 +13,7 @@ namespace MassiveJobs.Core
             IMessageConsumer messageConsumer, 
             IJobServiceScopeFactory serviceScopeFactory, 
             IJobLogger<WorkerImmediate> logger)
-            : base(queueName, batchSize, maxDegreeOfParallelism, messageConsumer, serviceScopeFactory, logger)
+            : base(queueName, batchSize, maxDegreeOfParallelism, false, messageConsumer, serviceScopeFactory, logger)
         {
         }
 
