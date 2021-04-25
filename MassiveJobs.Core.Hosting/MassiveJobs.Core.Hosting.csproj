@@ -13,7 +13,7 @@
 
   <ItemGroup>
     <PackageReference Include="MassiveJobs.Core" Version="0.44.2" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="3.1.13" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="3.1.14" />
   </ItemGroup>
 
   <ItemGroup>
