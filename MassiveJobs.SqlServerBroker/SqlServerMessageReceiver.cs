@@ -187,7 +187,7 @@ WHERE processing_end_utc IS NULL
 
                 var raw = new RawMessage
                 {
-                    TypeTag = msg.MessageType,
+                    TypeTag = msg.ArgsType,
                     IsPersistent = true,
                     Body = Encoding.UTF8.GetBytes(msg.MessageData),
                     DeliveryTag = deliveryTag

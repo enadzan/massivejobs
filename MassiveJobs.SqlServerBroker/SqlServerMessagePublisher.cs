@@ -29,7 +29,7 @@ namespace MassiveJobs.SqlServerBroker
                 var messageData = Encoding.UTF8.GetString(msg.Body);
 
                 _dbContext.Database.ExecuteSqlInterpolated($@"
-INSERT INTO massive_jobs.message_queue (routing_key, message_type, message_data, published_at_utc)
+INSERT INTO massive_jobs.message_queue (routing_key, args_type, message_data, published_at_utc)
 VALUES ({routingKey}, {msg.TypeTag}, {messageData}, {DateTime.UtcNow})
 ");
 

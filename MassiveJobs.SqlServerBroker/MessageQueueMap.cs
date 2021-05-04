@@ -21,8 +21,8 @@ namespace MassiveJobs.SqlServerBroker
                 .HasColumnName("id")
                 .ValueGeneratedOnAdd();
 
-            builder.Property(e => e.MessageType)
-                .HasColumnName("message_type")
+            builder.Property(e => e.ArgsType)
+                .HasColumnName("args_type")
                 .IsRequired()
                 .HasMaxLength(256);
 

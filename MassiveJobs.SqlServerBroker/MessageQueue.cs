@@ -6,7 +6,7 @@ namespace MassiveJobs.SqlServerBroker
     {
         public string RoutingKey { get; set; }
         public long Id { get; set; }
-        public string MessageType { get; set; }
+        public string ArgsType { get; set; }
         public string MessageData { get; set; }
         public DateTime PublishedAtUtc { get; set; }
         public string ProcessingInstance { get; set; }
