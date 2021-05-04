@@ -13,6 +13,7 @@ namespace MassiveJobs.SqlServerBroker.Tests
 
         private readonly TestDbContext _ctx;
 
+        public bool UseTransaction => true;
 
         public MockJob(TestDbContext ctx)
         {

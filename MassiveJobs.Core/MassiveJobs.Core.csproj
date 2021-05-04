@@ -19,6 +19,10 @@
     <PackageReference Include="System.Text.Json" Version="5.0.2" />
   </ItemGroup>
 
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net461' ">
+    <Reference Include="System.Transactions" />
+  </ItemGroup>
+  
   <ItemGroup>
     <None Include="icon.png">
       <Pack>True</Pack>

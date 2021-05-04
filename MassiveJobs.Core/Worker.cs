@@ -107,9 +107,7 @@ namespace MassiveJobs.Core
                     var jobRunner = scope.GetRequiredService<IJobRunner>();
                     var jobPublisher = scope.GetRequiredService<IJobPublisher>();
 
-                    jobRunner.RunJob(jobPublisher, job, scope, cancellationToken);
-
-                    _messageReceiver.AckBatchMessageProcessed(scope, msg.DeliveryTag);
+                    jobRunner.RunJob(jobPublisher, _messageReceiver, job, msg.DeliveryTag, scope, cancellationToken);
                 }
             });
         }

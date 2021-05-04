@@ -6,6 +6,12 @@ namespace MassiveJobs.Core.ReflectionUtilities
 {
     public class JobReflectionInfo
     {
+        /// <summary>
+        /// Calls "UseTransaction" property getter on the job type, if such property exists.
+        /// Otherwise, returns false.
+        /// </summary>
+        public Func<object, object> UseTransactionGetter { get; }
+
         public ConstructorInfo Ctor { get; }
         public ConstructorType CtorType { get; }
 
@@ -17,11 +23,25 @@ namespace MassiveJobs.Core.ReflectionUtilities
         public Func<object, object, CancellationToken, object> PerformDelegate4 { get; }
 
         public JobReflectionInfo(ConstructorInfo ctor, ConstructorType ctorType, MethodInfo perfMethod,
-            PerformMethodType perfMethodType)
+            PerformMethodType perfMethodType, PropertyInfo useTransactionProperty)
         {
             Ctor = ctor;
             CtorType = ctorType;
             PerfMethodType = perfMethodType;
+
+            if (useTransactionProperty != null)
+            {
+                UseTransactionGetter = (Func<object, object>) GetDelegateFactory(
+                    nameof(CreateDelegate1),
+                    useTransactionProperty.DeclaringType,
+                    useTransactionProperty.PropertyType
+                    )
+                    .Invoke(null, new object[] { useTransactionProperty.GetMethod });
+            }
+            else
+            {
+                UseTransactionGetter = _ => false;
+            }
 
             switch (PerfMethodType)
             {

@@ -18,7 +18,7 @@ namespace MassiveJobs.Core
             _logger = logger;
         }
 
-        public void RunJob(IJobPublisher publisher, JobInfo jobInfo, IJobServiceScope serviceScope, CancellationToken cancellationToken)
+        public void RunJob(IJobPublisher publisher, IMessageReceiver receiver, JobInfo jobInfo, ulong deliveryTag, IJobServiceScope serviceScope, CancellationToken cancellationToken)
         {
             try
             {
@@ -30,7 +30,7 @@ namespace MassiveJobs.Core
                     {
                         try
                         {
-                            InvokePerform(publisher, jobInfo, serviceScope, combinedTokenSource.Token);
+                            InvokePerform(publisher, receiver, jobInfo, deliveryTag, serviceScope, combinedTokenSource.Token);
                         }
                         catch (OperationCanceledException)
                         {
@@ -47,8 +47,10 @@ namespace MassiveJobs.Core
             }
         }
 
-        protected void InvokePerform(IJobPublisher publisher, JobInfo jobInfo, IJobServiceScope serviceScope, CancellationToken cancellationToken)
+        protected void InvokePerform(IJobPublisher publisher, IMessageReceiver receiver, JobInfo jobInfo, ulong deliveryTag, IJobServiceScope serviceScope, CancellationToken cancellationToken)
         {
+            System.Transactions.TransactionScope transScope = null;
+
             try
             {
                 var reflectionInfo = ReflectionUtilities.ReflectionCache.GetJobReflectionInfo(jobInfo.JobType, jobInfo.ArgsType);
@@ -82,6 +84,13 @@ namespace MassiveJobs.Core
                     throw new Exception($"Job type {jobInfo.JobType} is not registered in service scope and appropriate constructor does not exist!");
                 }
 
+                if ((bool)reflectionInfo.UseTransactionGetter(job))
+                {
+                    transScope = new System.Transactions.TransactionScope(
+                        System.Transactions.TransactionScopeOption.Required,
+                        System.Transactions.TransactionScopeAsyncFlowOption.Enabled);
+                }
+
                 object result;
 
                 switch (reflectionInfo.PerfMethodType)
@@ -109,11 +118,19 @@ namespace MassiveJobs.Core
                     // like db connections cannot be shared between threads)
                     taskResult.Wait(cancellationToken);
                 }
+
+                receiver.AckBatchMessageProcessed(serviceScope, deliveryTag);
+
+                transScope?.Complete();
             }
             catch (TargetInvocationException ex)
             {
                 if (ex.InnerException == null) throw;
                 ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
+            }
+            finally
+            {
+                transScope.SafeDispose(_logger);
             }
         }
     }

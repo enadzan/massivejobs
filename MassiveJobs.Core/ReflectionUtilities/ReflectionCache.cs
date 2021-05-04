@@ -116,7 +116,9 @@ namespace MassiveJobs.Core.ReflectionUtilities
                     }
                 }
 
-                reflectionInfo = new JobReflectionInfo(c, cType, m, mType);
+                var useTransProp = jobType.GetProperty("UseTransaction", typeof(bool));
+
+                reflectionInfo = new JobReflectionInfo(c, cType, m, mType, useTransProp);
 
                 argTypeToInfoMap.Add(argsType, reflectionInfo);
 
