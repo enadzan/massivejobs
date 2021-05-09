@@ -84,5 +84,10 @@ namespace MassiveJobs.Core
         {
             Workers.StopJobWorkers();
         }
+
+        public void CancelJobWorkers()
+        {
+            Workers.CancelJobWorkers();
+        }
     }
 }

@@ -6,5 +6,6 @@ namespace MassiveJobs.Core
     {
         void StartJobWorkers();
         void StopJobWorkers();
+        void CancelJobWorkers();
     }
 }

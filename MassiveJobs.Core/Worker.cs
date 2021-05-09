@@ -15,17 +15,26 @@ namespace MassiveJobs.Core
 
         protected readonly string QueueName;
         protected readonly IJobServiceScopeFactory ServiceScopeFactory;
+        protected readonly IJobServiceScope ServiceScope;
 
         protected Worker(string queueName, int batchSize, int masMaxDegreeOfParallelism, bool singleActiveConsumer,
-            IMessageConsumer messageConsumer, IJobServiceScopeFactory serviceScopeFactory, IJobLogger<Worker> logger)
+            IJobServiceScopeFactory serviceScopeFactory, IJobLogger<Worker> logger)
             : base(batchSize, logger)
         {
+            ServiceScopeFactory = serviceScopeFactory;
+            ServiceScope = ServiceScopeFactory.CreateScope();
+
             _maxDegreeOfParallelism = masMaxDegreeOfParallelism;
             _singleActiveConsumer = singleActiveConsumer;
-            _messageConsumer = messageConsumer;
-            ServiceScopeFactory = serviceScopeFactory;
+            _messageConsumer = ServiceScope.GetRequiredService<IMessageConsumer>();
 
             QueueName = queueName;
+        }
+
+        public override void Dispose()
+        {
+            base.Dispose();
+            ServiceScope.Dispose();
         }
 
         protected override void OnStart()

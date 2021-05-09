@@ -20,17 +20,14 @@ namespace MassiveJobs.Core
         private readonly ITimer _timer;
         private readonly ITimeProvider _timeProvider;
 
-        private CancellationTokenSource _cancellationTokenSource;
+        private volatile int _started;
 
-        public WorkerScheduled(string queueName, int batchSize, IJobServiceFactory serviceFactory)
-            : base(queueName, batchSize, 1, true, 
-                  serviceFactory.GetRequiredService<IMessageConsumer>(),
-                  serviceFactory.GetRequiredService<IJobServiceScopeFactory>(),
-                  serviceFactory.GetRequiredService<IJobLogger<WorkerScheduled>>())
+        public WorkerScheduled(string queueName, int batchSize, IJobServiceScopeFactory scopeFactory, IJobLogger<WorkerScheduled> logger)
+            : base(queueName, batchSize, 1, true, scopeFactory, logger)
         {
-            _timeProvider = serviceFactory.GetService<ITimeProvider>() ?? new DefaultTimeProvider();
+            _timeProvider = ServiceScope.GetRequiredService<ITimeProvider>();
 
-            _timer = serviceFactory.GetService<ITimer>() ?? new DefaultTimer();
+            _timer = ServiceScope.GetRequiredService<ITimer>();
             _timer.TimeElapsed += CheckScheduledJobs;
 
             _scheduledJobs = new ConcurrentDictionary<ulong, JobInfo>();
@@ -41,7 +38,6 @@ namespace MassiveJobs.Core
         public override void Dispose()
         {
             _timer.TimeElapsed -= CheckScheduledJobs;
-            _timer.SafeDispose(Logger);
 
             _stoppingSignal.SafeDispose(Logger);
 
@@ -52,20 +48,23 @@ namespace MassiveJobs.Core
         {
             base.OnStart();
 
-            _stoppingSignal.Reset();
+            var previousValue = Interlocked.Exchange(ref _started, 1);
+            if (previousValue != 0) return;
 
-            _cancellationTokenSource = new CancellationTokenSource();
+            _stoppingSignal.Reset();
             _scheduledJobs.Clear();
 
             _timer.Change(CheckIntervalMs, Timeout.Infinite);
         }
 
-        protected override void OnStopBegin()
+        protected override void OnStopBegin(bool cancelRunningJobs)
         {
-            _cancellationTokenSource.Cancel();
+            var previousValue = Interlocked.Exchange(ref _started, 0);
+            if (previousValue == 0) return;
+
             _stoppingSignal.WaitOne();
 
-            base.OnStopBegin();
+            base.OnStopBegin(cancelRunningJobs);
         }
 
         protected override void ProcessMessageBatch(List<RawMessage> messages, CancellationToken cancellationToken, out int pauseSec)
@@ -148,8 +147,6 @@ namespace MassiveJobs.Core
 
                 foreach (var kvp in _scheduledJobs)
                 {
-                    if (_cancellationTokenSource.IsCancellationRequested) return;
-
                     var deliveryTag = kvp.Key;
                     var job = kvp.Value;
 
@@ -171,15 +168,12 @@ namespace MassiveJobs.Core
             }
             finally
             {
-                if (raisedException == null && !_cancellationTokenSource.IsCancellationRequested)
+                if (raisedException == null && _started != 0)
                 {
                     _timer.Change(CheckIntervalMs, Timeout.Infinite);
                 }
                 else
                 {
-                    _cancellationTokenSource.SafeDispose();
-                    _cancellationTokenSource = null;
-
                     _stoppingSignal.Set();
                 }
             }

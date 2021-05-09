@@ -18,6 +18,7 @@ namespace MassiveJobs.Core
 
         private volatile Thread _processorThread;
         private volatile CancellationTokenSource _cancellationTokenSource;
+        private volatile CancellationTokenSource _jobsCancellationTokenSource;
 
         protected readonly IJobLogger Logger;
        
@@ -35,7 +36,7 @@ namespace MassiveJobs.Core
 
         public virtual void Dispose()
         {
-            BeginStop();
+            BeginStop(true);
             WaitUntilStopped();
 
             _messageAddedSignal.Dispose();
@@ -55,6 +56,7 @@ namespace MassiveJobs.Core
                 Logger.LogDebug($"Starting batch processor");
 
                 _cancellationTokenSource = new CancellationTokenSource();
+                _jobsCancellationTokenSource = new CancellationTokenSource();
 
                 _processorThread = new Thread(ProcessorFunction) { IsBackground = true };
                 _processorThread.Start();
@@ -63,7 +65,7 @@ namespace MassiveJobs.Core
             }
         }
 
-        public void BeginStop()
+        public void BeginStop(bool cancelRunningJobs)
         {
             lock (_startStopLock)
             {
@@ -71,9 +73,15 @@ namespace MassiveJobs.Core
 
                 Logger.LogDebug($"Stopping batch processor");
 
-                OnStopBegin();
+                OnStopBegin(cancelRunningJobs);
 
                 _cancellationTokenSource.Cancel();
+
+                if (cancelRunningJobs) 
+                {
+                    _jobsCancellationTokenSource.Cancel();
+                }
+
                 _messageAddedSignal.Set(); //to speed up the shutdown
             }
         }
@@ -108,7 +116,7 @@ namespace MassiveJobs.Core
         {
         }
 
-        protected virtual void OnStopBegin()
+        protected virtual void OnStopBegin(bool cancelRunningJobs)
         {
         }
 
@@ -130,32 +138,33 @@ namespace MassiveJobs.Core
 
             try
             {
-                while (!_cancellationTokenSource.IsCancellationRequested)
+                do
                 {
                     _messageAddedSignal.WaitOne(1000);
 
-                    while (!_cancellationTokenSource.IsCancellationRequested && _messages.Count > 0)
+                    while (!_jobsCancellationTokenSource.IsCancellationRequested && _messages.Count > 0)
                     {
                         var batch = new List<TMessage>();
 
-                        while (!_cancellationTokenSource.IsCancellationRequested && batch.Count < _batchSize && _messages.TryDequeue(out var message))
+                        while (!_jobsCancellationTokenSource.IsCancellationRequested && batch.Count < _batchSize && _messages.TryDequeue(out var message))
                         {
                             batch.Add(message);
                         }
 
                         if (batch.Count > 0)
                         {
-                            ProcessMessageBatch(batch, _cancellationTokenSource.Token, out var pauseSec);
+                            ProcessMessageBatch(batch, _jobsCancellationTokenSource.Token, out var pauseSec);
 
                             if (pauseSec > 0)
                             {
                                 OnPause();
-                                Task.Delay(pauseSec * 1000, _cancellationTokenSource.Token).Wait();
+                                Task.Delay(pauseSec * 1000, _jobsCancellationTokenSource.Token).Wait();
                                 OnResume();
                             }
                         }
                     }
                 }
+                while (!_cancellationTokenSource.IsCancellationRequested);
             }
             catch (Exception ex)
             {
@@ -163,8 +172,12 @@ namespace MassiveJobs.Core
                 exceptionRaised = ex;
             }
 
+            _jobsCancellationTokenSource.SafeDispose();
+            _jobsCancellationTokenSource = null;
+
             _cancellationTokenSource.SafeDispose();
             _cancellationTokenSource = null;
+
             _processorThread = null;
 
             TryOnStop();

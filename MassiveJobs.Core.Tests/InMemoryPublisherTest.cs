@@ -38,7 +38,7 @@ namespace MassiveJobs.Core.Tests
                 .RegisterInstance(_settings)
                 .RegisterInstance(_counter)
                 .RegisterInstance<ITimeProvider>(_timeProvider)
-                .RegisterTransient<ITimer>(f =>
+                .RegisterScoped<ITimer>(f =>
                 {
                     var timer = new TestTimer();
                     _timers.Add(timer);
@@ -57,6 +57,38 @@ namespace MassiveJobs.Core.Tests
             {
                 FireActiveTimers();
             }
+
+            _messages.Dispose();
+        }
+
+        private void StartWorkers()
+        {
+            var task = Task.Factory.StartNew(MassiveJobsMediator.DefaultInstance.StartJobWorkers);
+
+            while (!task.IsCompleted)
+            {
+                FireActiveTimers();
+            }
+        }
+
+        private void StopWorkers()
+        {
+            var task = Task.Factory.StartNew(MassiveJobsMediator.DefaultInstance.StopJobWorkers);
+
+            while (!task.IsCompleted)
+            {
+                FireActiveTimers();
+            }
+        }
+
+        private void CancelWorkers()
+        {
+            var task = Task.Factory.StartNew(MassiveJobsMediator.DefaultInstance.CancelJobWorkers);
+
+            while (!task.IsCompleted)
+            {
+                FireActiveTimers();
+            }
         }
 
         [TestMethod]
@@ -64,7 +96,7 @@ namespace MassiveJobs.Core.Tests
         {
             MockJobInc.Publish(true);
 
-            Thread.Sleep(100);
+            StopWorkers();
 
             Assert.AreEqual(1, _counter.Value);
         }
@@ -76,21 +108,23 @@ namespace MassiveJobs.Core.Tests
             MockJobInc.Publish(true, TimeSpan.FromSeconds(2));
 
             _timeProvider.CurrentTimeUtc = DateTime.UtcNow;
-            FireActiveTimers();
-            Thread.Sleep(100);
+            //FireActiveTimers();
 
+            StopWorkers();
             Assert.AreEqual(0, _counter.Value);
+            StartWorkers();
 
             _timeProvider.AdvanceTime(1000);
-            FireActiveTimers();
-            Thread.Sleep(100);
+            //FireActiveTimers();
 
+            StopWorkers();
             Assert.AreEqual(0, _counter.Value);
+            StartWorkers();
 
             _timeProvider.AdvanceTime(1000);
-            FireActiveTimers();
-            Thread.Sleep(100);
+            //FireActiveTimers();
 
+            StopWorkers();
             Assert.AreEqual(2, _counter.Value);
         }
 
@@ -99,7 +133,7 @@ namespace MassiveJobs.Core.Tests
         {
             MockJobInc.Publish(false);
 
-            Thread.Sleep(100);
+            StopWorkers();
 
             Assert.AreEqual(-1, _counter.Value);
         }
@@ -110,10 +144,10 @@ namespace MassiveJobs.Core.Tests
             MockJobInc.Publish(true);
             MockJobFailed.Publish(true);
 
-            Thread.Sleep(100);
+            StopWorkers();
 
             Assert.AreEqual(1, _counter.Value);
-            Assert.AreEqual(1, _messages.GetCount(_settings.ErrorQueueName));
+            Assert.AreEqual(1, _messages.GetCount());
         }
 
         [TestMethod]
@@ -122,10 +156,10 @@ namespace MassiveJobs.Core.Tests
             MockJobInc.Publish(true);
             MockAsyncJobFailed.Publish();
 
-            Thread.Sleep(200);
+            StopWorkers();
 
             Assert.AreEqual(1, _counter.Value);
-            Assert.AreEqual(1, _messages.GetCount(_settings.ErrorQueueName));
+            Assert.AreEqual(1, _messages.GetCount());
         }
 
         [TestMethod]
@@ -134,23 +168,36 @@ namespace MassiveJobs.Core.Tests
             MockJobInc.Publish(true);
             MockAsyncJobCanceled.Publish();
 
-            Thread.Sleep(200);
+            StopWorkers();
 
             Assert.AreEqual(1, _counter.Value);
-            Assert.AreEqual(1,  _messages.GetCount(_settings.ErrorQueueName));
+            Assert.AreEqual(1,  _messages.GetCount());
         }
 
         [TestMethod]
         public void TestScheduleParallel()
         {
-            for (var i = 0; i < 10000; i++)
+            Parallel.For(0, 100000, _ => MockJob.Publish());
+
+            StopWorkers();
+
+            Assert.AreEqual(100000, _counter.Value);
+        }
+
+        [TestMethod]
+        public void TestScheduleInBatch()
+        {
+            JobBatch.Do(() =>
             {
-                MockJobInc.Publish(true);
-            }
+                for (var i = 0; i < 100000; i++)
+                {
+                    MockJob.Publish();
+                }
+            });
 
-            Thread.Sleep(500);
+            StopWorkers();
 
-            Assert.AreEqual(10000, _counter.Value);
+            Assert.AreEqual(100000, _counter.Value);
         }
 
         [TestMethod]
@@ -158,10 +205,10 @@ namespace MassiveJobs.Core.Tests
         {
             LongRunningJobAsync.Publish(6000);
 
-            Thread.Sleep(6000);
+            StopWorkers();
 
             Assert.AreEqual(0, _counter.Value);
-            Assert.AreEqual(1, _messages.GetCount(_settings.ErrorQueueName));
+            Assert.AreEqual(1, _messages.GetCount());
         }
 
         [TestMethod]
@@ -169,10 +216,10 @@ namespace MassiveJobs.Core.Tests
         {
             LongRunningJobAsync.Publish(2000, 1000);
 
-            Thread.Sleep(2000);
+            StopWorkers();
 
             Assert.AreEqual(0, _counter.Value);
-            Assert.AreEqual(1, _messages.GetCount(_settings.ErrorQueueName));
+            Assert.AreEqual(1, _messages.GetCount());
         }
         
         [TestMethod]
@@ -180,19 +227,10 @@ namespace MassiveJobs.Core.Tests
         {
             LongRunningJobAsync.Publish(2000);
 
-            TestCleanup();
-            //MassiveJobsMediator.DefaultInstance.StopJobWorkers();
+            CancelWorkers();
 
             Assert.AreEqual(0, _counter.Value);
-
-            var remainingCount = 0;
-
-            for (var i = 0; i < _settings.ImmediateWorkersCount; i++)
-            {
-                remainingCount += _messages.GetCount(string.Format(_settings.ImmediateQueueNameTemplate, i));
-            }
-
-            Assert.AreEqual(1, remainingCount);
+            Assert.AreEqual(1, _messages.GetCount());
         }
 
         [TestMethod]
@@ -202,39 +240,38 @@ namespace MassiveJobs.Core.Tests
             MockJob.PublishPeriodic("test_job", 1, startTime);
 
             _timeProvider.CurrentTimeUtc = startTime;
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(0, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(1000);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(1, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(1999);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(1, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(2000);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(2, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(2999);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(2, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(3000);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(3, _counter.Value);
         }
 
@@ -245,39 +282,38 @@ namespace MassiveJobs.Core.Tests
             MockJob.PublishPeriodic("test_job", 1, startTime, startTime.AddMilliseconds(4000));
 
             _timeProvider.CurrentTimeUtc = startTime;
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(0, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(1000);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(1, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(2000);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(2, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(3000);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(3, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(4000);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(4, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(5000);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(4, _counter.Value);
         }
 
@@ -288,39 +324,38 @@ namespace MassiveJobs.Core.Tests
             MockJob.PublishPeriodic("test_job", "0/2 * * ? * *", null, startTime, startTime.AddSeconds(4));
 
             _timeProvider.CurrentTimeUtc = startTime;
-            FireActiveTimers();
-            Thread.Sleep(2000);
 
+            StopWorkers();
             Assert.AreEqual(0, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(1000);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(0, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(2000);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(1, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(3000);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(1, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(4000);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(2, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(5000);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(2, _counter.Value);
         }
 
@@ -331,25 +366,21 @@ namespace MassiveJobs.Core.Tests
             MockJob.PublishPeriodic("test_job", 1, startTime);
 
             _timeProvider.CurrentTimeUtc = startTime;
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(0, _counter.Value);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(1000);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(1, _counter.Value);
-
             MockJobInc.CancelPeriodic("test_job");
-            FireActiveTimers();
-            Thread.Sleep(100);
+            StartWorkers();
 
             _timeProvider.CurrentTimeUtc = startTime.AddMilliseconds(2000);
-            FireActiveTimers();
-            Thread.Sleep(100);
 
+            StopWorkers();
             Assert.AreEqual(1, _counter.Value);
         }
 
@@ -370,7 +401,10 @@ namespace MassiveJobs.Core.Tests
 
         private void FireActiveTimers()
         {
-            foreach (var t in _timers) t.FireTimeElapsedIfActive();
+            for (var i = 0; i < _timers.Count; i++) 
+            {
+                _timers[i]?.FireTimeElapsedIfActive();
+            }
         }
 
         private class Counter
