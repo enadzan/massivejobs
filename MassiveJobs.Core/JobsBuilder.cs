@@ -79,6 +79,16 @@ namespace MassiveJobs.Core
 
         public void Build(bool startWorkers = true)
         {
+            if (!_serviceProvider.ServiceCollection.IsServiceRegistered<ITimer>())
+            {
+                _serviceProvider.ServiceCollection.RegisterScoped<ITimer, DefaultTimer>();
+            }
+
+            if (!_serviceProvider.ServiceCollection.IsServiceRegistered<ITimeProvider>())
+            {
+                _serviceProvider.ServiceCollection.RegisterSingleton<ITimeProvider, DefaultTimeProvider>();
+            }
+
             ValidateAndCompile();
             MassiveJobsMediator.Initialize(_serviceProvider.ServiceFactory);
 

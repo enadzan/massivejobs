@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using MassiveJobs.Core.LightInject;
 using MassiveJobs.Core.Serialization;
 
@@ -36,6 +37,11 @@ namespace MassiveJobs.Core.DependencyInjection
         public object GetService(Type serviceType)
         {
             return Container.TryGetInstance(serviceType);
+        }
+
+        public bool IsServiceRegistered<TService>()
+        {
+            return Container.AvailableServices.Any(r => r.ServiceType == typeof(TService));
         }
 
         public void RegisterInstance<TService>(TService instance)

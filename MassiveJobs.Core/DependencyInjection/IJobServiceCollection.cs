@@ -12,6 +12,8 @@ namespace MassiveJobs.Core.DependencyInjection
         void RegisterTransient<TService>(Func<IJobServiceFactory, TService> factory);
         void RegisterTransient<TService, TImplementation>() where TImplementation : TService;
 
+        bool IsServiceRegistered<TService>();
+
         void Validate();
         void Compile();
     }
