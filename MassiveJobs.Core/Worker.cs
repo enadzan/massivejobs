@@ -95,21 +95,31 @@ namespace MassiveJobs.Core
                 MaxDegreeOfParallelism = _maxDegreeOfParallelism
             };
 
-            Parallel.ForEach(batch, parallelOptions, msg =>
+            try 
             {
-                using (var scope = ServiceScopeFactory.CreateScope())
+                Parallel.ForEach(batch, parallelOptions, msg =>
                 {
-                    if (!TryDeserializeJob(msg, scope, out var job))
+                    using (var scope = ServiceScopeFactory.CreateScope())
                     {
-                        throw new Exception($"Unknown job type: {msg.TypeTag}.");
+                        if (!TryDeserializeJob(msg, scope, out var job))
+                        {
+                            throw new Exception($"Unknown job type: {msg.TypeTag}.");
+                        }
+
+                        var jobRunner = scope.GetRequiredService<IJobRunner>();
+                        var jobPublisher = scope.GetRequiredService<IJobPublisher>();
+
+                        jobRunner.RunJob(jobPublisher, _messageReceiver, job, msg.DeliveryTag, scope, cancellationToken);
                     }
+                });
+            }
+            catch (OperationCanceledException ex)
+            {
+                // ignore errors caused by stopping this worker
+                if (!cancellationToken.IsCancellationRequested) throw;
 
-                    var jobRunner = scope.GetRequiredService<IJobRunner>();
-                    var jobPublisher = scope.GetRequiredService<IJobPublisher>();
-
-                    jobRunner.RunJob(jobPublisher, _messageReceiver, job, msg.DeliveryTag, scope, cancellationToken);
-                }
-            });
+                Logger.LogDebug(ex, "Cancelled parallel jobs run");
+            }
         }
 
         protected void OnBatchProcessed(ulong lastDeliveryTag)
