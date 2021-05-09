@@ -17,22 +17,35 @@ namespace MassiveJobs.Core
         private readonly ConcurrentDictionary<string, ConcurrentBag<ulong>> _periodicSkipJobs;
         private readonly ConcurrentDictionary<string, ulong> _periodicJobs;
 
-        private readonly Timer _timer;
+        private readonly ITimer _timer;
+        private readonly ITimeProvider _timeProvider;
 
         private CancellationTokenSource _cancellationTokenSource;
 
-        public WorkerScheduled(
-            string queueName, 
-            int batchSize, 
-            IMessageConsumer messageConsumer, 
-            IJobServiceScopeFactory serviceScopeFactory, 
-            IJobLogger<WorkerScheduled> logger)
-            : base(queueName, batchSize, 1, true, messageConsumer, serviceScopeFactory, logger)
+        public WorkerScheduled(string queueName, int batchSize, IJobServiceFactory serviceFactory)
+            : base(queueName, batchSize, 1, true, 
+                  serviceFactory.GetRequiredService<IMessageConsumer>(),
+                  serviceFactory.GetRequiredService<IJobServiceScopeFactory>(),
+                  serviceFactory.GetRequiredService<IJobLogger<WorkerScheduled>>())
         {
-            _timer = new Timer(CheckScheduledJobs);
+            _timeProvider = serviceFactory.GetService<ITimeProvider>() ?? new DefaultTimeProvider();
+
+            _timer = serviceFactory.GetService<ITimer>() ?? new DefaultTimer();
+            _timer.TimeElapsed += CheckScheduledJobs;
+
             _scheduledJobs = new ConcurrentDictionary<ulong, JobInfo>();
             _periodicJobs = new ConcurrentDictionary<string, ulong>();
             _periodicSkipJobs = new ConcurrentDictionary<string, ConcurrentBag<ulong>>();
+        }
+
+        public override void Dispose()
+        {
+            _timer.TimeElapsed -= CheckScheduledJobs;
+            _timer.SafeDispose(Logger);
+
+            _stoppingSignal.SafeDispose(Logger);
+
+            base.Dispose();
         }
 
         protected override void OnStart()
@@ -43,6 +56,7 @@ namespace MassiveJobs.Core
 
             _cancellationTokenSource = new CancellationTokenSource();
             _scheduledJobs.Clear();
+
             _timer.Change(CheckIntervalMs, Timeout.Infinite);
         }
 
@@ -96,7 +110,7 @@ namespace MassiveJobs.Core
 
                         try
                         {
-                            if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc, DateTime.UtcNow))
+                            if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc, _timeProvider.GetCurrentTimeUtc()))
                             {
                                 duplicateTags.Add(rawMessage.DeliveryTag);
                                 continue;
@@ -120,15 +134,17 @@ namespace MassiveJobs.Core
             }
         }
 
-        private void CheckScheduledJobs(object state)
+        private void CheckScheduledJobs()
         {
+            Exception raisedException = null;
+
             try
             {
                 ConfirmSkippedMessages();
 
                 var batchToRun = new Dictionary<ulong, JobInfo>();
 
-                var now = DateTime.UtcNow;
+                var now = _timeProvider.GetCurrentTimeUtc();
 
                 foreach (var kvp in _scheduledJobs)
                 {
@@ -151,17 +167,11 @@ namespace MassiveJobs.Core
             catch (Exception ex)
             {
                 Logger.LogError(ex, $"Error in scheduled worker: {QueueName}");
-                
-                // we must call this before OnError to avoid deadlock
-                // when the error occurred while the worker is stopping
-
-                _stoppingSignal.Set();
-
-                OnError(ex);
+                raisedException = ex;
             }
             finally
             {
-                if (!_cancellationTokenSource.IsCancellationRequested)
+                if (raisedException == null && !_cancellationTokenSource.IsCancellationRequested)
                 {
                     _timer.Change(CheckIntervalMs, Timeout.Infinite);
                 }
@@ -172,6 +182,11 @@ namespace MassiveJobs.Core
 
                     _stoppingSignal.Set();
                 }
+            }
+
+            if (raisedException != null)
+            {
+                OnError(raisedException);
             }
         }
 
@@ -208,7 +223,7 @@ namespace MassiveJobs.Core
                     .Select(j => j.Value)
                     .ToList();
 
-                periodicJobs.ForEach(j => j.PeriodicRunInfo.LastRunTimeUtc = DateTime.UtcNow);
+                periodicJobs.ForEach(j => j.PeriodicRunInfo.LastRunTimeUtc = _timeProvider.GetCurrentTimeUtc());
 
                 jobPublisher.Publish(periodicJobs);
 

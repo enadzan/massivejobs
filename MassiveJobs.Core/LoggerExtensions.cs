@@ -19,6 +19,11 @@ namespace MassiveJobs.Core
             logger.Log(JobLogLevel.Debug, null, message);
         }
 
+        public static void LogDebug(this IJobLogger logger, Exception ex, string message)
+        {
+            logger.Log(JobLogLevel.Debug, ex, message);
+        }
+
         public static void LogInformation(this IJobLogger logger, string message)
         {
             logger.Log(JobLogLevel.Information, null, message);

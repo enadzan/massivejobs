@@ -6,14 +6,11 @@ namespace MassiveJobs.Core
 {
     public sealed class WorkerImmediate : Worker
     {
-        public WorkerImmediate(
-            string queueName, 
-            int batchSize, 
-            int maxDegreeOfParallelism,
-            IMessageConsumer messageConsumer, 
-            IJobServiceScopeFactory serviceScopeFactory, 
-            IJobLogger<WorkerImmediate> logger)
-            : base(queueName, batchSize, maxDegreeOfParallelism, false, messageConsumer, serviceScopeFactory, logger)
+        public WorkerImmediate(string queueName, int batchSize, int maxDegreeOfParallelism, IJobServiceFactory serviceFactory)
+            : base(queueName, batchSize, maxDegreeOfParallelism, false, 
+                  serviceFactory.GetRequiredService<IMessageConsumer>(),
+                  serviceFactory.GetRequiredService<IJobServiceScopeFactory>(),
+                  serviceFactory.GetRequiredService<IJobLogger<WorkerImmediate>>())
         {
         }
 
