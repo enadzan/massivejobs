@@ -12,15 +12,20 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MassiveJobs.Core.Hosting" Version="0.44.2" />
-    <PackageReference Include="MassiveJobs.RabbitMqBroker" Version="0.44.2" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Include="icon.png">
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' != 'Release'">
+    <ProjectReference Include="..\MassiveJobs.Core.Hosting\MassiveJobs.Core.Hosting.csproj" />
+    <ProjectReference Include="..\MassiveJobs.RabbitMqBroker\MassiveJobs.RabbitMqBroker.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <PackageReference Include="MassiveJobs.Core.Hosting" Version="0.44.2" />
+    <PackageReference Include="MassiveJobs.RabbitMqBroker" Version="0.44.2" />
   </ItemGroup>
 
 </Project>

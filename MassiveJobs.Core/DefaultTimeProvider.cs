@@ -2,7 +2,7 @@
 
 namespace MassiveJobs.Core
 {
-    class DefaultTimeProvider : ITimeProvider
+    public class DefaultTimeProvider : ITimeProvider
     {
         public DateTime GetCurrentTimeUtc()
         {

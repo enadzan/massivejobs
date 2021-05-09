@@ -13,7 +13,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MassiveJobs.Core" Version="0.44.2" />
     <PackageReference Include="RabbitMQ.Client" Version="6.2.1" />
   </ItemGroup>
 
@@ -24,4 +23,12 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup Condition="'$(Configuration)' != 'Release'">
+    <ProjectReference Include="..\MassiveJobs.Core\MassiveJobs.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <PackageReference Include="MassiveJobs.Core" Version="0.44.2" />
+  </ItemGroup>
+  
 </Project>

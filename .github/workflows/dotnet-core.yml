@@ -16,19 +16,21 @@ jobs:
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 3.1.101
+        dotnet-version: 3.1.403
     - name: Install dependencies
-      run: dotnet restore
+      run: dotnet msbuild /t:restore /p:Configuration=Debug
     - name: Build
       run: |
-        dotnet build --configuration Release --no-restore --framework netstandard2.0 ./MassiveJobs.Core/MassiveJobs.Core.csproj
-        dotnet build --configuration Release --no-restore --framework netcoreapp3.1 ./MassiveJobs.Core.Tests/MassiveJobs.Core.Tests.csproj
-        dotnet build --configuration Release --no-restore --framework netstandard2.0 ./MassiveJobs.Core.Hosting/MassiveJobs.Core.Hosting.csproj
-        dotnet build --configuration Release --no-restore --framework netstandard2.0 ./MassiveJobs.Logging.Log4Net/MassiveJobs.Logging.Log4Net.csproj
-        dotnet build --configuration Release --no-restore --framework netstandard2.0 ./MassiveJobs.Logging.NLog/MassiveJobs.Logging.NLog.csproj
-        dotnet build --configuration Release --no-restore --framework netstandard2.0 ./MassiveJobs.Logging.Serilog/MassiveJobs.Logging.Serilog.csproj
-        dotnet build --configuration Release --no-restore --framework netstandard2.0 ./MassiveJobs.RabbitMqBroker/MassiveJobs.RabbitMqBroker.csproj
-        dotnet build --configuration Release --no-restore --framework netstandard2.0 ./MassiveJobs.RabbitMqBroker.Hosting/MassiveJobs.RabbitMqBroker.Hosting.csproj
-        dotnet build --configuration Release --no-restore --framework netcoreapp3.1 ./MassiveJobs.RabbitMqBroker.Tests/MassiveJobs.RabbitMqBroker.Tests.csproj
+        dotnet build --configuration Debug --no-restore --framework netstandard2.0 ./MassiveJobs.Core/MassiveJobs.Core.csproj
+        dotnet build --configuration Debug --no-restore --framework netcoreapp3.1 ./MassiveJobs.Core.Tests/MassiveJobs.Core.Tests.csproj
+        dotnet build --configuration Debug --no-restore --framework netstandard2.0 ./MassiveJobs.Core.Hosting/MassiveJobs.Core.Hosting.csproj
+        dotnet build --configuration Debug --no-restore --framework netstandard2.0 ./MassiveJobs.Logging.Log4Net/MassiveJobs.Logging.Log4Net.csproj
+        dotnet build --configuration Debug --no-restore --framework netstandard2.0 ./MassiveJobs.Logging.NLog/MassiveJobs.Logging.NLog.csproj
+        dotnet build --configuration Debug --no-restore --framework netstandard2.0 ./MassiveJobs.Logging.Serilog/MassiveJobs.Logging.Serilog.csproj
+        dotnet build --configuration Debug --no-restore --framework netstandard2.0 ./MassiveJobs.RabbitMqBroker/MassiveJobs.RabbitMqBroker.csproj
+        dotnet build --configuration Debug --no-restore --framework netstandard2.0 ./MassiveJobs.RabbitMqBroker.Hosting/MassiveJobs.RabbitMqBroker.Hosting.csproj
+        dotnet build --configuration Debug --no-restore --framework netcoreapp3.1 ./MassiveJobs.RabbitMqBroker.Tests/MassiveJobs.RabbitMqBroker.Tests.csproj
+        dotnet build --configuration Debug --no-restore --framework netstandard2.1 ./MassiveJobs.SqlServerBroker/MassiveJobs.SqlServerBroker.csproj
+        dotnet build --configuration Debug --no-restore --framework netcoreapp3.1 ./MassiveJobs.SqlServerBroker.Tests/MassiveJobs.SqlServerBroker.Tests.csproj
     - name: Test
-      run: dotnet test --configuration Release --no-restore --no-build --verbosity normal ./MassiveJobs.Core.Tests/MassiveJobs.Core.Tests.csproj
+      run: dotnet test --configuration Debug --no-restore --no-build --verbosity normal ./MassiveJobs.Core.Tests/MassiveJobs.Core.Tests.csproj

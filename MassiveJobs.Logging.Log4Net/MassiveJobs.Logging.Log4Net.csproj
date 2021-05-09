@@ -13,7 +13,6 @@
 
   <ItemGroup>
     <PackageReference Include="log4net" Version="2.0.12" />
-    <PackageReference Include="MassiveJobs.Core" Version="0.44.2" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,4 +22,12 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup Condition="'$(Configuration)' != 'Release'">
+    <ProjectReference Include="..\MassiveJobs.Core\MassiveJobs.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <PackageReference Include="MassiveJobs.Core" Version="0.44.2" />
+  </ItemGroup>
+  
 </Project>

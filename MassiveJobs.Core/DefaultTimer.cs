@@ -3,9 +3,9 @@ using System.Threading;
 
 namespace MassiveJobs.Core
 {
-    class DefaultTimer : ITimer
+    public class DefaultTimer : ITimer
     {
-        private Timer _timer;
+        private readonly Timer _timer;
 
         public event Action TimeElapsed;
 

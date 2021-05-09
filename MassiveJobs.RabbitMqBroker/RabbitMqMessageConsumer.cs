@@ -3,6 +3,7 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
 using MassiveJobs.Core;
+using MassiveJobs.Core.DependencyInjection;
 
 namespace MassiveJobs.RabbitMqBroker
 {
@@ -28,7 +29,7 @@ namespace MassiveJobs.RabbitMqBroker
             EnsureConnectionExists();
         }
 
-        public IMessageReceiver CreateReceiver(string queueName)
+        public IMessageReceiver CreateReceiver(string queueName, bool singleActiveConsumer)
         {
             EnsureConnectionExists();
 
@@ -82,9 +83,13 @@ namespace MassiveJobs.RabbitMqBroker
                 _model.BasicAck(lastDeliveryTag, true);
             }
 
-            public void AckMessageProcessed(ulong deliveryTag)
+            public void AckMessageProcessed(IJobServiceScope scope, ulong deliveryTag)
             {
                 _model.BasicAck(deliveryTag, false);
+            }
+
+            public void AckBatchMessageProcessed(IJobServiceScope scope, ulong deliveryTag)
+            {
             }
 
             private void ConsumerOnReceived(object sender, BasicDeliverEventArgs e)
