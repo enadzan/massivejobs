@@ -77,7 +77,10 @@ namespace MassiveJobs.Core.Memory
         private readonly IJobLogger<InMemoryMessageReceiver> _logger;
         private readonly Thread _consumerThread;
 
-        private volatile bool _disposed;
+        private volatile int _disposed;
+        private volatile int _started;
+
+        private readonly ManualResetEvent _stopEvent = new ManualResetEvent(false);
 
         public event MessageReceivedHandler MessageReceived;
 
@@ -91,12 +94,15 @@ namespace MassiveJobs.Core.Memory
 
         public void Start()
         {
+            var previousValue = Interlocked.Exchange(ref _started, 1);
+            if (previousValue != 0) return;
+
             _consumerThread.Start();
         }
 
         public void AckBatchProcessed(ulong lastDeliveryTag)
         {
-            _messages.RemoveBatch(_queueName, lastDeliveryTag);
+            // nothing to do
         }
 
         public void AckMessageProcessed(IJobServiceScope scope, ulong deliveryTag)
@@ -108,36 +114,39 @@ namespace MassiveJobs.Core.Memory
         {
             try
             {
-                ulong lastReceivedTag = 0;
-
-                while (!_disposed)
+                // consumer function will run at least once (useful for tests)
+                do
                 {
-                    if (_messages.GetMessages(_queueName, lastReceivedTag, out var batch))
+                    if (_messages.GetMessages(_queueName, out var batch))
                     {
                         foreach (var msg in batch)
                         {
-                            if (_disposed) break;
-
                             MessageReceived?.Invoke(this, msg);
-                            lastReceivedTag = msg.DeliveryTag;
                         }
                     }
                 }
+                while (_disposed == 0);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in consumer function");
             }
+
+            _messages.MoveUnackToReady(_queueName);
+            _stopEvent.Set();
         }
 
         public void Dispose()
         {
-            _disposed = true;
+            var previousValue = Interlocked.Exchange(ref _disposed, 1);
+            if (previousValue != 0) return;
+
+            _stopEvent.WaitOne();
         }
 
         public void AckBatchMessageProcessed(IJobServiceScope scope, ulong deliveryTag)
         {
-            // nothing to do
+            _messages.RemoveMessage(_queueName, deliveryTag);
         }
     }
 }

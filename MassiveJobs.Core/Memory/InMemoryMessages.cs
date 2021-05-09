@@ -5,16 +5,15 @@ using System.Threading;
 
 namespace MassiveJobs.Core.Memory
 {
-    public class InMemoryMessages
+    public class InMemoryMessages: IDisposable
     {
         private ulong _lastDeliveryTag;
 
-        private readonly Dictionary<string, Tuple<List<RawMessage>, AutoResetEvent>> _publishedMessages
-                    = new Dictionary<string, Tuple<List<RawMessage>, AutoResetEvent>>();
+        private readonly Dictionary<string, InMemoryQueue> _queues = new Dictionary<string, InMemoryQueue>();
 
         internal void EnsureQueues(MassiveJobsSettings settings)
         {
-            lock (_publishedMessages)
+            lock (_queues)
             {
                 for (var i = 0; i < settings.ImmediateWorkersCount; i++)
                 {
@@ -43,49 +42,54 @@ namespace MassiveJobs.Core.Memory
 
         public void EnqueueMessage(string routingKey, RawMessage rawMessage, int maxQueueLength)
         {
-            lock (_publishedMessages)
+            lock (_queues)
             {
-                if (!_publishedMessages.TryGetValue(routingKey, out var messages)) throw new Exception($"Unroutable message (routingKey={routingKey})");
-                if (maxQueueLength > 0 && messages.Item1.Count >= maxQueueLength) throw new Exception($"Queue {routingKey} is full!");
+                if (!_queues.TryGetValue(routingKey, out var queue)) throw new Exception($"Unroutable message (routingKey={routingKey})");
+                if (maxQueueLength > 0 && queue.MessagesReady.Count >= maxQueueLength) throw new Exception($"Queue {routingKey} is full!");
 
                 rawMessage.DeliveryTag = ++_lastDeliveryTag;
 
-                messages.Item1.Add(rawMessage);
-                messages.Item2.Set();
+                queue.MessagesReady.Add(rawMessage.DeliveryTag, rawMessage);
+                queue.MessageReceivedEvent.Set();
             }
         }
 
-        public bool GetMessages(string queueName, ulong lastReceivedTag, out List<RawMessage> batch)
+        public bool GetMessages(string queueName, out List<RawMessage> batch)
         {
             batch = null;
             AutoResetEvent waitSignal;
 
-            lock (_publishedMessages)
+            lock (_queues)
             {
-                if (!_publishedMessages.TryGetValue(queueName, out var messages)) throw new Exception($"Unknown queue ({queueName})");
+                if (!_queues.TryGetValue(queueName, out var queue)) throw new Exception($"Unknown queue ({queueName})");
 
-                waitSignal = messages.Item2;
+                waitSignal = queue.MessageReceivedEvent;
 
-                if (messages.Item1.Count > 0)
+                if (queue.MessagesReady.Count > 0)
                 {
                     waitSignal.Set();
                 }
             }
 
-            if (!waitSignal.WaitOne(1000))
+            if (!waitSignal.WaitOne(100))
             {
                 return false;
             }
 
-            lock (_publishedMessages)
+            lock (_queues)
             {
-                if (!_publishedMessages.TryGetValue(queueName, out var messages)) return false;
+                if (!_queues.TryGetValue(queueName, out var queue)) return false;
 
                 batch = new List<RawMessage>();
 
-                foreach (var message in messages.Item1.Where(m => m.DeliveryTag > lastReceivedTag))
+                while (queue.MessagesReady.Count > 0)
                 {
-                    batch.Add(message);
+                    var kvp = queue.MessagesReady.First();
+
+                    batch.Add(kvp.Value);
+
+                    queue.MessagesUnacknowledged.Add(kvp.Key, kvp.Value);
+                    queue.MessagesReady.Remove(kvp.Key);
                 }
             }
 
@@ -94,42 +98,86 @@ namespace MassiveJobs.Core.Memory
 
         public int GetCount(string queueName)
         {
-            lock (_publishedMessages)
+            lock (_queues)
             {
-                if (!_publishedMessages.TryGetValue(queueName, out var messages)) throw new Exception($"Unknown queue ({queueName})");
-                return messages.Item1.Count;
+                if (!_queues.TryGetValue(queueName, out var queue)) throw new Exception($"Unknown queue ({queueName})");
+                return queue.MessagesReady.Count + queue.MessagesUnacknowledged.Count;
             }
         }
 
-        public void RemoveBatch(string queueName, ulong lastDeliveryTag)
+        public int GetCount()
         {
-            lock (_publishedMessages)
+            lock (_queues)
             {
-                if (!_publishedMessages.TryGetValue(queueName, out var messages)) throw new Exception($"Unknown queue ({queueName})");
-
-                while (messages.Item1.Count > 0 && messages.Item1[0].DeliveryTag <= lastDeliveryTag)
-                {
-                    messages.Item1.RemoveAt(0);
-                }
+                return _queues.Values.Sum(q => q.MessagesReady.Count + q.MessagesUnacknowledged.Count);
             }
         }
 
         public void RemoveMessage(string queueName, ulong deliveryTag)
         {
-            lock (_publishedMessages)
+            lock (_queues)
             {
-                if (!_publishedMessages.TryGetValue(queueName, out var messages)) throw new Exception($"Unknown queue ({queueName})");
+                if (!_queues.TryGetValue(queueName, out var queue)) throw new Exception($"Unknown queue ({queueName})");
 
-                messages.Item1.RemoveAll(m => m.DeliveryTag == deliveryTag);
+                queue.MessagesUnacknowledged.Remove(deliveryTag);
+            }
+        }
+
+        public void MoveUnackToReady(string queueName)
+        {
+            lock (_queues)
+            {
+                if (!_queues.TryGetValue(queueName, out var queue)) throw new Exception($"Unknown queue ({queueName})");
+
+                while (queue.MessagesUnacknowledged.Count > 0)
+                {
+                    var kvp = queue.MessagesUnacknowledged.First();
+
+                    queue.MessagesReady.Add(kvp.Key, kvp.Value);
+                    queue.MessagesUnacknowledged.Remove(kvp.Key);
+                }
             }
         }
 
         private void EnsureQueue(string queueName)
         {
-            if (!_publishedMessages.TryGetValue(queueName, out var messages))
+            if (!_queues.TryGetValue(queueName, out _))
             {
-                messages = new Tuple<List<RawMessage>, AutoResetEvent>(new List<RawMessage>(), new AutoResetEvent(false));
-                _publishedMessages.Add(queueName, messages);
+                _queues.Add(queueName, new InMemoryQueue());
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_queues) 
+            {
+                foreach (var kvp in _queues)
+                {
+                    kvp.Value.Dispose();
+                }
+
+                _queues.Clear();
+            }
+        }
+
+        private class InMemoryQueue: IDisposable
+        {
+            public Dictionary<ulong, RawMessage> MessagesReady { get; }
+
+            public Dictionary<ulong, RawMessage> MessagesUnacknowledged { get; }
+
+            public AutoResetEvent MessageReceivedEvent { get; }
+
+            public InMemoryQueue()
+            {
+                MessagesReady = new Dictionary<ulong, RawMessage>();
+                MessagesUnacknowledged = new Dictionary<ulong, RawMessage>();
+                MessageReceivedEvent = new AutoResetEvent(false);
+            }
+
+            public void Dispose()
+            {
+                MessageReceivedEvent.Dispose();
             }
         }
     }
