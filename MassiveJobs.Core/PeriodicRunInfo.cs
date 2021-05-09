@@ -53,7 +53,7 @@ namespace MassiveJobs.Core
             if (cron != null)
             {
                 NextRunTime = cron.NextUtc(utcNow);
-                if (EndAtUtc == null || EndAtUtc.Value > NextRunTime)
+                if (EndAtUtc == null || NextRunTime <= EndAtUtc.Value)
                 {
                     return true;
                 }
@@ -63,7 +63,7 @@ namespace MassiveJobs.Core
                 var skipWindows = ((int)utcNow.Subtract(startTimeUtc.Value).TotalSeconds) / RepeatSeconds + 1;
 
                 NextRunTime = startTimeUtc.Value.AddSeconds(skipWindows * RepeatSeconds);
-                if (EndAtUtc == null || EndAtUtc.Value > NextRunTime)
+                if (EndAtUtc == null || NextRunTime <= EndAtUtc.Value)
                 {
                     return true;
                 }
