@@ -48,6 +48,8 @@ namespace MassiveJobs.Core
             {
                 if (_processorThread != null) return;
 
+                OnStart();
+
                 _stoppingSignal.Reset();
 
                 Logger.LogDebug($"Starting batch processor");
@@ -128,8 +130,6 @@ namespace MassiveJobs.Core
 
             try
             {
-                OnStart();
-
                 while (!_cancellationTokenSource.IsCancellationRequested)
                 {
                     _messageAddedSignal.WaitOne(1000);
