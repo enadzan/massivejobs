@@ -118,6 +118,11 @@ namespace MassiveJobs.RabbitMqBroker
             {
                 _model.BasicConsume(_consumer, _queueName, exclusive: false);
             }
+
+            public IBrokerTransaction BeginTransaction(IJobServiceScope scope)
+            {
+                return null;
+            }
         }
     }
 }

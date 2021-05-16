@@ -6,8 +6,6 @@ namespace MassiveJobs.SqlServerBroker.Tests
 {
     public class MockJob : Job<MockJob>
     {
-        public static AutoResetEvent PerformedEvent { get; } = new AutoResetEvent(false);
-
         private static int _performCount;
         public static int PerformCount => _performCount;
 
@@ -22,19 +20,12 @@ namespace MassiveJobs.SqlServerBroker.Tests
 
         public override void Perform()
         {
-            try
-            {
-                var messages = _ctx.Set<MessageQueue>()
-                    .Count();
+            var messages = _ctx.Set<MessageQueue>()
+                .Count();
 
-                if (messages == 0) throw new System.Exception("Zero messages");
+            if (messages == 0) throw new System.Exception("Zero messages");
 
-                Interlocked.Increment(ref _performCount);
-            }
-            finally
-            {
-                PerformedEvent.Set();
-            }
+            Interlocked.Increment(ref _performCount);
         }
 
         public static void ResetPerformCount()

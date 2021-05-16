@@ -1,9 +1,9 @@
 ﻿using System;
-using System.Linq;
 using System.Text;
 using System.Threading;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 using MassiveJobs.Core;
 using MassiveJobs.Core.DependencyInjection;
@@ -16,9 +16,12 @@ namespace MassiveJobs.SqlServerBroker
 
         private readonly string _queueName;
         private readonly bool _singleActiveConsumer;
+        private readonly ISqlDialect _sqlDialect;
+        private readonly ITimeProvider _timeProvider;
         private readonly IJobServiceScopeFactory _scopeFactory;
+        private readonly IJobServiceScope _scope;
         private readonly IJobLogger<SqlServerMessageReceiver<TDbContext>> _logger;
-        private readonly Timer _timer;
+        private readonly ITimer _timer;
         private readonly string _instanceName;
 
         private bool _initialized;
@@ -26,16 +29,20 @@ namespace MassiveJobs.SqlServerBroker
 
         public event MessageReceivedHandler MessageReceived;
 
-        public SqlServerMessageReceiver(string queueName, bool singleActiveConsumer, IJobServiceScopeFactory scopeFactory,
-            IJobLogger<SqlServerMessageReceiver<TDbContext>> logger)
+        public SqlServerMessageReceiver(string queueName, bool singleActiveConsumer, IJobServiceScopeFactory scopeFactory, IJobLogger<SqlServerMessageReceiver<TDbContext>> logger)
         {
+            _scopeFactory = scopeFactory;
+            _scope = scopeFactory.CreateScope();
+
             _queueName = queueName;
             _singleActiveConsumer = singleActiveConsumer;
-            _scopeFactory = scopeFactory;
+            _sqlDialect = _scope.GetRequiredService<ISqlDialect>();
+            _timeProvider = _scope.GetRequiredService<ITimeProvider>();
             _logger = logger;
             _instanceName = $"{Environment.MachineName}/{Guid.NewGuid()}";
 
-            _timer = new Timer(TimerCallback);
+            _timer = _scope.GetRequiredService<ITimer>();
+            _timer.TimeElapsed += TimerCallback;
         }
 
         public void AckBatchProcessed(ulong lastDeliveryTag)
@@ -51,14 +58,7 @@ namespace MassiveJobs.SqlServerBroker
         {
             var dbContext = scope.GetRequiredService<TDbContext>();
 
-            var utcNow = DateTime.UtcNow;
-
-            var affectedCount = dbContext.Database.ExecuteSqlInterpolated($@"
-UPDATE massive_jobs.message_queue 
-SET processing_end_utc = {utcNow} 
-WHERE processing_end_utc IS NULL
-    AND processing_instance = {_instanceName}
-");
+            var affectedCount = _sqlDialect.MessageQueueAckProcessed(dbContext, _instanceName, _timeProvider.GetCurrentTimeUtc());
 
             if (affectedCount != 1) throw new Exception($"Ack failed. Expected 1 row, but instead, {affectedCount} rows were affected");
         }
@@ -66,9 +66,11 @@ WHERE processing_end_utc IS NULL
         public void Dispose()
         {
             lock (_timer) 
-             { 
+            { 
+                _timer.TimeElapsed -= TimerCallback;
                 _timer.Change(Timeout.Infinite, Timeout.Infinite);
-                _timer.SafeDispose(_logger);
+
+                _scope.SafeDispose(_logger);
                 _isDisposed = true;
             }
         }
@@ -78,7 +80,7 @@ WHERE processing_end_utc IS NULL
             _timer.Change(2000, Timeout.Infinite);
         }
 
-        private void TimerCallback(object state)
+        private void TimerCallback()
         {
             try
             {
@@ -86,7 +88,7 @@ WHERE processing_end_utc IS NULL
 
                 var dbContext = scope.GetRequiredService<TDbContext>();
 
-                var utcNow = DateTime.UtcNow;
+                var utcNow = _timeProvider.GetCurrentTimeUtc();
 
                 TryInitialize(dbContext);
 
@@ -103,7 +105,28 @@ WHERE processing_end_utc IS NULL
             {
                 lock (_timer) 
                 {
-                    if (!_isDisposed) _timer.Change(2000, Timeout.Infinite);
+                    if (_isDisposed)
+                    {
+                        try
+                        {
+                            if (_singleActiveConsumer)
+                            {
+                                using var scope = _scopeFactory.CreateScope();
+                                var dbContext = scope.GetRequiredService<TDbContext>();
+
+                                _sqlDialect.MessageQueueRelease(dbContext, _instanceName, _queueName);
+                                _sqlDialect.SingleConsumerLockRelease(dbContext, _instanceName, _queueName);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed releasing single consumer lock");
+                        }
+                    }
+                    else
+                    {
+                        _timer.Change(2000, Timeout.Infinite);
+                    }
                 }
             }
         }
@@ -141,35 +164,19 @@ WHERE processing_end_utc IS NULL
         {
             if (!_singleActiveConsumer) return true;
 
-            var rowsAffected = dbContext.Database.ExecuteSqlInterpolated($@"
-UPDATE massive_jobs.single_consumer_lock 
-SET lock_keepalive_utc = {utcNow}, instance_name = {_instanceName}
-WHERE routing_key = {_queueName}
-    AND (lock_keepalive_utc IS NULL OR lock_keepalive_utc < {utcNow.AddSeconds(-20)} OR instance_name = {_instanceName})
-");
+            var rowsAffected = _sqlDialect.SingleConsumerLockUpdate(dbContext, _instanceName, _queueName, utcNow); 
+
             return rowsAffected > 0;
         }
 
         private void ProcessMessages(TDbContext dbContext, DateTime utcNow)
         {
-            var unconfirmedCount = dbContext.Database.ExecuteSqlInterpolated($@"
-UPDATE massive_jobs.message_queue 
-SET processing_keepalive_utc = {utcNow} 
-WHERE processing_end_utc IS NULL
-    AND processing_instance = {_instanceName}
-");
+            var unconfirmedCount = _sqlDialect.MessageQueueKeepalive(dbContext, _instanceName, utcNow);
+
             var remaining = BatchSize - unconfirmedCount;
             if (remaining <= 0) return;
 
-            var messages = dbContext.Set<MessageQueue>().FromSqlInterpolated($@"
-UPDATE TOP ({remaining}) massive_jobs.message_queue
-SET processing_start_utc = {utcNow}, processing_keepalive_utc = {utcNow}, processing_instance = {_instanceName}
-OUTPUT inserted.*
-WHERE processing_end_utc IS NULL
-    AND routing_key = {_queueName}
-    AND (processing_keepalive_utc IS NULL OR processing_keepalive_utc < {utcNow.AddSeconds(-20)})
-")
-                .ToList();
+            var messages = _sqlDialect.MessageQueueGetNextBatch(dbContext, _instanceName, _queueName, utcNow, remaining);
 
             foreach (var msg in messages)
             {
@@ -198,6 +205,39 @@ WHERE processing_end_utc IS NULL
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error in {nameof(OnMessageReceived)}");
+            }
+        }
+
+        public IBrokerTransaction BeginTransaction(IJobServiceScope scope)
+        {
+            var dbContext = scope.GetRequiredService<TDbContext>();
+            var tx = dbContext.Database.BeginTransaction();
+
+            return new BrokerTransaction(tx);
+        }
+
+        class BrokerTransaction: IBrokerTransaction
+        {
+            private readonly IDbContextTransaction _tx;
+
+            public BrokerTransaction(IDbContextTransaction tx)
+            {
+                _tx = tx;
+            }
+
+            public void Commit()
+            {
+                _tx.Commit();
+            }
+
+            public void Dispose()
+            {
+                _tx.Dispose();
+            }
+
+            public void Rollback()
+            {
+                _tx.Rollback();
             }
         }
     }

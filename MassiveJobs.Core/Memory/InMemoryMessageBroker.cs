@@ -148,5 +148,10 @@ namespace MassiveJobs.Core.Memory
         {
             _messages.RemoveMessage(_queueName, deliveryTag);
         }
+
+        public IBrokerTransaction BeginTransaction(IJobServiceScope scope)
+        {
+            return null;
+        }
     }
 }

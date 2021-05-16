@@ -52,7 +52,7 @@ namespace MassiveJobs.Core
 
         protected void InvokePerform(IJobPublisher publisher, IMessageReceiver receiver, JobInfo jobInfo, ulong deliveryTag, IJobServiceScope serviceScope, CancellationToken cancellationToken)
         {
-            System.Transactions.TransactionScope transScope = null;
+            IBrokerTransaction tx = null;
 
             try
             {
@@ -89,9 +89,7 @@ namespace MassiveJobs.Core
 
                 if ((bool)reflectionInfo.UseTransactionGetter(job))
                 {
-                    transScope = new System.Transactions.TransactionScope(
-                        System.Transactions.TransactionScopeOption.Required,
-                        System.Transactions.TransactionScopeAsyncFlowOption.Enabled);
+                    tx = receiver.BeginTransaction(serviceScope);
                 }
 
                 object result;
@@ -116,24 +114,30 @@ namespace MassiveJobs.Core
 
                 if (result != null && result is Task taskResult)
                 {
-                    // All jobs in a batch are running in one service scope, which is why
-                    // we are not running them in parallel (usually, scope level services
-                    // like db connections cannot be shared between threads)
                     taskResult.Wait(cancellationToken);
                 }
 
                 receiver.AckBatchMessageProcessed(serviceScope, deliveryTag);
 
-                transScope?.Complete();
+                tx?.Commit();
             }
             catch (TargetInvocationException ex)
             {
+                try
+                {
+                    tx?.Rollback();
+                }
+                catch (Exception rollbackEx)
+                {
+                    _logger.LogError(rollbackEx, "Rollback failed");
+                }
+
                 if (ex.InnerException == null) throw;
                 ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
             }
             finally
             {
-                transScope.SafeDispose(_logger);
+                tx.SafeDispose(_logger);
             }
         }
     }

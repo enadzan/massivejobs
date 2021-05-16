@@ -60,5 +60,13 @@ namespace MassiveJobs.Core
         /// <param name="scope"></param>
         /// <param name="deliveryTag"></param>
         void AckMessageProcessed(IJobServiceScope scope, ulong deliveryTag);
+
+        IBrokerTransaction BeginTransaction(IJobServiceScope scope);
+    }
+
+    public interface IBrokerTransaction: IDisposable
+    {
+        void Commit();
+        void Rollback();
     }
 }

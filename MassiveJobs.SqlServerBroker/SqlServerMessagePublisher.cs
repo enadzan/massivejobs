@@ -10,10 +10,14 @@ namespace MassiveJobs.SqlServerBroker
     public class SqlServerMessagePublisher<TDbContext> : IMessagePublisher where TDbContext: DbContext
     {
         private readonly TDbContext _dbContext;
+        private readonly ISqlDialect _sqlDialect;
+        private readonly ITimeProvider _timeProvider;
 
-        public SqlServerMessagePublisher(TDbContext dbContext)
+        public SqlServerMessagePublisher(TDbContext dbContext, ISqlDialect sqlDialect, ITimeProvider timeProvider)
         {
             _dbContext = dbContext;
+            _sqlDialect = sqlDialect;
+            _timeProvider = timeProvider;
         }
 
         public void Dispose()
@@ -28,11 +32,7 @@ namespace MassiveJobs.SqlServerBroker
 
                 var messageData = Encoding.UTF8.GetString(msg.Body);
 
-                _dbContext.Database.ExecuteSqlInterpolated($@"
-INSERT INTO massive_jobs.message_queue (routing_key, args_type, message_data, published_at_utc)
-VALUES ({routingKey}, {msg.TypeTag}, {messageData}, {DateTime.UtcNow})
-");
-
+                _sqlDialect.MessageQueueInsert(_dbContext, routingKey, msg.TypeTag, messageData, _timeProvider.GetCurrentTimeUtc());
             }
         }
     }
