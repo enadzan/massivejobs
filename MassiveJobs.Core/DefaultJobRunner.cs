@@ -112,7 +112,7 @@ namespace MassiveJobs.Core
                         throw new ArgumentOutOfRangeException(nameof(reflectionInfo.PerfMethodType));
                 }
 
-                if (result != null && result is Task taskResult)
+                if (result is Task taskResult)
                 {
                     taskResult.Wait(cancellationToken);
                 }

@@ -216,7 +216,7 @@ namespace MassiveJobs.SqlServerBroker
             return new BrokerTransaction(tx);
         }
 
-        class BrokerTransaction: IBrokerTransaction
+        private class BrokerTransaction: IBrokerTransaction
         {
             private readonly IDbContextTransaction _tx;
 

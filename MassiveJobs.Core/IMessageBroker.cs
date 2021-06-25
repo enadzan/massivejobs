@@ -18,7 +18,7 @@ namespace MassiveJobs.Core
 
     public interface IMessagePublisher: IDisposable
     {
-        void Publish(string rountingKey, IEnumerable<RawMessage> messages, TimeSpan timeout);
+        void Publish(string routingKey, IEnumerable<RawMessage> messages, TimeSpan timeout);
     }
 
     public interface IMessageConsumer: IDisposable
@@ -51,7 +51,8 @@ namespace MassiveJobs.Core
         /// In other words implement <see cref="AckBatchProcessed(ulong)"/> or <see cref="AckBatchMessageProcessed(IJobServiceScope, ulong)"/>.
         /// No need to implement both. However, <see cref="AckMessageProcessed(IJobServiceScope, ulong)"/> always has to be implemented.
         /// </summary>
-        /// <param name="lastDeliveryTag"></param>
+        /// <param name="scope">Service scope in which a message from a batch is processed.</param>
+        /// <param name="deliveryTag">Message delivery tag</param>
         void AckBatchMessageProcessed(IJobServiceScope scope, ulong deliveryTag);
 
         /// <summary>
