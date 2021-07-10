@@ -8,7 +8,7 @@
     <PackageProjectUrl>https://massivejobs.net/</PackageProjectUrl>
     <PackageIcon>icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/enadzan/massivejobs</RepositoryUrl>
-    <Version>0.44.2</Version>
+    <Version>0.45.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' == 'Release'">
-    <PackageReference Include="MassiveJobs.Core" Version="0.44.2" />
+    <PackageReference Include="MassiveJobs.Core" Version="0.45.0" />
   </ItemGroup>
   
 </Project>
