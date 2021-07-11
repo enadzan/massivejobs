@@ -65,8 +65,13 @@ namespace MassiveJobs.QuickStart
 {
     /// <summary>
     /// This is a "job" class. 
-    /// It will be instantiated every time a message is received and Perform will be called.
-    /// It inherits from 
+    /// It will be instantiated every time a message is received, and Perform will be called.
+    /// It inherits from Job<TJob, TArgs> generic class, where TJob specifies the type of the job,
+    /// and TArgs specifies the type of the parameter expected by the Perform method. 
+    ///
+    /// In the example below, TArgs is a string, but it can be a custom class with multiple properties.
+    /// TArgs instances will be serialized (System.Text.Json by default) as a part of the job, 
+    /// before it gets sent to the RabbitMQ.
     /// </summary>
     public class MessageReceiver: Job<MessageReceiver, string>
     {
