@@ -17,11 +17,10 @@ namespace MassiveJobs.SqlServerBroker
         private readonly string _queueName;
         private readonly bool _singleActiveConsumer;
         private readonly ISqlDialect _sqlDialect;
-        private readonly ITimeProvider _timeProvider;
         private readonly IJobServiceScopeFactory _scopeFactory;
         private readonly IJobServiceScope _scope;
         private readonly IJobLogger<SqlServerMessageReceiver<TDbContext>> _logger;
-        private readonly ITimer _timer;
+        private readonly Timer _timer;
         private readonly string _instanceName;
 
         private bool _initialized;
@@ -37,12 +36,10 @@ namespace MassiveJobs.SqlServerBroker
             _queueName = queueName;
             _singleActiveConsumer = singleActiveConsumer;
             _sqlDialect = _scope.GetRequiredService<ISqlDialect>();
-            _timeProvider = _scope.GetRequiredService<ITimeProvider>();
             _logger = logger;
             _instanceName = $"{Environment.MachineName}/{Guid.NewGuid()}";
 
-            _timer = _scope.GetRequiredService<ITimer>();
-            _timer.TimeElapsed += TimerCallback;
+            _timer = new Timer(TimerCallback);
         }
 
         public void AckBatchProcessed(ulong lastDeliveryTag)
@@ -58,7 +55,7 @@ namespace MassiveJobs.SqlServerBroker
         {
             var dbContext = scope.GetRequiredService<TDbContext>();
 
-            var affectedCount = _sqlDialect.MessageQueueAckProcessed(dbContext, _instanceName, _timeProvider.GetCurrentTimeUtc());
+            var affectedCount = _sqlDialect.MessageQueueAckProcessed(dbContext, _instanceName, DateTime.UtcNow);
 
             if (affectedCount != 1) throw new Exception($"Ack failed. Expected 1 row, but instead, {affectedCount} rows were affected");
         }
@@ -67,7 +64,6 @@ namespace MassiveJobs.SqlServerBroker
         {
             lock (_timer) 
             { 
-                _timer.TimeElapsed -= TimerCallback;
                 _timer.Change(Timeout.Infinite, Timeout.Infinite);
 
                 _scope.SafeDispose(_logger);
@@ -80,7 +76,7 @@ namespace MassiveJobs.SqlServerBroker
             _timer.Change(2000, Timeout.Infinite);
         }
 
-        private void TimerCallback()
+        private void TimerCallback(object state)
         {
             try
             {
@@ -88,7 +84,7 @@ namespace MassiveJobs.SqlServerBroker
 
                 var dbContext = scope.GetRequiredService<TDbContext>();
 
-                var utcNow = _timeProvider.GetCurrentTimeUtc();
+                var utcNow = DateTime.UtcNow;
 
                 TryInitialize(dbContext);
 

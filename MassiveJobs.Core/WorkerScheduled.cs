@@ -17,19 +17,13 @@ namespace MassiveJobs.Core
         private readonly ConcurrentDictionary<string, ConcurrentBag<ulong>> _periodicSkipJobs;
         private readonly ConcurrentDictionary<string, ulong> _periodicJobs;
 
-        private readonly ITimer _timer;
-        private readonly ITimeProvider _timeProvider;
+        private Thread _thread;
 
         private volatile int _started;
 
         public WorkerScheduled(string queueName, int batchSize, IJobServiceScopeFactory scopeFactory, IJobLogger<WorkerScheduled> logger)
             : base(queueName, batchSize, 1, true, scopeFactory, logger)
         {
-            _timeProvider = ServiceScope.GetRequiredService<ITimeProvider>();
-
-            _timer = ServiceScope.GetRequiredService<ITimer>();
-            _timer.TimeElapsed += CheckScheduledJobs;
-
             _scheduledJobs = new ConcurrentDictionary<ulong, JobInfo>();
             _periodicJobs = new ConcurrentDictionary<string, ulong>();
             _periodicSkipJobs = new ConcurrentDictionary<string, ConcurrentBag<ulong>>();
@@ -37,8 +31,6 @@ namespace MassiveJobs.Core
 
         public override void Dispose()
         {
-            _timer.TimeElapsed -= CheckScheduledJobs;
-
             _stoppingSignal.SafeDispose(Logger);
 
             base.Dispose();
@@ -54,7 +46,8 @@ namespace MassiveJobs.Core
             _stoppingSignal.Reset();
             _scheduledJobs.Clear();
 
-            _timer.Change(CheckIntervalMs, Timeout.Infinite);
+            _thread = new Thread(CheckScheduledJobs) { IsBackground = true };
+            _thread.Start();
         }
 
         protected override void OnStopBegin(bool cancelRunningJobs)
@@ -109,7 +102,7 @@ namespace MassiveJobs.Core
 
                         try
                         {
-                            if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc, _timeProvider.GetCurrentTimeUtc()))
+                            if (!job.PeriodicRunInfo.SetNextRunTime(job.RunAtUtc, DateTime.UtcNow))
                             {
                                 duplicateTags.Add(rawMessage.DeliveryTag);
                                 continue;
@@ -137,46 +130,43 @@ namespace MassiveJobs.Core
         {
             Exception raisedException = null;
 
-            try
+            while (_started != 0)
             {
-                ConfirmSkippedMessages();
+                Thread.Sleep(CheckIntervalMs);
 
-                var batchToRun = new Dictionary<ulong, JobInfo>();
-
-                var now = _timeProvider.GetCurrentTimeUtc();
-
-                foreach (var kvp in _scheduledJobs)
+                try
                 {
-                    var deliveryTag = kvp.Key;
-                    var job = kvp.Value;
+                    ConfirmSkippedMessages();
 
-                    if (job.RunAtUtc > now) continue;
-                    if (job.PeriodicRunInfo != null && job.PeriodicRunInfo.NextRunTime > now) continue;
+                    var batchToRun = new Dictionary<ulong, JobInfo>();
 
-                    batchToRun.Add(deliveryTag, job);
+                    var now = DateTime.UtcNow;
 
-                    if (job.PeriodicRunInfo != null) _periodicJobs.TryRemove(job.GroupKey, out _);
-                    _scheduledJobs.TryRemove(deliveryTag, out _);
+                    foreach (var kvp in _scheduledJobs)
+                    {
+                        var deliveryTag = kvp.Key;
+                        var job = kvp.Value;
+
+                        if (job.RunAtUtc > now) continue;
+                        if (job.PeriodicRunInfo != null && job.PeriodicRunInfo.NextRunTime > now) continue;
+
+                        batchToRun.Add(deliveryTag, job);
+
+                        if (job.PeriodicRunInfo != null) _periodicJobs.TryRemove(job.GroupKey, out _);
+                        _scheduledJobs.TryRemove(deliveryTag, out _);
+                    }
+
+                    PublishAsImmediateJobs(batchToRun);
                 }
-
-                PublishAsImmediateJobs(batchToRun);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, $"Error in scheduled worker: {QueueName}");
-                raisedException = ex;
-            }
-            finally
-            {
-                if (raisedException == null && _started != 0)
+                catch (Exception ex)
                 {
-                    _timer.Change(CheckIntervalMs, Timeout.Infinite);
-                }
-                else
-                {
-                    _stoppingSignal.Set();
+                    Logger.LogError(ex, $"Error in scheduled worker: {QueueName}");
+                    raisedException = ex;
+                    break;
                 }
             }
+            
+            _stoppingSignal.Set();
 
             if (raisedException != null)
             {
@@ -217,7 +207,7 @@ namespace MassiveJobs.Core
                     .Select(j => j.Value)
                     .ToList();
 
-                periodicJobs.ForEach(j => j.PeriodicRunInfo.LastRunTimeUtc = _timeProvider.GetCurrentTimeUtc());
+                periodicJobs.ForEach(j => j.PeriodicRunInfo.LastRunTimeUtc = DateTime.UtcNow);
 
                 jobPublisher.Publish(periodicJobs);
 

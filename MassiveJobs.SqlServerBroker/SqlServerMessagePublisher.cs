@@ -11,13 +11,11 @@ namespace MassiveJobs.SqlServerBroker
     {
         private readonly TDbContext _dbContext;
         private readonly ISqlDialect _sqlDialect;
-        private readonly ITimeProvider _timeProvider;
 
-        public SqlServerMessagePublisher(TDbContext dbContext, ISqlDialect sqlDialect, ITimeProvider timeProvider)
+        public SqlServerMessagePublisher(TDbContext dbContext, ISqlDialect sqlDialect)
         {
             _dbContext = dbContext;
             _sqlDialect = sqlDialect;
-            _timeProvider = timeProvider;
         }
 
         public void Dispose()
@@ -32,7 +30,7 @@ namespace MassiveJobs.SqlServerBroker
 
                 var messageData = Encoding.UTF8.GetString(msg.Body);
 
-                _sqlDialect.MessageQueueInsert(_dbContext, routingKey, msg.TypeTag, messageData, _timeProvider.GetCurrentTimeUtc());
+                _sqlDialect.MessageQueueInsert(_dbContext, routingKey, msg.TypeTag, messageData, DateTime.UtcNow);
             }
         }
     }

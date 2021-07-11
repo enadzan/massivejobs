@@ -15,7 +15,7 @@ namespace MassiveJobs.Core
         protected readonly IJobServiceScopeFactory ServiceScopeFactory;
         protected readonly IJobServiceScope ServiceScope;
 
-        private readonly ITimer _reconnectTimer;
+        private readonly Timer _reconnectTimer;
         private readonly MassiveJobsSettings _settings;
 
         private readonly int[] _reconnectTimes = {1, 2, 5, 10, 30, 60, 120};
@@ -28,8 +28,7 @@ namespace MassiveJobs.Core
 
             _settings = ServiceScope.GetRequiredService<MassiveJobsSettings>();
 
-            _reconnectTimer = ServiceScope.GetRequiredService<ITimer>();
-            _reconnectTimer.TimeElapsed += Reconnect;
+            _reconnectTimer = new Timer(Reconnect);
 
             Workers = new List<IWorker>();
             Logger = logger ?? ServiceScope.GetRequiredService<IJobLogger<WorkerCoordinator>>();
@@ -40,8 +39,6 @@ namespace MassiveJobs.Core
 
         public virtual void Dispose()
         {
-            _reconnectTimer.TimeElapsed -= Reconnect;
-
             StopJobWorkers(false, true);
 
             ServiceScope.SafeDispose(Logger);
@@ -98,7 +95,7 @@ namespace MassiveJobs.Core
                         }
                         catch (Exception ex)
                         {
-                            Logger.LogError(ex, $"Begin stop for a worker failed");
+                            Logger.LogError(ex, "Begin stop for a worker failed");
                         }
                     }
 
@@ -111,7 +108,7 @@ namespace MassiveJobs.Core
                         }
                         catch (Exception ex)
                         {
-                            Logger.LogError(ex, $"Stopping a worker failed");
+                            Logger.LogError(ex, "Stopping a worker failed");
                         }
                     }
                 }
@@ -202,7 +199,7 @@ namespace MassiveJobs.Core
             // ReSharper restore InconsistentlySynchronizedField
         }
 
-        private void Reconnect()
+        private void Reconnect(object state)
         {
             Logger.LogDebug("Reconnecting");
             StartJobWorkers();

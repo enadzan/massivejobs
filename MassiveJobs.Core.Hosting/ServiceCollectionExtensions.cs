@@ -25,14 +25,12 @@ namespace MassiveJobs.Core.Hosting
             serviceCollection.AddSingleton<IJobLoggerFactory, LoggerFactoryWrapper>();
             serviceCollection.AddSingleton(typeof(IJobLogger<>), typeof(LoggerWrapper<>));
 
-            serviceCollection.TryAddSingleton<ITimeProvider, DefaultTimeProvider>();
             serviceCollection.TryAddSingleton<IJobRunner, DefaultJobRunner>();
             serviceCollection.TryAddSingleton<IJobSerializer, DefaultSerializer>();
             serviceCollection.TryAddSingleton<IJobTypeProvider, DefaultTypeProvider>();
             serviceCollection.TryAddSingleton<IJobServiceFactory, ServiceFactoryWrapper>();
             serviceCollection.TryAddSingleton<IJobServiceScopeFactory, ServiceScopeFactoryWrapper>();
 
-            serviceCollection.TryAddScoped<ITimer, DefaultTimer>();
             serviceCollection.TryAddScoped<IJobPublisher, DefaultJobPublisher>();
 
             serviceCollection.AddHostedService<MassiveJobsBackgroundService>();

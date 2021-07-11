@@ -53,15 +53,15 @@ namespace MassiveJobs.Core
 
                 _stoppingSignal.Reset();
 
-                Logger.LogDebug($"Starting batch processor");
+                Logger.LogDebug("Starting batch processor");
 
                 _cancellationTokenSource = new CancellationTokenSource();
                 _jobsCancellationTokenSource = new CancellationTokenSource();
 
-                _processorThread = new Thread(ProcessorFunction) { IsBackground = true };
+                _processorThread = new Thread(ProcessorFunction) {IsBackground = true};
                 _processorThread.Start();
 
-                Logger.LogDebug($"Batch processor started");
+                Logger.LogDebug("Batch processor started");
             }
         }
 

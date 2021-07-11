@@ -1,5 +1,5 @@
-﻿using MassiveJobs.Core;
-using System.Linq;
+﻿using System;
+using MassiveJobs.Core;
 using System.Threading;
 
 namespace MassiveJobs.SqlServerBroker.Tests
@@ -20,11 +20,7 @@ namespace MassiveJobs.SqlServerBroker.Tests
 
         public override void Perform()
         {
-            var messages = _ctx.Set<MessageQueue>()
-                .Count();
-
-            if (messages == 0) throw new System.Exception("Zero messages");
-
+            Console.WriteLine(DateTime.UtcNow);
             Interlocked.Increment(ref _performCount);
         }
 
