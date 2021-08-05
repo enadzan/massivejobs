@@ -9,7 +9,7 @@ namespace MassiveJobs.SqlServerBroker
     {
         int MessageQueueInsert(DbContext dbContext, string routingKey, string argsType, string messageData, DateTime publishedAtUtc);
         int MessageQueueAckProcessed(DbContext dbContext, string processingInstance, DateTime processingTimeUtc);
-        int MessageQueueKeepalive(DbContext dbContext, string instanceName, DateTime utcNow);
+        int MessageQueueKeepAlive(DbContext dbContext, string instanceName, DateTime utcNow);
         List<MessageQueue> MessageQueueGetNextBatch(DbContext dbContext, string instanceName, string routingKey, DateTime utcNow, int batchSize);
         int MessageQueueRelease(DbContext dbContext, string instanceName, string routingKey);
         int SingleConsumerLockUpdate(DbContext dbContext, string instanceName, string routingKey, DateTime utcNow);

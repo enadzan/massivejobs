@@ -22,7 +22,7 @@ namespace MassiveJobs.SqlServerBroker
                 .HasMaxLength(256);
 
             builder.Property(e => e.LockKeepAliveUtc)
-                .HasColumnName("lock_keepalive_utc");
+                .HasColumnName("lock_keep_alive_utc");
         }
     }
 }

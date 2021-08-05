@@ -50,13 +50,13 @@ WHERE processing_end_utc IS NULL
             }
         }
 
-        public int MessageQueueKeepalive(DbContext dbContext, string instanceName, DateTime utcNow)
+        public int MessageQueueKeepAlive(DbContext dbContext, string instanceName, DateTime utcNow)
         {
             try
             {
                 return dbContext.Database.ExecuteSqlInterpolated($@"
 UPDATE massive_jobs.message_queue 
-SET processing_keepalive_utc = {utcNow} 
+SET processing_keep_alive_utc = {utcNow} 
 WHERE processing_end_utc IS NULL
     AND processing_instance = {instanceName}
 ");
@@ -74,11 +74,11 @@ WHERE processing_end_utc IS NULL
             {
                 return dbContext.Set<MessageQueue>().FromSqlInterpolated($@"
 UPDATE TOP ({batchSize}) massive_jobs.message_queue
-SET processing_start_utc = {utcNow}, processing_keepalive_utc = {utcNow}, processing_instance = {instanceName}
+SET processing_start_utc = {utcNow}, processing_keep_alive_utc = {utcNow}, processing_instance = {instanceName}
 OUTPUT inserted.*
 WHERE processing_end_utc IS NULL
     AND routing_key = {routingKey}
-    AND (processing_keepalive_utc IS NULL OR processing_keepalive_utc < {utcNow.AddSeconds(-20)})")
+    AND (processing_keep_alive_utc IS NULL OR processing_keep_alive_utc < {utcNow.AddSeconds(-20)})")
                 .ToList();
             }
             catch (Exception ex)
@@ -94,7 +94,7 @@ WHERE processing_end_utc IS NULL
             {
                 return dbContext.Database.ExecuteSqlInterpolated($@"
 UPDATE massive_jobs.message_queue
-SET processing_start_utc = NULL, processing_keepalive_utc = NULL, processing_instance = NULL
+SET processing_start_utc = NULL, processing_keep_alive_utc = NULL, processing_instance = NULL
 WHERE processing_end_utc IS NULL
     AND routing_key = {routingKey}
     AND processing_instance = {instanceName}
@@ -113,9 +113,9 @@ WHERE processing_end_utc IS NULL
             {
                 return dbContext.Database.ExecuteSqlInterpolated($@"
 UPDATE massive_jobs.single_consumer_lock 
-SET lock_keepalive_utc = {utcNow}, instance_name = {instanceName}
+SET lock_keep_alive_utc = {utcNow}, instance_name = {instanceName}
 WHERE routing_key = {routingKey}
-    AND (lock_keepalive_utc IS NULL OR lock_keepalive_utc < {utcNow.AddSeconds(-20)} OR instance_name = {instanceName})
+    AND (lock_keep_alive_utc IS NULL OR lock_keep_alive_utc < {utcNow.AddSeconds(-20)} OR instance_name = {instanceName})
 ");
             }
             catch (Exception ex)
@@ -131,7 +131,7 @@ WHERE routing_key = {routingKey}
             {
                 return dbContext.Database.ExecuteSqlInterpolated($@"
 UPDATE massive_jobs.single_consumer_lock 
-SET lock_keepalive_utc = null, instance_name = null
+SET lock_keep_alive_utc = null, instance_name = null
 WHERE routing_key = {routingKey}
     AND instance_name = {instanceName}
 ");

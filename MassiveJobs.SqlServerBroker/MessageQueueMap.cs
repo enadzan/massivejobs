@@ -41,7 +41,7 @@ namespace MassiveJobs.SqlServerBroker
                 .HasColumnName("processing_start_utc");
 
             builder.Property(e => e.ProcessingKeepAliveUtc)
-                .HasColumnName("processing_keepalive_utc");
+                .HasColumnName("processing_keep_alive_utc");
 
             builder.Property(e => e.ProcessingEndUtc)
                 .HasColumnName("processing_end_utc");

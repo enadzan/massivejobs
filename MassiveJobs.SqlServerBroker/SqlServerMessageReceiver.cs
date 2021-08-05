@@ -167,7 +167,7 @@ namespace MassiveJobs.SqlServerBroker
 
         private void ProcessMessages(TDbContext dbContext, DateTime utcNow)
         {
-            var unconfirmedCount = _sqlDialect.MessageQueueKeepalive(dbContext, _instanceName, utcNow);
+            var unconfirmedCount = _sqlDialect.MessageQueueKeepAlive(dbContext, _instanceName, utcNow);
 
             var remaining = BatchSize - unconfirmedCount;
             if (remaining <= 0) return;
