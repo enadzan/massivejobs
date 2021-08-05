@@ -9,10 +9,12 @@ namespace MassiveJobs.SqlServerBroker.SqlDialects
 {
     public class SqlServerDialect : ISqlDialect
     {
+        private readonly SqlServerBrokerOptions _options;
         private readonly IJobLogger<SqlServerDialect> _logger;
 
-        public SqlServerDialect(IJobLogger<SqlServerDialect> logger)
+        public SqlServerDialect(SqlServerBrokerOptions options, IJobLogger<SqlServerDialect> logger)
         {
+            _options = options;
             _logger = logger;
         }
 
@@ -36,6 +38,15 @@ VALUES ({routingKey}, {argsType}, {messageData}, {publishedAtUtc})
         {
             try
             {
+                if (_options.DeleteProcessedMessages)
+                {
+                    return  dbContext.Database.ExecuteSqlInterpolated($@"
+DELETE FROM massive_jobs.message_queue 
+WHERE processing_end_utc IS NULL
+    AND processing_instance = {processingInstance}
+");
+                }
+
                 return  dbContext.Database.ExecuteSqlInterpolated($@"
 UPDATE massive_jobs.message_queue 
 SET processing_end_utc = {processingTimeUtc} 
