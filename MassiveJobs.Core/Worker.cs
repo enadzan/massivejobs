@@ -11,7 +11,7 @@ namespace MassiveJobs.Core
         private readonly IMessageConsumer _messageConsumer;
         private readonly int _maxDegreeOfParallelism;
         private readonly bool _singleActiveConsumer;
-        private volatile IMessageReceiver _messageReceiver;
+        protected volatile IMessageReceiver MessageReceiver;
 
         protected readonly string QueueName;
         protected readonly IJobServiceScopeFactory ServiceScopeFactory;
@@ -63,20 +63,20 @@ namespace MassiveJobs.Core
 
         protected void CreateReceiver()
         {
-            if (_messageReceiver != null) return;
+            if (MessageReceiver != null) return;
 
-            _messageReceiver = _messageConsumer.CreateReceiver(QueueName, _singleActiveConsumer);
-            _messageReceiver.MessageReceived += OnMessageReceived;
-            _messageReceiver.Start();
+            MessageReceiver = _messageConsumer.CreateReceiver(QueueName, _singleActiveConsumer);
+            MessageReceiver.MessageReceived += OnMessageReceived;
+            MessageReceiver.Start();
         }
 
         protected void DisposeReceiver()
         {
-            if (_messageReceiver == null) return;
+            if (MessageReceiver == null) return;
 
-            _messageReceiver.MessageReceived -= OnMessageReceived;
-            _messageReceiver.SafeDispose(Logger);
-            _messageReceiver = null;
+            MessageReceiver.MessageReceived -= OnMessageReceived;
+            MessageReceiver.SafeDispose(Logger);
+            MessageReceiver = null;
 
             ClearQueue();
         }
@@ -118,7 +118,7 @@ namespace MassiveJobs.Core
                         var jobRunner = scope.GetRequiredService<IJobRunner>();
                         var jobPublisher = scope.GetRequiredService<IJobPublisher>();
 
-                        jobRunner.RunJob(jobPublisher, _messageReceiver, job, msg.DeliveryTag, scope, cancellationToken);
+                        jobRunner.RunJob(jobPublisher, MessageReceiver, job, msg.DeliveryTag, scope, cancellationToken);
                     }
                 });
             }
@@ -133,12 +133,12 @@ namespace MassiveJobs.Core
 
         protected void OnBatchProcessed(ulong lastDeliveryTag)
         {
-            _messageReceiver.AckBatchProcessed(lastDeliveryTag);
+            MessageReceiver.AckBatchProcessed(lastDeliveryTag);
         }
 
         protected void OnMessageProcessed(IJobServiceScope scope, ulong deliveryTag)
         {
-            _messageReceiver.AckMessageProcessed(scope, deliveryTag);
+            MessageReceiver.AckMessageProcessed(scope, deliveryTag);
         }
 
         private void OnMessageReceived(IMessageReceiver sender, RawMessage message)
