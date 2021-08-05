@@ -19,6 +19,11 @@ namespace MassiveJobs.Core
 
         public static void Do(Action action)
         {
+            Do(action, MassiveJobsMediator.DefaultInstance);
+        }
+
+        public static void Do(Action action, IJobPublisher publisher)
+        {
             try
             {
                 ActiveBatch.Value = new List<JobInfo>();
@@ -27,7 +32,7 @@ namespace MassiveJobs.Core
 
                 if (ActiveBatch.Value.Count > 0)
                 {
-                    MassiveJobsMediator.DefaultInstance.Publish(ActiveBatch.Value);
+                    publisher.Publish(ActiveBatch.Value);
                 }
             }
             finally

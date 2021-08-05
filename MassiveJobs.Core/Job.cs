@@ -10,16 +10,26 @@ namespace MassiveJobs.Core
 
         public static void Publish(TArgs args, int? timeoutMs = null)
         {
+            Publish(args, MassiveJobsMediator.DefaultInstance, timeoutMs);
+        }
+
+        public static void Publish(TArgs args, IJobPublisher publisher, int? timeoutMs = null)
+        {
             if (JobBatch.IsActive)
             {
                 JobBatch.Add(JobInfo.For<TJob, TArgs>(args, null, timeoutMs));
                 return;
             }
 
-            MassiveJobsMediator.DefaultInstance.Publish<TJob, TArgs>(args, null, timeoutMs);
+            publisher.Publish<TJob, TArgs>(args, null, timeoutMs);
         }
 
         public static void Publish(TArgs args, TimeSpan runIn, int? timeoutMs = null)
+        {
+            Publish(args, runIn, MassiveJobsMediator.DefaultInstance, timeoutMs);
+        }
+
+        public static void Publish(TArgs args, TimeSpan runIn, IJobPublisher publisher, int? timeoutMs = null)
         {
             if (JobBatch.IsActive)
             {
@@ -27,10 +37,15 @@ namespace MassiveJobs.Core
                 return;
             }
 
-            MassiveJobsMediator.DefaultInstance.Publish<TJob, TArgs>(args, runIn, timeoutMs);
+            publisher.Publish<TJob, TArgs>(args, runIn, timeoutMs);
         }
 
         public static void Publish(TArgs args, DateTime runAtUtc, int? timeoutMs = null)
+        {
+            Publish(args, runAtUtc, MassiveJobsMediator.DefaultInstance, timeoutMs);
+        }
+
+        public static void Publish(TArgs args, DateTime runAtUtc, IJobPublisher publisher, int? timeoutMs = null)
         {
             if (JobBatch.IsActive)
             {
@@ -38,10 +53,15 @@ namespace MassiveJobs.Core
                 return;
             }
 
-            MassiveJobsMediator.DefaultInstance.Publish<TJob, TArgs>(args, runAtUtc, timeoutMs);
+            publisher.Publish<TJob, TArgs>(args, runAtUtc, timeoutMs);
         }
 
         public static void CancelPeriodic(string groupKey)
+        {
+            CancelPeriodic(groupKey, MassiveJobsMediator.DefaultInstance);
+        }
+
+        public static void CancelPeriodic(string groupKey, IJobPublisher publisher)
         {
             if (JobBatch.IsActive)
             {
@@ -55,10 +75,16 @@ namespace MassiveJobs.Core
                 return;
             }
 
-            MassiveJobsMediator.DefaultInstance.CancelPeriodic<TJob>(groupKey);
+            publisher.CancelPeriodic<TJob>(groupKey);
         }
 
-        public static void PublishPeriodic(TArgs args, string groupKey, int repeatSec, 
+        public static void PublishPeriodic(TArgs args, string groupKey, int repeatSec,
+            DateTime? runAtUtc = null, DateTime? endAtUtc = null, int? timeoutMs = null)
+        {
+            PublishPeriodic(args, groupKey, repeatSec, MassiveJobsMediator.DefaultInstance, runAtUtc, endAtUtc, timeoutMs);
+        }
+
+        public static void PublishPeriodic(TArgs args, string groupKey, int repeatSec, IJobPublisher publisher, 
             DateTime? runAtUtc = null, DateTime? endAtUtc = null, int? timeoutMs = null)
         {
             if (JobBatch.IsActive)
@@ -74,10 +100,16 @@ namespace MassiveJobs.Core
                 return;
             }
 
-            MassiveJobsMediator.DefaultInstance.PublishPeriodic<TJob, TArgs>(args, groupKey, repeatSec, runAtUtc, endAtUtc, timeoutMs);
+            publisher.PublishPeriodic<TJob, TArgs>(args, groupKey, repeatSec, runAtUtc, endAtUtc, timeoutMs);
         }
 
         public static void PublishPeriodic(TArgs args, string groupKey, string cronExpression,
+            TimeZoneInfo timeZoneInfo = null, DateTime? runAtUtc = null, DateTime? endAtUtc = null, int? timeoutMs = null)
+        {
+            PublishPeriodic(args, groupKey, cronExpression, MassiveJobsMediator.DefaultInstance, timeZoneInfo, runAtUtc, endAtUtc, timeoutMs);
+        }
+
+        public static void PublishPeriodic(TArgs args, string groupKey, string cronExpression, IJobPublisher publisher,
             TimeZoneInfo timeZoneInfo = null, DateTime? runAtUtc = null, DateTime? endAtUtc = null, int? timeoutMs = null)
         {
             if (JobBatch.IsActive)
@@ -99,10 +131,15 @@ namespace MassiveJobs.Core
                 return;
             }
 
-            MassiveJobsMediator.DefaultInstance.PublishPeriodic<TJob, TArgs>(args, groupKey, cronExpression, timeZoneInfo, runAtUtc, endAtUtc, timeoutMs);
+            publisher.PublishPeriodic<TJob, TArgs>(args, groupKey, cronExpression, timeZoneInfo, runAtUtc, endAtUtc, timeoutMs);
         }
 
         protected static void Publish(TArgs args, string groupKey, int? timeoutMs = null)
+        {
+            Publish(args, groupKey, MassiveJobsMediator.DefaultInstance, timeoutMs);
+        }
+
+        protected static void Publish(TArgs args, string groupKey, IJobPublisher publisher, int? timeoutMs = null)
         {
             var jobInfo = JobInfo.For<TJob, TArgs>(args, groupKey, timeoutMs);
 
@@ -112,7 +149,7 @@ namespace MassiveJobs.Core
                 return;
             }
 
-            MassiveJobsMediator.DefaultInstance.Publish(jobInfo);
+            publisher.Publish(jobInfo);
         }
     }
 
