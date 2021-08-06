@@ -114,14 +114,17 @@ namespace MassiveJobs.Core
 
                 if (result is Task taskResult)
                 {
-                    taskResult.Wait(cancellationToken);
+                    // Currently we are executing async jobs synchronously.
+                    // I have to learn/think more to see if it makes sense to pull this up to the worker/batch processor.
+                    // Maybe use ThreadPool instead of simple Thread in workers (not sure).
+                    taskResult.GetAwaiter().GetResult();
                 }
 
                 receiver.AckBatchMessageProcessed(serviceScope, deliveryTag);
 
                 tx?.Commit();
             }
-            catch (TargetInvocationException ex)
+            catch
             {
                 try
                 {
@@ -132,8 +135,7 @@ namespace MassiveJobs.Core
                     _logger.LogError(rollbackEx, "Rollback failed");
                 }
 
-                if (ex.InnerException == null) throw;
-                ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
+                throw;
             }
             finally
             {
