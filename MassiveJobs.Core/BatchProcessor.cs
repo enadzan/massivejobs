@@ -4,11 +4,13 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
+using Microsoft.Extensions.Logging;
+
 namespace MassiveJobs.Core
 {
     public abstract class BatchProcessor<TMessage>: IDisposable
     {
-        private readonly int _batchSize;
+        protected int BatchSize = 100;
 
         private readonly ManualResetEvent _stoppingSignal = new ManualResetEvent(true);
         private readonly object _startStopLock = new object();
@@ -18,25 +20,22 @@ namespace MassiveJobs.Core
 
         private volatile Thread _processorThread;
         private volatile CancellationTokenSource _cancellationTokenSource;
-        private volatile CancellationTokenSource _jobsCancellationTokenSource;
 
-        protected readonly IJobLogger Logger;
+        protected readonly ILogger Logger;
        
         protected abstract void ProcessMessageBatch(List<TMessage> messages, CancellationToken cancellationToken, out int pauseSec);
 
         public event Action<Exception> Error;
 
-        protected BatchProcessor(int batchSize, IJobLogger<BatchProcessor<TMessage>> logger)
+        protected BatchProcessor(ILogger logger)
         {
-            _batchSize = batchSize;
-            _messages = new ConcurrentQueue<TMessage>();
-
             Logger = logger;
+            _messages = new ConcurrentQueue<TMessage>();
         }
 
         public virtual void Dispose()
         {
-            BeginStop(true);
+            BeginStop();
             WaitUntilStopped();
 
             _messageAddedSignal.Dispose();
@@ -56,7 +55,6 @@ namespace MassiveJobs.Core
                 Logger.LogDebug("Starting batch processor");
 
                 _cancellationTokenSource = new CancellationTokenSource();
-                _jobsCancellationTokenSource = new CancellationTokenSource();
 
                 _processorThread = new Thread(ProcessorFunction) {IsBackground = true};
                 _processorThread.Start();
@@ -65,7 +63,7 @@ namespace MassiveJobs.Core
             }
         }
 
-        public void BeginStop(bool cancelRunningJobs)
+        public void BeginStop()
         {
             lock (_startStopLock)
             {
@@ -73,14 +71,9 @@ namespace MassiveJobs.Core
 
                 Logger.LogDebug($"Stopping batch processor");
 
-                OnStopBegin(cancelRunningJobs);
+                OnStopBegin();
 
                 _cancellationTokenSource.Cancel();
-
-                if (cancelRunningJobs) 
-                {
-                    _jobsCancellationTokenSource.Cancel();
-                }
 
                 _messageAddedSignal.Set(); //to speed up the shutdown
             }
@@ -116,7 +109,7 @@ namespace MassiveJobs.Core
         {
         }
 
-        protected virtual void OnStopBegin(bool cancelRunningJobs)
+        protected virtual void OnStopBegin()
         {
         }
 
@@ -142,23 +135,23 @@ namespace MassiveJobs.Core
                 {
                     _messageAddedSignal.WaitOne(1000);
 
-                    while (!_jobsCancellationTokenSource.IsCancellationRequested && _messages.Count > 0)
+                    while (_messages.Count > 0 && !_cancellationTokenSource.IsCancellationRequested)
                     {
                         var batch = new List<TMessage>();
 
-                        while (!_jobsCancellationTokenSource.IsCancellationRequested && batch.Count < _batchSize && _messages.TryDequeue(out var message))
+                        while (batch.Count < BatchSize && _messages.TryDequeue(out var message))
                         {
                             batch.Add(message);
                         }
 
                         if (batch.Count > 0)
                         {
-                            ProcessMessageBatch(batch, _jobsCancellationTokenSource.Token, out var pauseSec);
+                            ProcessMessageBatch(batch, _cancellationTokenSource.Token, out var pauseSec);
 
                             if (pauseSec > 0)
                             {
                                 OnPause();
-                                Task.Delay(pauseSec * 1000, _jobsCancellationTokenSource.Token).Wait();
+                                Task.Delay(pauseSec * 1000, _cancellationTokenSource.Token).Wait();
                                 OnResume();
                             }
                         }
@@ -171,9 +164,6 @@ namespace MassiveJobs.Core
                 Logger.LogCritical(ex, "Unhandled exception in batch processor function");
                 exceptionRaised = ex;
             }
-
-            _jobsCancellationTokenSource.SafeDispose();
-            _jobsCancellationTokenSource = null;
 
             _cancellationTokenSource.SafeDispose();
             _cancellationTokenSource = null;

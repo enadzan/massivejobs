@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-
-using MassiveJobs.Core.DependencyInjection;
 
 namespace MassiveJobs.Core.Hosting
 {
@@ -12,14 +11,13 @@ namespace MassiveJobs.Core.Hosting
     {
         private readonly ILogger<MassiveJobsBackgroundService> _logger;
 
-        private readonly IJobServiceFactory _jobServiceFactory;
         private readonly MassiveJobsHostingOptions _options;
+        private readonly IServiceProvider _serviceProvider;
 
-        public MassiveJobsBackgroundService(IJobServiceFactory jobServiceFactory, MassiveJobsHostingOptions options,
-            ILogger<MassiveJobsBackgroundService> logger)
+        public MassiveJobsBackgroundService(MassiveJobsHostingOptions options, IServiceProvider serviceProvider, ILogger<MassiveJobsBackgroundService> logger)
         {
-            _jobServiceFactory = jobServiceFactory;
             _options = options;
+            _serviceProvider = serviceProvider;
             _logger = logger;
         }
 
@@ -33,7 +31,7 @@ namespace MassiveJobs.Core.Hosting
                     {
                         _logger.LogInformation("Initializing MassiveJobs");
 
-                        MassiveJobsMediator.Initialize(_jobServiceFactory);
+                        MassiveJobsMediator.Initialize(_serviceProvider);
 
                         _options.OnInitAction?.Invoke();
 

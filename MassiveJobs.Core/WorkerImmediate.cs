@@ -1,13 +1,16 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading;
-using MassiveJobs.Core.DependencyInjection;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace MassiveJobs.Core
 {
     public sealed class WorkerImmediate : Worker
     {
-        public WorkerImmediate(string queueName, int batchSize, int maxDegreeOfParallelism, IJobServiceScopeFactory scopeFactory, IJobLogger<WorkerImmediate> logger)
-            : base(queueName, batchSize, maxDegreeOfParallelism, false, scopeFactory, logger)
+        public WorkerImmediate(WorkerType workerType, int index, IServiceProvider serviceProvider)
+            : base(workerType, index, serviceProvider, serviceProvider.GetRequiredService<ILogger<WorkerImmediate>>())
         {
         }
 

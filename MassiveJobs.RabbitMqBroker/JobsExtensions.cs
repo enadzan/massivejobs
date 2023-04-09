@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.Extensions.DependencyInjection;
 using MassiveJobs.Core;
 
 namespace MassiveJobs.RabbitMqBroker
@@ -11,10 +12,10 @@ namespace MassiveJobs.RabbitMqBroker
 
             configureAction?.Invoke(rabbitMqSettings);
 
-            builder.RegisterInstance(rabbitMqSettings);
+            builder.ServiceCollection.AddSingleton(rabbitMqSettings);
 
-            builder.RegisterSingleton<IMessagePublisher, RabbitMqMessagePublisher>();
-            builder.RegisterSingleton<IMessageConsumer, RabbitMqMessageConsumer>();
+            builder.ServiceCollection.AddSingleton<IMessagePublisher, RabbitMqMessagePublisher>();
+            builder.ServiceCollection.AddSingleton<IMessageConsumer, RabbitMqMessageConsumer>();
 
             return builder;
         }

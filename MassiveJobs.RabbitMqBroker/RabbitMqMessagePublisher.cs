@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 
 using MassiveJobs.Core;
@@ -9,7 +10,7 @@ namespace MassiveJobs.RabbitMqBroker
 {
     public class RabbitMqMessagePublisher : RabbitMqMessageBroker, IMessagePublisher
     {
-        public RabbitMqMessagePublisher(RabbitMqSettings rmqSettings, MassiveJobsSettings jobsSettings, IJobLogger<RabbitMqMessagePublisher> logger)
+        public RabbitMqMessagePublisher(RabbitMqSettings rmqSettings, MassiveJobsSettings jobsSettings, ILogger<RabbitMqMessagePublisher> logger)
             : base(rmqSettings, jobsSettings, true, logger)
         {
         }

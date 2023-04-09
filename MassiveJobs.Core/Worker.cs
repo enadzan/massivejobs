@@ -2,39 +2,92 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using MassiveJobs.Core.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace MassiveJobs.Core
 {
     public abstract class Worker : BatchProcessor<RawMessage>, IWorker
     {
         private readonly IMessageConsumer _messageConsumer;
-        private readonly int _maxDegreeOfParallelism;
-        private readonly bool _singleActiveConsumer;
+        private readonly WorkerType _workerType;
+        private readonly int _maxDegreeOfParalelism;
+
         protected volatile IMessageReceiver MessageReceiver;
 
         protected readonly string QueueName;
-        protected readonly IJobServiceScopeFactory ServiceScopeFactory;
-        protected readonly IJobServiceScope ServiceScope;
+        protected readonly IServiceProvider ServiceProvider;
+        protected readonly MassiveJobsSettings Settings;
 
-        protected Worker(string queueName, int batchSize, int masMaxDegreeOfParallelism, bool singleActiveConsumer,
-            IJobServiceScopeFactory serviceScopeFactory, IJobLogger<Worker> logger)
-            : base(batchSize, logger)
+        protected Worker(WorkerType workerType, int index, IServiceProvider serviceProvider, ILogger logger)
+            : base(logger)
         {
-            ServiceScopeFactory = serviceScopeFactory;
-            ServiceScope = ServiceScopeFactory.CreateScope();
+            _workerType = workerType;
+            ServiceProvider = serviceProvider;
 
-            _maxDegreeOfParallelism = masMaxDegreeOfParallelism;
-            _singleActiveConsumer = singleActiveConsumer;
-            _messageConsumer = ServiceScope.GetRequiredService<IMessageConsumer>();
+            _messageConsumer = serviceProvider.GetRequiredService<IMessageConsumer>();
+            Settings = serviceProvider.GetRequiredService<MassiveJobsSettings>();
 
-            QueueName = queueName;
+            QueueName = GetQueueName(index);
+            BatchSize = GetBatchSize();
+
+            if (_workerType == WorkerType.Immedate || _workerType == WorkerType.LongRunning)
+            {
+                _maxDegreeOfParalelism = Settings.MaxDegreeOfParallelismPerWorker;
+            }
+            else
+            {
+                _maxDegreeOfParalelism = 1;
+            }
         }
 
         public override void Dispose()
         {
             base.Dispose();
-            ServiceScope.Dispose();
+        }
+
+        protected virtual string GetQueueName(int index)
+        {
+            string template;
+            switch (_workerType)
+            {
+                case WorkerType.Immedate:
+                    template = Settings.ImmediateQueueNameTemplate;
+                    break;
+                case WorkerType.LongRunning:
+                    template = Settings.LongRunningQueueNameTemplate;
+                    break;
+                case WorkerType.Scheduled:
+                    template = Settings.ScheduledQueueNameTemplate;
+                    break;
+                case WorkerType.Periodic:
+                    template = Settings.PeriodicQueueNameTemplate;
+                    break;
+                case WorkerType.Error:
+                    return Settings.ErrorQueueName;
+                default:
+                    throw new ArgumentOutOfRangeException("workerType");
+            }
+
+            return string.Format(template, index);
+        }
+
+        protected virtual int GetBatchSize()
+        {
+            switch (_workerType)
+            {
+                case WorkerType.Immedate:
+                    return Settings.ImmediateWorkersBatchSize;
+                case WorkerType.LongRunning:
+                    return Settings.LongRunningWorkersBatchSize;
+                case WorkerType.Scheduled:
+                case WorkerType.Error:
+                    return Settings.ScheduledWorkersBatchSize;
+                case WorkerType.Periodic:
+                    return Settings.PeriodicWorkersBatchSize;
+                default:
+                    throw new ArgumentOutOfRangeException("workerType");
+            }
         }
 
         protected override void OnStart()
@@ -65,7 +118,7 @@ namespace MassiveJobs.Core
         {
             if (MessageReceiver != null) return;
 
-            MessageReceiver = _messageConsumer.CreateReceiver(QueueName, _singleActiveConsumer);
+            MessageReceiver = _messageConsumer.CreateReceiver(QueueName);
             MessageReceiver.MessageReceived += OnMessageReceived;
             MessageReceiver.Start();
         }
@@ -81,15 +134,15 @@ namespace MassiveJobs.Core
             ClearQueue();
         }
 
-        protected bool TryDeserializeJob(RawMessage rawMessage, IJobServiceScope scope, out JobInfo job)
+        protected bool TryDeserializeJob(RawMessage rawMessage, IServiceScope scope, out JobInfo job)
         {
             job = null;
 
             var argsTag = rawMessage.TypeTag;
             if (string.IsNullOrEmpty(argsTag)) return false;
 
-            var serializer = scope.GetRequiredService<IJobSerializer>();
-            var typeProvider = scope.GetRequiredService<IJobTypeProvider>();
+            var serializer = scope.ServiceProvider.GetRequiredService<IJobSerializer>();
+            var typeProvider = scope.ServiceProvider.GetRequiredService<IJobTypeProvider>();
 
             job = serializer.Deserialize(rawMessage.Body, argsTag, typeProvider);
 
@@ -101,22 +154,22 @@ namespace MassiveJobs.Core
             var parallelOptions = new ParallelOptions
             {
                 CancellationToken = cancellationToken,
-                MaxDegreeOfParallelism = _maxDegreeOfParallelism
+                MaxDegreeOfParallelism = _maxDegreeOfParalelism
             };
 
             try 
             {
                 Parallel.ForEach(batch, parallelOptions, msg =>
                 {
-                    using (var scope = ServiceScopeFactory.CreateScope())
+                    using (var scope = ServiceProvider.CreateScope())
                     {
                         if (!TryDeserializeJob(msg, scope, out var job))
                         {
                             throw new Exception($"Unknown job type: {msg.TypeTag}.");
                         }
 
-                        var jobRunner = scope.GetRequiredService<IJobRunner>();
-                        var jobPublisher = scope.GetRequiredService<IJobPublisher>();
+                        var jobRunner = scope.ServiceProvider.GetRequiredService<IJobRunner>();
+                        var jobPublisher = scope.ServiceProvider.GetRequiredService<IJobPublisher>();
 
                         jobRunner.RunJob(jobPublisher, MessageReceiver, job, msg.DeliveryTag, scope, cancellationToken);
                     }
@@ -136,7 +189,7 @@ namespace MassiveJobs.Core
             MessageReceiver.AckBatchProcessed(lastDeliveryTag);
         }
 
-        protected void OnMessageProcessed(IJobServiceScope scope, ulong deliveryTag)
+        protected void OnMessageProcessed(IServiceScope scope, ulong deliveryTag)
         {
             MessageReceiver.AckMessageProcessed(scope, deliveryTag);
         }
@@ -144,7 +197,7 @@ namespace MassiveJobs.Core
         private void OnMessageReceived(IMessageReceiver sender, RawMessage message)
         {
             // constructing string is expensive and this is hot path
-            if (Logger.IsEnabled(JobLogLevel.Trace))
+            if (Logger.IsEnabled(LogLevel.Trace))
             {
                 Logger.LogTrace($"Message received on worker {QueueName}");
             }

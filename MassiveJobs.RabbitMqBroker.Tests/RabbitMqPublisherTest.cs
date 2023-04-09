@@ -1,9 +1,11 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using MassiveJobs.Core;
 using MassiveJobs.Core.Serialization;
@@ -14,30 +16,37 @@ namespace MassiveJobs.RabbitMqBroker.Tests
     public class RabbitMqPublisherTest
     {
         private static int _performCount;
+        private readonly IServiceProviderFactory<IServiceCollection> _serviceProviderFactory = new DefaultServiceProviderFactory();
 
         [TestInitialize]
         public void TestInit()
         {
             _performCount = 0;
 
-            JobsBuilder.Configure()
-                .WithSettings("tests.", s =>
-                {
-                    s.PublishBatchSize = 300;
-                    s.ImmediateWorkersBatchSize = 1000;
-                    s.MaxDegreeOfParallelismPerWorker = 2;
-                    s.ImmediateWorkersCount = 2;
-                    s.ScheduledWorkersCount = 2;
-                    s.PeriodicWorkersCount = 2;
-                })
-                .RegisterInstance<IJobTypeProvider>(new TypeProvider())
-                .RegisterInstance<IJobSerializer>(new SimpleBinarySerializer())
+            var settings = new MassiveJobsSettings
+            {
+                PublishBatchSize = 300,
+                ImmediateWorkersBatchSize = 1000,
+                MaxDegreeOfParallelismPerWorker = 2,
+                ImmediateWorkersCount = 2,
+                ScheduledWorkersCount = 2,
+                PeriodicWorkersCount = 2,
+            };
+
+            var serviceCollection = new ServiceCollection();
+
+            serviceCollection.AddLogging();
+            serviceCollection.AddSingleton<IJobTypeProvider>(new TypeProvider());
+            serviceCollection.AddSingleton<IJobSerializer>(new SimpleBinarySerializer());
+
+            JobsBuilder.Configure(serviceCollection)
+                .WithDefaultImplementations(settings)
                 .WithRabbitMqBroker(s =>
                 {
                     s.VirtualHost = "massivejobs.tests";
                     s.PrefetchCount = 1000;
                 })
-                .Build();
+                .Build(_serviceProviderFactory.CreateServiceProvider(serviceCollection));
         }
 
         [TestCleanup]

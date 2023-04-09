@@ -1,6 +1,6 @@
-﻿using System;
+﻿using Microsoft.Extensions.DependencyInjection;
+using System;
 using System.Collections.Generic;
-using MassiveJobs.Core.DependencyInjection;
 
 namespace MassiveJobs.Core
 {
@@ -24,12 +24,12 @@ namespace MassiveJobs.Core
             }
         }
 
-        public static void Initialize(IJobServiceFactory serviceFactory)
+        public static void Initialize(IServiceProvider serviceProvider)
         {
             lock (InitializationLock)
             {
                 if (DefaultMediator != null) return;
-                DefaultMediator = new MassiveJobsMediator(serviceFactory);
+                DefaultMediator = new MassiveJobsMediator(serviceProvider);
             }
         }
 
@@ -44,34 +44,29 @@ namespace MassiveJobs.Core
             }
         }
         
-        protected IJobServiceFactory ServiceFactory;
+        protected IServiceProvider ServiceProvider;
         protected IWorkerCoordinator Workers;
 
         protected MassiveJobsMediator()
         {
         }
 
-        public MassiveJobsMediator(IJobServiceFactory serviceFactory)
+        public MassiveJobsMediator(IServiceProvider serviceProvider)
         {
-            ServiceFactory = serviceFactory;
-            Workers = new WorkerCoordinator(serviceFactory);
+            ServiceProvider = serviceProvider;
+            Workers = ServiceProvider.GetRequiredService<IWorkerCoordinator>();
         }
 
         public virtual void Dispose()
         {
             Workers.SafeDispose();
-
-            if (ServiceFactory is IDisposable disposable)
-            {
-                disposable.SafeDispose();
-            }
         }
 
         public void Publish(IEnumerable<JobInfo> jobs)
         {
-            using (var scope = ServiceFactory.GetRequiredService<IJobServiceScopeFactory>().CreateScope())
+            using (var scope = ServiceProvider.CreateScope())
             {
-                scope.GetRequiredService<IJobPublisher>().Publish(jobs);
+                scope.ServiceProvider.GetRequiredService<IJobPublisher>().Publish(jobs);
             }
         }
 
@@ -83,11 +78,6 @@ namespace MassiveJobs.Core
         public void StopJobWorkers()
         {
             Workers.StopJobWorkers();
-        }
-
-        public void CancelJobWorkers()
-        {
-            Workers.CancelJobWorkers();
         }
     }
 }

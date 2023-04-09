@@ -1,20 +1,24 @@
 ﻿using System;
-using MassiveJobs.Core.DependencyInjection;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+using MassiveJobs.Core.Serialization;
 
 namespace MassiveJobs.Core
 {
     public class JobsBuilder
     {
-        private readonly IJobServiceProvider _serviceProvider;
+        public IServiceCollection ServiceCollection { get; }
 
-        private JobsBuilder(IJobServiceProvider serviceProvider)
+        private JobsBuilder(IServiceCollection serviceCollection)
         {
-            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+            ServiceCollection = serviceCollection;
         }
 
-        public static JobsBuilder Configure(IJobServiceProvider serviceProvider)
+        public static JobsBuilder Configure(IServiceCollection serviceCollection)
         {
-            return new JobsBuilder(serviceProvider);
+            return new JobsBuilder(serviceCollection);
         }
 
         public static void DisposeJobs()
@@ -22,76 +26,28 @@ namespace MassiveJobs.Core
             MassiveJobsMediator.Deinitialize();
         }
 
-        public static JobsBuilder Configure()
+        public JobsBuilder WithDefaultImplementations(MassiveJobsSettings settings)
         {
-            return new JobsBuilder(new DefaultServiceProvider());
-        }
+            ServiceCollection.AddSingleton(settings);
 
-        public JobsBuilder WithSettings(string namePrefix = "", Action<MassiveJobsSettings> configureAction = null)
-        {
-            var settings = new MassiveJobsSettings(namePrefix);
-            configureAction?.Invoke(settings);
-            RegisterInstance(settings);
+            ServiceCollection.TryAddSingleton<IWorkerCoordinator, WorkerCoordinator>();
+            ServiceCollection.TryAddSingleton<IJobRunner, DefaultJobRunner>();
+            ServiceCollection.TryAddSingleton<IJobSerializer, DefaultSerializer>();
+            ServiceCollection.TryAddSingleton<IJobTypeProvider, DefaultTypeProvider>();
+
+            ServiceCollection.TryAddScoped<IJobPublisher, DefaultJobPublisher>();
+
             return this;
         }
 
-        public JobsBuilder RegisterInstance<TService>(TService instance)
+        public void Build(IServiceProvider serviceProvider, bool startWorkers = true)
         {
-            _serviceProvider.ServiceCollection.RegisterInstance(instance);
-            return this;
-        }
-
-        public JobsBuilder RegisterSingleton<TService>(Func<IJobServiceFactory, TService> factory)
-        {
-            _serviceProvider.ServiceCollection.RegisterSingleton(factory);
-            return this;
-        }
-
-        public JobsBuilder RegisterSingleton<TService, TImplementation>() where TImplementation : TService
-        {
-            _serviceProvider.ServiceCollection.RegisterSingleton<TService, TImplementation>();
-            return this;
-        }
-
-        public JobsBuilder RegisterScoped<TService>(Func<IJobServiceFactory, TService> factory)
-        {
-            _serviceProvider.ServiceCollection.RegisterScoped(factory);
-            return this;
-        }
-
-        public JobsBuilder RegisterScoped<TService, TImplementation>() where TImplementation : TService
-        {
-            _serviceProvider.ServiceCollection.RegisterScoped<TService, TImplementation>();
-            return this;
-        }
-
-        public JobsBuilder RegisterTransient<TService>(Func<IJobServiceFactory, TService> factory)
-        {
-            _serviceProvider.ServiceCollection.RegisterTransient(factory);
-            return this;
-        }
-
-        public JobsBuilder RegisterTransient<TService, TImplementation>() where TImplementation : TService
-        {
-            _serviceProvider.ServiceCollection.RegisterTransient<TService, TImplementation>();
-            return this;
-        }
-
-        public void Build(bool startWorkers = true)
-        {
-            ValidateAndCompile();
-            MassiveJobsMediator.Initialize(_serviceProvider.ServiceFactory);
+            MassiveJobsMediator.Initialize(serviceProvider);
 
             if (startWorkers)
             {
                 MassiveJobsMediator.DefaultInstance.StartJobWorkers();
             }
-        }
-
-        private void ValidateAndCompile()
-        {
-            _serviceProvider.ServiceCollection.Validate();
-            _serviceProvider.ServiceCollection.Compile();
         }
     }
 }

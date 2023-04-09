@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
+using Microsoft.Extensions.Logging;
+
 namespace MassiveJobs.Core
 {
     public class DefaultJobPublisher : IJobPublisher
@@ -14,7 +16,7 @@ namespace MassiveJobs.Core
         private int _nextScheduledWorkerIndex;
         private int _nextLongRunningWorkerIndex;
 
-        protected readonly IJobLogger<DefaultJobPublisher> Logger;
+        protected readonly ILogger<DefaultJobPublisher> Logger;
         protected readonly MassiveJobsSettings Settings;
         protected readonly IMessagePublisher MessagePublisher;
         protected readonly IJobTypeProvider JobTypeProvider;
@@ -24,7 +26,7 @@ namespace MassiveJobs.Core
             IMessagePublisher messagePublisher, 
             IJobTypeProvider jobTypeProvider, 
             IJobSerializer jobSerializer, 
-            IJobLogger<DefaultJobPublisher> logger) 
+            ILogger<DefaultJobPublisher> logger) 
         {
             _batchSize = settings.PublishBatchSize;
 

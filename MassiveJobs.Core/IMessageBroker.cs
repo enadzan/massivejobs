@@ -1,7 +1,6 @@
-﻿using System;
+﻿using Microsoft.Extensions.DependencyInjection;
+using System;
 using System.Collections.Generic;
-
-using MassiveJobs.Core.DependencyInjection;
 
 namespace MassiveJobs.Core
 {
@@ -27,7 +26,7 @@ namespace MassiveJobs.Core
         
         void Connect();
 
-        IMessageReceiver CreateReceiver(string queueName, bool singleActiveConsumer = false);
+        IMessageReceiver CreateReceiver(string queueName);
     }
 
     public interface IMessageReceiver: IDisposable
@@ -53,16 +52,16 @@ namespace MassiveJobs.Core
         /// </summary>
         /// <param name="scope">Service scope in which a message from a batch is processed.</param>
         /// <param name="deliveryTag">Message delivery tag</param>
-        void AckBatchMessageProcessed(IJobServiceScope scope, ulong deliveryTag);
+        void AckBatchMessageProcessed(IServiceScope scope, ulong deliveryTag);
 
         /// <summary>
         /// This must me implemented to confirm the processing of a single message.
         /// </summary>
         /// <param name="scope"></param>
         /// <param name="deliveryTag"></param>
-        void AckMessageProcessed(IJobServiceScope scope, ulong deliveryTag);
+        void AckMessageProcessed(IServiceScope scope, ulong deliveryTag);
 
-        IBrokerTransaction BeginTransaction(IJobServiceScope scope);
+        IBrokerTransaction BeginTransaction(IServiceScope scope);
     }
 
     public interface IBrokerTransaction: IDisposable

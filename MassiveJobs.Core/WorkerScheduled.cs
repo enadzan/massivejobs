@@ -3,7 +3,9 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using MassiveJobs.Core.DependencyInjection;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace MassiveJobs.Core
 {
@@ -21,8 +23,8 @@ namespace MassiveJobs.Core
 
         private volatile int _started;
 
-        public WorkerScheduled(string queueName, int batchSize, IJobServiceScopeFactory scopeFactory, IJobLogger<WorkerScheduled> logger)
-            : base(queueName, batchSize, 1, true, scopeFactory, logger)
+        public WorkerScheduled(WorkerType workerType, int index, IServiceProvider serviceProvider)
+            : base(workerType, index, serviceProvider, serviceProvider.GetRequiredService<ILogger<WorkerScheduled>>())
         {
             _scheduledJobs = new ConcurrentDictionary<ulong, JobInfo>();
             _periodicJobs = new ConcurrentDictionary<string, ulong>();
@@ -50,21 +52,21 @@ namespace MassiveJobs.Core
             _thread.Start();
         }
 
-        protected override void OnStopBegin(bool cancelRunningJobs)
+        protected override void OnStopBegin()
         {
             var previousValue = Interlocked.Exchange(ref _started, 0);
             if (previousValue == 0) return;
 
             _stoppingSignal.WaitOne();
 
-            base.OnStopBegin(cancelRunningJobs);
+            base.OnStopBegin();
         }
 
         protected override void ProcessMessageBatch(List<RawMessage> messages, CancellationToken cancellationToken, out int pauseSec)
         {
             pauseSec = 0;
 
-            using (var scope = ServiceScopeFactory.CreateScope())
+            using (var scope = ServiceProvider.CreateScope())
             {
                 foreach (var rawMessage in messages)
                 {
@@ -176,7 +178,7 @@ namespace MassiveJobs.Core
 
         private void ConfirmSkippedMessages()
         {
-            using (var scope = ServiceScopeFactory.CreateScope())
+            using (var scope = ServiceProvider.CreateScope())
             { 
                 foreach (var kvp in _periodicSkipJobs)
                 {
@@ -195,9 +197,9 @@ namespace MassiveJobs.Core
         {
             if (batch.Count == 0) return;
 
-            using (var scope = ServiceScopeFactory.CreateScope())
+            using (var scope = ServiceProvider.CreateScope())
             {
-                var jobPublisher = scope.GetRequiredService<IJobPublisher>();
+                var jobPublisher = scope.ServiceProvider.GetRequiredService<IJobPublisher>();
                 if (jobPublisher == null) return; // this can happen only this worker is being stopped;
 
                 jobPublisher.Publish(batch.Select(j => j.Value.ToImmediateJob()));

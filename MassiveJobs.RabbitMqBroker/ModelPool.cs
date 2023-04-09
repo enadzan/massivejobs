@@ -1,19 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using Microsoft.Extensions.Logging;
+
 using RabbitMQ.Client;
-using MassiveJobs.Core;
 
 namespace MassiveJobs.RabbitMqBroker
 {
     public class ModelPool: IDisposable
     {
-        private readonly IJobLogger _logger;
+        private readonly ILogger _logger;
         private readonly IConnection _connection;
         private readonly int _maxRetained;
         private readonly Queue<ModelPoolEntry> _models;
 
-        public ModelPool(IConnection connection, int maxRetained, IJobLogger logger)
+        public ModelPool(IConnection connection, int maxRetained, ILogger logger)
         {
             _connection = connection;
             _maxRetained = maxRetained;

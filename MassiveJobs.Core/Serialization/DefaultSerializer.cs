@@ -1,12 +1,17 @@
 ﻿using System;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MassiveJobs.Core.Serialization
 {
     public class DefaultSerializer : BaseSerializer
     {
-        private static readonly JsonSerializerOptions Options = new JsonSerializerOptions { IgnoreNullValues = true, IgnoreReadOnlyProperties = true };
+        private static readonly JsonSerializerOptions Options = new JsonSerializerOptions
+        {
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            IgnoreReadOnlyProperties = true
+        };
 
         protected override byte[] SerializeEnvelope(Type argsType, SerializedEnvelope<object> envelope)
         {

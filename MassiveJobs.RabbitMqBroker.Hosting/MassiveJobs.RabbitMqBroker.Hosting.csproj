@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0;net6;net7</TargetFrameworks>
     <Version>0.45.1</Version>
     <Authors>MassiveJobs.NET</Authors>
     <Description>Helper extensions for running MassiveJobs.RabbitMqBroker in a hosted environment</Description>

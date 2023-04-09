@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30104.148
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33516.290
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.Core", "MassiveJobs.Core\MassiveJobs.Core.csproj", "{AADFABC4-FC8B-442E-A6C2-93192DDBA763}"
 EndProject
@@ -9,21 +9,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.Core.Tests", "M
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.Core.Hosting", "MassiveJobs.Core.Hosting\MassiveJobs.Core.Hosting.csproj", "{4532824E-F60B-439C-8693-48162152E32E}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.Logging.Log4Net", "MassiveJobs.Logging.Log4Net\MassiveJobs.Logging.Log4Net.csproj", "{BE14FBE0-DCD1-4030-8669-08C621210164}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.Logging.NLog", "MassiveJobs.Logging.NLog\MassiveJobs.Logging.NLog.csproj", "{A100ACC3-0294-456F-A4C5-CDB6C9E2B6BF}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.Logging.Serilog", "MassiveJobs.Logging.Serilog\MassiveJobs.Logging.Serilog.csproj", "{4107EB0E-1BF5-46E7-839C-D9F6F98B1ACD}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.RabbitMqBroker", "MassiveJobs.RabbitMqBroker\MassiveJobs.RabbitMqBroker.csproj", "{F8541714-641D-4B54-B81D-CE9505F1C68C}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.RabbitMqBroker.Hosting", "MassiveJobs.RabbitMqBroker.Hosting\MassiveJobs.RabbitMqBroker.Hosting.csproj", "{EB5ADA38-F009-4963-A3F4-86743FE4C909}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.RabbitMqBroker.Tests", "MassiveJobs.RabbitMqBroker.Tests\MassiveJobs.RabbitMqBroker.Tests.csproj", "{7B685B6F-D227-43C6-9E90-CA118E679DFF}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassiveJobs.SqlServerBroker", "MassiveJobs.SqlServerBroker\MassiveJobs.SqlServerBroker.csproj", "{29DA26A7-B67D-4CF6-9A8C-DBB1E5925EC8}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MassiveJobs.SqlServerBroker.Tests", "MassiveJobs.SqlServerBroker.Tests\MassiveJobs.SqlServerBroker.Tests.csproj", "{B51C5C5E-794C-4038-93BF-29E9B00F012B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -43,18 +33,6 @@ Global
 		{4532824E-F60B-439C-8693-48162152E32E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4532824E-F60B-439C-8693-48162152E32E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4532824E-F60B-439C-8693-48162152E32E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BE14FBE0-DCD1-4030-8669-08C621210164}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BE14FBE0-DCD1-4030-8669-08C621210164}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BE14FBE0-DCD1-4030-8669-08C621210164}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BE14FBE0-DCD1-4030-8669-08C621210164}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A100ACC3-0294-456F-A4C5-CDB6C9E2B6BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A100ACC3-0294-456F-A4C5-CDB6C9E2B6BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A100ACC3-0294-456F-A4C5-CDB6C9E2B6BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A100ACC3-0294-456F-A4C5-CDB6C9E2B6BF}.Release|Any CPU.Build.0 = Release|Any CPU
-		{4107EB0E-1BF5-46E7-839C-D9F6F98B1ACD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4107EB0E-1BF5-46E7-839C-D9F6F98B1ACD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4107EB0E-1BF5-46E7-839C-D9F6F98B1ACD}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4107EB0E-1BF5-46E7-839C-D9F6F98B1ACD}.Release|Any CPU.Build.0 = Release|Any CPU
 		{F8541714-641D-4B54-B81D-CE9505F1C68C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{F8541714-641D-4B54-B81D-CE9505F1C68C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F8541714-641D-4B54-B81D-CE9505F1C68C}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -67,14 +45,6 @@ Global
 		{7B685B6F-D227-43C6-9E90-CA118E679DFF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7B685B6F-D227-43C6-9E90-CA118E679DFF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7B685B6F-D227-43C6-9E90-CA118E679DFF}.Release|Any CPU.Build.0 = Release|Any CPU
-		{29DA26A7-B67D-4CF6-9A8C-DBB1E5925EC8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{29DA26A7-B67D-4CF6-9A8C-DBB1E5925EC8}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{29DA26A7-B67D-4CF6-9A8C-DBB1E5925EC8}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{29DA26A7-B67D-4CF6-9A8C-DBB1E5925EC8}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B51C5C5E-794C-4038-93BF-29E9B00F012B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B51C5C5E-794C-4038-93BF-29E9B00F012B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B51C5C5E-794C-4038-93BF-29E9B00F012B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B51C5C5E-794C-4038-93BF-29E9B00F012B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

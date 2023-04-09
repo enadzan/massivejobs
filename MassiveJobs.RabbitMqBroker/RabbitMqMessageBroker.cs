@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 
+using Microsoft.Extensions.Logging;
+
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
@@ -14,7 +16,7 @@ namespace MassiveJobs.RabbitMqBroker
         protected volatile IConnection Connection;
         protected volatile ModelPool ModelPool;
 
-        protected readonly IJobLogger<RabbitMqMessageBroker> Logger;
+        protected readonly ILogger<RabbitMqMessageBroker> Logger;
         protected readonly string ExchangeName;
 
         private readonly object _connectionLock = new object();
@@ -23,7 +25,7 @@ namespace MassiveJobs.RabbitMqBroker
         private readonly MassiveJobsSettings _massiveJobsSettings;
 
         protected RabbitMqMessageBroker(RabbitMqSettings rabbitMqSettings, MassiveJobsSettings massiveJobsSettings, bool automaticRecoveryEnabled, 
-            IJobLogger<RabbitMqMessageBroker> logger)
+            ILogger<RabbitMqMessageBroker> logger)
         {
             Logger = logger;
             ExchangeName = $"{massiveJobsSettings.NamePrefix}massivejobs.direct";

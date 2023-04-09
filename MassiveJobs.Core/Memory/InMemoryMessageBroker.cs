@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using System.Threading;
 
-using MassiveJobs.Core.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MassiveJobs.Core.Memory
 {
@@ -42,13 +43,13 @@ namespace MassiveJobs.Core.Memory
     public class InMemoryMessageConsumer : IMessageConsumer
     {
         private readonly InMemoryMessages _messages;
-        private readonly IJobLoggerFactory _loggerFactory;
+        private readonly ILoggerFactory _loggerFactory;
 
 #pragma warning disable CS0067
         public event MessageConsumerDisconnected Disconnected;
 #pragma warning restore CS0067
 
-        public InMemoryMessageConsumer(MassiveJobsSettings settings, InMemoryMessages messages, IJobLoggerFactory loggerFactory)
+        public InMemoryMessageConsumer(MassiveJobsSettings settings, InMemoryMessages messages, ILoggerFactory loggerFactory)
         {
             _messages = messages;
             _messages.EnsureQueues(settings);
@@ -64,7 +65,7 @@ namespace MassiveJobs.Core.Memory
         {
         }
 
-        public IMessageReceiver CreateReceiver(string queueName, bool singleActiveConsumer = false)
+        public IMessageReceiver CreateReceiver(string queueName)
         {
             return new InMemoryMessageReceiver(_messages, queueName, _loggerFactory.CreateLogger<InMemoryMessageReceiver>());
         }
@@ -74,7 +75,7 @@ namespace MassiveJobs.Core.Memory
     {
         private readonly InMemoryMessages _messages;
         private readonly string _queueName;
-        private readonly IJobLogger<InMemoryMessageReceiver> _logger;
+        private readonly ILogger<InMemoryMessageReceiver> _logger;
         private readonly Thread _consumerThread;
 
         private volatile int _disposed;
@@ -84,7 +85,7 @@ namespace MassiveJobs.Core.Memory
 
         public event MessageReceivedHandler MessageReceived;
 
-        public InMemoryMessageReceiver(InMemoryMessages messages, string queueName, IJobLogger<InMemoryMessageReceiver> logger)
+        public InMemoryMessageReceiver(InMemoryMessages messages, string queueName, ILogger<InMemoryMessageReceiver> logger)
         {
             _messages = messages;
             _queueName = queueName;
@@ -105,7 +106,7 @@ namespace MassiveJobs.Core.Memory
             // nothing to do
         }
 
-        public void AckMessageProcessed(IJobServiceScope scope, ulong deliveryTag)
+        public void AckMessageProcessed(IServiceScope scope, ulong deliveryTag)
         {
             _messages.RemoveMessage(_queueName, deliveryTag);
         }
@@ -144,12 +145,12 @@ namespace MassiveJobs.Core.Memory
             _stopEvent.WaitOne();
         }
 
-        public void AckBatchMessageProcessed(IJobServiceScope scope, ulong deliveryTag)
+        public void AckBatchMessageProcessed(IServiceScope scope, ulong deliveryTag)
         {
             _messages.RemoveMessage(_queueName, deliveryTag);
         }
 
-        public IBrokerTransaction BeginTransaction(IJobServiceScope scope)
+        public IBrokerTransaction BeginTransaction(IServiceScope scope)
         {
             return null;
         }

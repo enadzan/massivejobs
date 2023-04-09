@@ -1,13 +1,13 @@
 ﻿using RabbitMQ.Client;
 using System;
 
-using MassiveJobs.Core;
+using Microsoft.Extensions.Logging;
 
 namespace MassiveJobs.RabbitMqBroker
 {
     public static class ConnectionExtensions
     {
-        public static void SafeClose(this IConnection connection, IJobLogger logger = null)
+        public static void SafeClose(this IConnection connection, ILogger logger = null)
         {
             try
             {
@@ -20,7 +20,7 @@ namespace MassiveJobs.RabbitMqBroker
             }
         }
 
-        public static void SafeClose(this IModel model, IJobLogger logger = null)
+        public static void SafeClose(this IModel model, ILogger logger = null)
         {
             try
             {

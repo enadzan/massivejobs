@@ -4,12 +4,16 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using MassiveJobs.Core.Memory;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace MassiveJobs.Core.Tests
 {
     [TestClass]
     public class InMemoryPublisherTest
     {
+        private readonly IServiceProviderFactory<IServiceCollection> _serviceProviderFactory = new DefaultServiceProviderFactory();
+
         private readonly MassiveJobsSettings _settings = new MassiveJobsSettings
         {
             ImmediateWorkersCount = 2,
@@ -24,14 +28,17 @@ namespace MassiveJobs.Core.Tests
         public void TestInit()
         {
             _counter = new Counter();
-
             _messages = new InMemoryMessages();
 
-            JobsBuilder.Configure()
-                .RegisterInstance(_settings)
-                .RegisterInstance(_counter)
+            var serviceCollection = new ServiceCollection();
+
+            serviceCollection.AddSingleton(_counter);
+            serviceCollection.AddLogging();
+
+            JobsBuilder.Configure(serviceCollection)
+                .WithDefaultImplementations(_settings)
                 .WithInMemoryBroker(_messages)
-                .Build();
+                .Build(_serviceProviderFactory.CreateServiceProvider(serviceCollection));
         }
 
         [TestCleanup]
@@ -43,7 +50,7 @@ namespace MassiveJobs.Core.Tests
 
         private void CancelWorkers()
         {
-            MassiveJobsMediator.DefaultInstance.CancelJobWorkers();
+            MassiveJobsMediator.DefaultInstance.StopJobWorkers();
         }
 
         [TestMethod]

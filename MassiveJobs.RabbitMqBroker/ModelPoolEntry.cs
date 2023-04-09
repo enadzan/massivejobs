@@ -1,6 +1,5 @@
 ﻿using RabbitMQ.Client;
-
-using MassiveJobs.Core;
+using Microsoft.Extensions.Logging;
 
 namespace MassiveJobs.RabbitMqBroker
 {
@@ -23,7 +22,7 @@ namespace MassiveJobs.RabbitMqBroker
             }
         }
 
-        public void Close(IJobLogger logger)
+        public void Close(ILogger logger)
         {
             Model.SafeClose(logger);
         }

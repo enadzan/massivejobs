@@ -1,23 +1,26 @@
 ﻿using System;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
 using MassiveJobs.Core;
-using MassiveJobs.Core.DependencyInjection;
 
 namespace MassiveJobs.RabbitMqBroker
 {
     public class RabbitMqMessageConsumer : RabbitMqMessageBroker, IMessageConsumer
     {
-        private readonly IJobLoggerFactory _loggerFactory;
+        private readonly ILoggerFactory _loggerFactory;
         private readonly ushort _prefetchCount;
 
         public event MessageConsumerDisconnected Disconnected;
 
         public RabbitMqMessageConsumer(RabbitMqSettings rmqSettings,
             MassiveJobsSettings jobsSettings,
-            IJobLoggerFactory loggerFactory,
-            IJobLogger<RabbitMqMessageConsumer> consumerLogger)
+            ILoggerFactory loggerFactory,
+            ILogger<RabbitMqMessageConsumer> consumerLogger)
             : base(rmqSettings, jobsSettings, false, consumerLogger)
         {
             _loggerFactory = loggerFactory;
@@ -29,7 +32,7 @@ namespace MassiveJobs.RabbitMqBroker
             EnsureConnectionExists();
         }
 
-        public IMessageReceiver CreateReceiver(string queueName, bool singleActiveConsumer)
+        public IMessageReceiver CreateReceiver(string queueName)
         {
             EnsureConnectionExists();
 
@@ -51,12 +54,12 @@ namespace MassiveJobs.RabbitMqBroker
             private readonly IModel _model;
             private readonly EventingBasicConsumer _consumer;
             private readonly string _queueName;
-            private readonly IJobLogger<MessageReceiver> _logger;
+            private readonly ILogger<MessageReceiver> _logger;
 
             public event MessageReceivedHandler MessageReceived;
 
             public MessageReceiver(IConnection connection, string queueName, ushort prefetchCount,
-                IJobLogger<MessageReceiver> logger)
+                ILogger<MessageReceiver> logger)
             {
                 _queueName = queueName;
                 _logger = logger;
@@ -83,12 +86,12 @@ namespace MassiveJobs.RabbitMqBroker
                 _model.BasicAck(lastDeliveryTag, true);
             }
 
-            public void AckMessageProcessed(IJobServiceScope scope, ulong deliveryTag)
+            public void AckMessageProcessed(IServiceScope scope, ulong deliveryTag)
             {
                 _model.BasicAck(deliveryTag, false);
             }
 
-            public void AckBatchMessageProcessed(IJobServiceScope scope, ulong deliveryTag)
+            public void AckBatchMessageProcessed(IServiceScope scope, ulong deliveryTag)
             {
             }
 
@@ -119,7 +122,7 @@ namespace MassiveJobs.RabbitMqBroker
                 _model.BasicConsume(_consumer, _queueName, exclusive: false);
             }
 
-            public IBrokerTransaction BeginTransaction(IJobServiceScope scope)
+            public IBrokerTransaction BeginTransaction(IServiceScope scope)
             {
                 return null;
             }

@@ -1,24 +1,23 @@
 ﻿using System;
-using System.Reflection;
-using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 
-using MassiveJobs.Core.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace MassiveJobs.Core
 {
     public class DefaultJobRunner : IJobRunner
     {
-        private readonly IJobLogger<DefaultJobRunner> _logger;
+        private readonly ILogger<DefaultJobRunner> _logger;
         private const int DefaultJobTimeoutMs = 5 * 1000;
 
-        public DefaultJobRunner(IJobLogger<DefaultJobRunner> logger)
+        public DefaultJobRunner(ILogger<DefaultJobRunner> logger)
         {
             _logger = logger;
         }
 
-        public void RunJob(IJobPublisher publisher, IMessageReceiver receiver, JobInfo jobInfo, ulong deliveryTag, IJobServiceScope serviceScope, CancellationToken cancellationToken)
+        public void RunJob(IJobPublisher publisher, IMessageReceiver receiver, JobInfo jobInfo, ulong deliveryTag, IServiceScope serviceScope, CancellationToken cancellationToken)
         {
             try
             {
@@ -50,7 +49,7 @@ namespace MassiveJobs.Core
             }
         }
 
-        protected void InvokePerform(IJobPublisher publisher, IMessageReceiver receiver, JobInfo jobInfo, ulong deliveryTag, IJobServiceScope serviceScope, CancellationToken cancellationToken)
+        protected void InvokePerform(IJobPublisher publisher, IMessageReceiver receiver, JobInfo jobInfo, ulong deliveryTag, IServiceScope serviceScope, CancellationToken cancellationToken)
         {
             IBrokerTransaction tx = null;
 
@@ -75,7 +74,7 @@ namespace MassiveJobs.Core
                         for (var i = 0; i < parametersInfo.Length; i++)
                         {
                             if (parametersInfo[i].IsOut) throw new Exception("Out parameters are not supported.");
-                            parameters[i] = serviceScope.GetRequiredService(parametersInfo[i].ParameterType);
+                            parameters[i] = serviceScope.ServiceProvider.GetRequiredService(parametersInfo[i].ParameterType);
                         }
 
                         job = reflectionInfo.Ctor.Invoke(parameters);
