@@ -2,17 +2,20 @@
 using System;
 
 using Microsoft.Extensions.Logging;
+using System.Threading.Tasks;
 
 namespace MassiveJobs.RabbitMqBroker
 {
     public static class ConnectionExtensions
     {
-        public static void SafeClose(this IConnection connection, ILogger logger = null)
+        public static async Task SafeCloseAsync(this IConnection connection, ILogger logger = null)
         {
             try
             {
                 if (connection == null || !connection.IsOpen) return;
-                connection.Close();
+
+                await connection.CloseAsync()
+                    .ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -20,12 +23,14 @@ namespace MassiveJobs.RabbitMqBroker
             }
         }
 
-        public static void SafeClose(this IModel model, ILogger logger = null)
+        public static async Task SafeCloseAsync(this IChannel channel, ILogger logger = null)
         {
             try
             {
-                if (model == null || model.IsClosed) return;
-                model.Close();
+                if (channel == null || channel.IsClosed) return;
+
+                await channel.CloseAsync()
+                    .ConfigureAwait(false);
             }
             catch (Exception ex)
             {

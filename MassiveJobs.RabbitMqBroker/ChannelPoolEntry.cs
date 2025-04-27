@@ -3,14 +3,14 @@ using Microsoft.Extensions.Logging;
 
 namespace MassiveJobs.RabbitMqBroker
 {
-    public class ModelPoolEntry
+    public class ChannelPoolEntry
     {
-        public IModel Model { get; }
-        public IBasicProperties BasicProperties { get; }
+        public IChannel Channel { get; }
+        public BasicProperties BasicProperties { get; }
 
-        public ModelPoolEntry(IModel model, IBasicProperties basicProperties)
+        public ChannelPoolEntry(IChannel channel, BasicProperties basicProperties)
         {
-            Model = model;
+            Channel = channel;
             BasicProperties = basicProperties;
         }
 
@@ -18,13 +18,13 @@ namespace MassiveJobs.RabbitMqBroker
         {
             get
             {
-                return Model.IsOpen;
+                return Channel.IsOpen;
             }
         }
 
         public void Close(ILogger logger)
         {
-            Model.SafeClose(logger);
+            Channel.SafeCloseAsync(logger).Wait();
         }
     }
 }

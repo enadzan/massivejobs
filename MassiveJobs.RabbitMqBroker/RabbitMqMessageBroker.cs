@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
 
@@ -14,7 +15,7 @@ namespace MassiveJobs.RabbitMqBroker
     public abstract class RabbitMqMessageBroker
     {
         protected volatile IConnection Connection;
-        protected volatile ModelPool ModelPool;
+        protected volatile ChannelPool ChannelPool;
 
         protected readonly ILogger<RabbitMqMessageBroker> Logger;
         protected readonly string ExchangeName;
@@ -63,15 +64,15 @@ namespace MassiveJobs.RabbitMqBroker
             {
                 if (Connection == null) return;
 
-                ModelPool.SafeDispose(Logger);
-                ModelPool = null;
+                ChannelPool.SafeDispose(Logger);
+                ChannelPool = null;
 
-                Connection.CallbackException -= ConnectionOnCallbackException;
-                Connection.ConnectionBlocked -= ConnectionOnConnectionBlocked;
-                Connection.ConnectionUnblocked -= ConnectionOnConnectionUnblocked;
-                Connection.ConnectionShutdown -= ConnectionOnConnectionShutdown;
+                Connection.CallbackExceptionAsync -= ConnectionOnCallbackException;
+                Connection.ConnectionBlockedAsync -= ConnectionOnConnectionBlocked;
+                Connection.ConnectionUnblockedAsync -= ConnectionOnConnectionUnblocked;
+                Connection.ConnectionShutdownAsync -= ConnectionOnConnectionShutdown;
 
-                Connection.SafeClose(Logger);
+                Connection.SafeCloseAsync(Logger).Wait();
                 Connection = null;
 
                 Logger.LogWarning("Connection closed and set to null");
@@ -88,23 +89,23 @@ namespace MassiveJobs.RabbitMqBroker
 
                 try
                 {
-                    Connection = _connectionFactory.CreateConnection(_rabbitMqSettings.HostNames, $"MassiveJobs.NET/{GetEntryFileName()}");
+                    Connection = _connectionFactory.CreateConnectionAsync(_rabbitMqSettings.HostNames, $"MassiveJobs.NET/{GetEntryFileName()}").Result;
 
-                    Connection.CallbackException += ConnectionOnCallbackException;
-                    Connection.ConnectionBlocked += ConnectionOnConnectionBlocked;
-                    Connection.ConnectionUnblocked += ConnectionOnConnectionUnblocked;
-                    Connection.ConnectionShutdown += ConnectionOnConnectionShutdown;
+                    Connection.CallbackExceptionAsync += ConnectionOnCallbackException;
+                    Connection.ConnectionBlockedAsync += ConnectionOnConnectionBlocked;
+                    Connection.ConnectionUnblockedAsync += ConnectionOnConnectionUnblocked;
+                    Connection.ConnectionShutdownAsync += ConnectionOnConnectionShutdown;
 
-                    ModelPool = new ModelPool(Connection, 2, Logger);
+                    ChannelPool = new ChannelPool(Connection, 2, _massiveJobsSettings.PublishBatchSize, Logger);
 
-                    var model = ModelPool.Get();
+                    var model = ChannelPool.Get();
                     try
                     {
-                        DeclareTopology(model.Model);
+                        DeclareTopology(model.Channel).Wait();
                     }
                     finally
                     {
-                        ModelPool.Return(model);
+                        ChannelPool.Return(model);
                     }
                 }
                 catch (Exception ex)
@@ -117,7 +118,7 @@ namespace MassiveJobs.RabbitMqBroker
             }
         }
 
-        private void ConnectionOnConnectionShutdown(object sender, ShutdownEventArgs e)
+        private Task ConnectionOnConnectionShutdown(object sender, ShutdownEventArgs e)
         {
             Logger.LogError($"Connection shutdown: {e.Cause} / {e.ReplyCode} / {e.ReplyText} ");
             try
@@ -133,25 +134,30 @@ namespace MassiveJobs.RabbitMqBroker
             {
                 CloseConnection();
             }
+
+            return Task.CompletedTask;
         }
 
         protected virtual void OnDisconnected()
         {
         }
 
-        private void ConnectionOnConnectionUnblocked(object sender, EventArgs e)
+        private Task ConnectionOnConnectionUnblocked(object sender, AsyncEventArgs e)
         {
             Logger.LogInformation("Connection unblocked");
+            return Task.CompletedTask;
         }
 
-        private void ConnectionOnConnectionBlocked(object sender, ConnectionBlockedEventArgs e)
+        private Task ConnectionOnConnectionBlocked(object sender, ConnectionBlockedEventArgs e)
         {
             Logger.LogError($"Connection blocked: {e.Reason}");
+            return Task.CompletedTask;
         }
 
-        private void ConnectionOnCallbackException(object sender, CallbackExceptionEventArgs e)
+        private Task ConnectionOnCallbackException(object sender, CallbackExceptionEventArgs e)
         {
             Logger.LogError(e.Exception, "Callback exception");
+            return Task.CompletedTask;
         }
 
         private string GetEntryFileName()
@@ -168,47 +174,50 @@ namespace MassiveJobs.RabbitMqBroker
             }
         }
 
-        protected virtual void DeclareTopology(IModel model)
+        protected virtual async Task DeclareTopology(IChannel channel)
         {
-            model.ExchangeDeclare(ExchangeName, ExchangeType.Direct, true);
+            await channel.ExchangeDeclareAsync(ExchangeName, ExchangeType.Direct, true).ConfigureAwait(false);
 
             for (var i = 0; i < _massiveJobsSettings.ScheduledWorkersCount; i++)
             {
                 var queueName = string.Format(_massiveJobsSettings.ScheduledQueueNameTemplate, i);
-                DeclareAndBindQueue(model, ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
+                await DeclareAndBindQueue(channel, ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength).ConfigureAwait(false);
             }
 
             for (var i = 0; i < _massiveJobsSettings.ImmediateWorkersCount; i++)
             {
                 var queueName = string.Format(_massiveJobsSettings.ImmediateQueueNameTemplate, i);
-                DeclareAndBindQueue(model, ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
+                await DeclareAndBindQueue(channel, ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength).ConfigureAwait(false);
             }
 
             for (var i = 0; i < _massiveJobsSettings.LongRunningWorkersCount; i++)
             {
                 var queueName = string.Format(_massiveJobsSettings.LongRunningQueueNameTemplate, i);
-                DeclareAndBindQueue(model, ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength);
+                await DeclareAndBindQueue(channel, ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength).ConfigureAwait(false);
             }
 
             for (var i = 0; i < _massiveJobsSettings.PeriodicWorkersCount; i++)
             {
                 var queueName = string.Format(_massiveJobsSettings.PeriodicQueueNameTemplate, i);
-                DeclareAndBindQueue(model, ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength, false, true);
+                await DeclareAndBindQueue(channel, ExchangeName, queueName, _massiveJobsSettings.MaxQueueLength, false, true).ConfigureAwait(false);
             }
 
-            DeclareAndBindQueue(model, ExchangeName, _massiveJobsSettings.ErrorQueueName, QueueLength.NoLimit, isLazy: true);
-            DeclareAndBindQueue(model, ExchangeName, _massiveJobsSettings.FailedQueueName, QueueLength.NoLimit, isLazy: true);
-            DeclareAndBindQueue(model, ExchangeName, _massiveJobsSettings.StatsQueueName, 1000, true, true);
+            await DeclareAndBindQueue(channel, ExchangeName, _massiveJobsSettings.ErrorQueueName, QueueLength.NoLimit, isLazy: true).ConfigureAwait(false);
+            await DeclareAndBindQueue(channel, ExchangeName, _massiveJobsSettings.FailedQueueName, QueueLength.NoLimit, isLazy: true).ConfigureAwait(false);
+            await DeclareAndBindQueue(channel, ExchangeName, _massiveJobsSettings.StatsQueueName, 1000, true, true).ConfigureAwait(false);
         }
 
-        protected static void DeclareAndBindQueue(IModel model, string exchangeName, string queueName, int maxLength, bool dropHeadOnOverflow = false,
+        protected static async Task DeclareAndBindQueue(IChannel model, string exchangeName, string queueName, int maxLength, bool dropHeadOnOverflow = false,
             bool singleActiveConsumer = false, bool persistent = true, string routingKey = null, bool isLazy = false)
         {
-            DeclareQueue(model, queueName, maxLength, dropHeadOnOverflow, singleActiveConsumer, persistent, isLazy);
-            BindQueue(model, queueName, exchangeName, routingKey ?? queueName);
+            await DeclareQueue(model, queueName, maxLength, dropHeadOnOverflow, singleActiveConsumer, persistent, isLazy)
+                .ConfigureAwait(false);
+
+            await BindQueue(model, queueName, exchangeName, routingKey ?? queueName)
+                .ConfigureAwait(false);
         }
 
-        protected static void DeclareQueue(IModel model, string queueName, int maxLength, bool dropHeadOnOverflow = false,
+        protected static async Task DeclareQueue(IChannel channel, string queueName, int maxLength, bool dropHeadOnOverflow = false,
             bool singleActiveConsumer = false, bool persistent = true, bool isLazy = false)
         {
             var queueArguments = new Dictionary<string, object>();
@@ -229,12 +238,14 @@ namespace MassiveJobs.RabbitMqBroker
                 queueArguments.Add("x-queue-mode", "lazy");
             }
 
-            model.QueueDeclare(queueName, persistent, false, !persistent, queueArguments);
+            await channel.QueueDeclareAsync(queueName, persistent, false, !persistent, queueArguments)
+                .ConfigureAwait(false);
         }
 
-        protected static void BindQueue(IModel model, string queueName, string exchangeName, string routingKey)
+        protected static async Task BindQueue(IChannel channel, string queueName, string exchangeName, string routingKey)
         {
-             model.QueueBind(queueName, exchangeName, routingKey);
+             await channel.QueueBindAsync(queueName, exchangeName, routingKey)
+                .ConfigureAwait(false);
         }
     }
 }

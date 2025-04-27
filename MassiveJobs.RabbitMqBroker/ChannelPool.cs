@@ -7,37 +7,40 @@ using RabbitMQ.Client;
 
 namespace MassiveJobs.RabbitMqBroker
 {
-    public class ModelPool: IDisposable
+    public class ChannelPool: IDisposable
     {
         private readonly ILogger _logger;
         private readonly IConnection _connection;
         private readonly int _maxRetained;
-        private readonly Queue<ModelPoolEntry> _models;
+        private readonly int _batchSize;
+        private readonly Queue<ChannelPoolEntry> _models;
 
-        public ModelPool(IConnection connection, int maxRetained, ILogger logger)
+        public ChannelPool(IConnection connection, int maxRetained, int batchSize, ILogger logger)
         {
             _connection = connection;
             _maxRetained = maxRetained;
+            _batchSize = batchSize;
             _logger = logger;
-            _models = new Queue<ModelPoolEntry>();
+            _models = new Queue<ChannelPoolEntry>();
         }
 
-        public ModelPoolEntry Get()
+        public ChannelPoolEntry Get()
         {
             lock (_models)
             {
                 if (_models.Count > 0) return _models.Dequeue();
             }
 
-            var model = _connection.CreateModel();
-            model.ConfirmSelect();
+            var channel = _connection.CreateChannelAsync(new CreateChannelOptions(
+                publisherConfirmationsEnabled: true,
+                publisherConfirmationTrackingEnabled: true,
+                outstandingPublisherConfirmationsRateLimiter: new ThrottlingRateLimiter(_batchSize * 2)
+            )).Result;
 
-            var props = model.CreateBasicProperties();
-
-            return new ModelPoolEntry(model, props);
+            return new ChannelPoolEntry(channel, new BasicProperties());
         }
 
-        public void Return(ModelPoolEntry pooledModel)
+        public void Return(ChannelPoolEntry pooledModel)
         {
             lock (_models)
             {

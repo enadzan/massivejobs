@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -51,8 +52,8 @@ namespace MassiveJobs.RabbitMqBroker
 
         private class MessageReceiver : IMessageReceiver
         {
-            private readonly IModel _model;
-            private readonly EventingBasicConsumer _consumer;
+            private readonly IChannel _channel;
+            private readonly AsyncEventingBasicConsumer _consumer;
             private readonly string _queueName;
             private readonly ILogger<MessageReceiver> _logger;
 
@@ -64,42 +65,42 @@ namespace MassiveJobs.RabbitMqBroker
                 _queueName = queueName;
                 _logger = logger;
 
-                _model = connection.CreateModel();
-                _model.BasicQos(0, prefetchCount, false);
+                _channel = connection.CreateChannelAsync().Result;
+                _channel.BasicQosAsync(0, prefetchCount, false);
 
-                _consumer = new EventingBasicConsumer(_model);
-                _consumer.Received += ConsumerOnReceived;
+                _consumer = new AsyncEventingBasicConsumer(_channel);
+                _consumer.ReceivedAsync += ConsumerOnReceived;
             }
 
             public void Dispose()
             {
                 if (_consumer != null)
                 {
-                    _consumer.Received -= ConsumerOnReceived;
+                    _consumer.ReceivedAsync -= ConsumerOnReceived;
                 }
 
-                _model.SafeClose();
+                _channel.SafeCloseAsync().Wait();
             }
 
             public void AckBatchProcessed(ulong lastDeliveryTag)
             {
-                _model.BasicAck(lastDeliveryTag, true);
+                _channel.BasicAckAsync(lastDeliveryTag, true).AsTask().Wait();
             }
 
             public void AckMessageProcessed(IServiceScope scope, ulong deliveryTag)
             {
-                _model.BasicAck(deliveryTag, false);
+                _channel.BasicAckAsync(deliveryTag, false).AsTask().Wait();
             }
 
             public void AckBatchMessageProcessed(IServiceScope scope, ulong deliveryTag)
             {
             }
 
-            private void ConsumerOnReceived(object sender, BasicDeliverEventArgs e)
+            private Task ConsumerOnReceived(object sender, BasicDeliverEventArgs e)
             {
                 try
                 {
-                    if (MessageReceived == null) return;
+                    if (MessageReceived == null) return Task.CompletedTask;
 
                     var message = new RawMessage
                     {
@@ -115,11 +116,13 @@ namespace MassiveJobs.RabbitMqBroker
                 {
                     _logger.LogError(ex, $"Error in {nameof(ConsumerOnReceived)}");
                 }
+                
+                return Task.CompletedTask;
             }
 
             public void Start()
             {
-                _model.BasicConsume(_consumer, _queueName, exclusive: false);
+                _channel.BasicConsumeAsync(_queueName, false, _consumer).Wait();
             }
 
             public IBrokerTransaction BeginTransaction(IServiceScope scope)

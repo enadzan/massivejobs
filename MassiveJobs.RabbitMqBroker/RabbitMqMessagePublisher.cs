@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 
 using Microsoft.Extensions.Logging;
-using RabbitMQ.Client;
 
 using MassiveJobs.Core;
+using System.Threading.Tasks;
 
 namespace MassiveJobs.RabbitMqBroker
 {
@@ -19,21 +19,31 @@ namespace MassiveJobs.RabbitMqBroker
         {
             EnsureConnectionExists();
 
-            var poolEntry = ModelPool.Get();
+            var poolEntry = ChannelPool.Get();
             try
             {
+                var tasks = new List<Task>();
+
                 foreach (var msg in messages)
                 {
                     poolEntry.BasicProperties.Type = msg.TypeTag;
                     poolEntry.BasicProperties.Persistent = msg.IsPersistent;
-                    poolEntry.Model.BasicPublish(ExchangeName, routingKey, poolEntry.BasicProperties, msg.Body);
+
+                    var task = poolEntry.Channel.BasicPublishAsync(ExchangeName, routingKey, true, poolEntry.BasicProperties, msg.Body);
+
+                    tasks.Add(task.AsTask());
                 }
 
-                poolEntry.Model.WaitForConfirmsOrDie(timeout);
+                bool completed = Task.WaitAll(tasks.ToArray(), timeout);
+
+                if (!completed)
+                {
+                    throw new TimeoutException("Timeout waiting for batch publish to complete");
+                }
             }
             finally
             {
-                ModelPool.Return(poolEntry);
+                ChannelPool.Return(poolEntry);
             }
         }
     }
